@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WildFrame — Admin Dashboard</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+
+  <!-- ======== Login Overlay ======== -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-icon">🛡️</div>
+      <h1 class="login-title">Admin Access</h1>
+      <p class="login-desc">Enter the admin password to moderate incoming reports.</p>
+      <div class="login-field">
+        <input type="password" id="admin-password" placeholder="Admin password" autocomplete="off" />
+        <button id="admin-login-btn">Unlock</button>
+      </div>
+      <p id="login-error" class="login-error hidden">Incorrect password</p>
+      <a href="/" class="login-back">← Back to map</a>
+    </div>
+  </div>
+
+  <!-- ======== Dashboard ======== -->
+  <div id="admin-dashboard" class="hidden">
+
+    <!-- Header -->
+    <header id="admin-header">
+      <div class="admin-brand">
+        <span class="admin-brand-icon">🛡️</span>
+        <span class="admin-brand-text">WildFrame Admin</span>
+      </div>
+      <div class="admin-header-center">
+        <span id="pending-count" class="pending-count">0 pending</span>
+      </div>
+      <div class="admin-header-actions">
+        <button id="admin-accept-all-btn" class="admin-accept-all-btn hidden" title="Accept all pending reports">
+          <span>✅</span> Accept All
+        </button>
+        <button id="admin-refresh-btn" class="admin-action-btn" title="Refresh reports">
+          <span class="refresh-icon">⟳</span>
+        </button>
+        <a href="/" class="admin-action-btn" title="Back to map">
+          <span class="back-icon">🗺️</span>
+        </a>
+        <button id="admin-logout-btn" class="admin-action-btn logout-btn" title="Lock dashboard">
+          <span class="lock-icon">🔒</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Reports Grid -->
+    <div id="reports-container">
+      <div class="empty-state" id="empty-state">
+        <span class="empty-icon">✅</span>
+        <h2>All clear!</h2>
+        <p>No pending reports to moderate.</p>
+      </div>
+    </div>
+
+    <!-- Toast container (reuse same style) -->
+    <div id="admin-toast-container"></div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

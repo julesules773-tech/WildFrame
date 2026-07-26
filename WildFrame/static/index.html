@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WildFrame — Wildfire Detection</title>
+  <!-- Leaflet CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet.Locate control -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <!-- ======== Full-screen Map ======== -->
+  <div id="map"></div>
+
+  <!-- ======== Top Bar ======== -->
+  <header id="top-bar">
+    <div class="brand">
+      <span class="brand-icon">🔥</span>
+      <span class="brand-text">WildFrame</span>
+    </div>
+    <div class="top-actions">
+      <button id="live-demo-btn" class="live-demo-btn" title="Start live triangulation simulation">
+        <span class="live-icon">▶️</span>
+        <span class="live-text">Live Demo</span>
+      </button>
+      <a href="/admin" class="admin-link" title="Admin moderation dashboard">
+        <span class="admin-link-icon">🛡️</span>
+        <span class="admin-link-text">Admin</span>
+      </a>
+      <button id="seed-btn" class="seed-btn" title="Load Greek wildfire test data">
+        <span class="seed-icon">🇬🇷</span>
+        <span class="seed-text">Greece</span>
+      </button>
+      <button id="seed-forest-btn" class="seed-forest-btn" title="Load Yosemite forest fire test data">
+        <span class="seed-forest-icon">🌲</span>
+        <span class="seed-forest-text">Forest</span>
+      </button>
+      <button id="bayesian-toggle" class="bayesian-toggle-btn" title="Toggle Bayesian probability heatmap">
+        <span class="bayesian-icon">🌀</span>
+        <span class="bayesian-text">Bayesian</span>
+      </button>
+      <button id="historic-demo-btn" class="historic-demo-btn" title="Replay 2020 Creek Fire with satellite + weather data">
+        <span class="historic-icon">🌲</span>
+        <span class="historic-text">Historic</span>
+      </button>
+      <div class="status-badge" id="status-badge">
+        <span class="dot"></span>
+        <span id="status-text">Initializing…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======== Stats Panel ======== -->
+  <div id="stats-panel">
+    <div class="stat-item">
+      <span class="stat-value" id="stat-reports">0</span>
+      <span class="stat-label">Reports</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-clusters">0</span>
+      <span class="stat-label">Clusters</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-pending">0</span>
+      <span class="stat-label">Pending</span>
+    </div>
+  </div>
+
+  <!-- ======== Cluster Legend ======== -->
+  <div id="cluster-legend">
+    <div class="legend-title">Cluster Severity</div>
+    <div class="legend-item">
+      <span class="legend-dot dot-small"></span>
+      <span>1 report</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot dot-medium"></span>
+      <span>2–3 reports</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot dot-large"></span>
+      <span>4+ reports</span>
+    </div>
+  </div>
+
+  <!-- ======== Live Demo Panel (triangulation status) ======== -->
+  <div id="live-status" class="live-status hidden">
+    <div class="live-status-header">
+      <span class="live-pulse"></span>
+      <span class="live-status-title">Live Demo — Triangulating…</span>
+      <button id="live-cancel-btn" class="live-cancel-btn" title="Cancel live demo">&times;</button>
+    </div>
+    <div class="live-progress-track">
+      <div id="live-progress-fill" class="live-progress-fill"></div>
+    </div>
+    <div class="live-details">
+      <span id="live-step-info">Step 0 / 6</span>
+      <span id="live-report-count">0 reports</span>
+    </div>
+    <div class="live-triangulation-result hidden" id="live-tri-result">
+      <div class="live-tri-line">
+        <span class="live-tri-label">Fire origin:</span>
+        <span id="live-tri-coords" class="live-tri-value">—</span>
+      </div>
+      <div class="live-tri-line">
+        <span class="live-tri-label">Confidence:</span>
+        <span id="live-tri-confidence" class="live-tri-value">—</span>
+      </div>
+      <div class="live-tri-line">
+        <span class="live-tri-label">Uncertainty:</span>
+        <span id="live-tri-uncertainty" class="live-tri-value">—</span>
+      </div>
+      <div class="live-tri-line">
+        <span class="live-tri-label">Error from true:</span>
+        <span id="live-tri-error" class="live-tri-value">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Upload Panel (floating card) ======== -->
+  <div id="upload-panel">
+    <!-- Collapsed trigger -->
+    <button id="upload-trigger" class="upload-trigger" title="Report a fire">
+      <span class="trigger-icon">+</span>
+      <span class="trigger-text">Report</span>
+    </button>
+
+    <!-- Expanded card -->
+    <div id="upload-card" class="upload-card hidden">
+      <div class="card-header">
+        <h2>Report a Wildfire</h2>
+        <button id="card-close" class="card-close" title="Close">&times;</button>
+      </div>
+      <div class="card-body">
+        <div class="location-status" id="location-status">
+          <span class="loc-icon">📍</span>
+          <span id="loc-text">Acquiring GPS…</span>
+          <button id="gps-refresh-btn" class="gps-refresh-btn" title="Re-acquire GPS location">
+            <span class="refresh-icon">⟳</span>
+          </button>
+        </div>
+
+        <div class="manual-coords hidden" id="manual-coords">
+          <div class="manual-coords-heading">Or enter coordinates manually:</div>
+          <div class="coord-inputs">
+            <input type="text" id="input-lat-manual" class="coord-input" placeholder="Latitude (e.g. 37.745)" inputmode="decimal" autocomplete="off" />
+            <input type="text" id="input-lon-manual" class="coord-input" placeholder="Longitude (e.g. -119.593)" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="photo-preview" id="photo-preview">
+          <div class="preview-placeholder" id="preview-placeholder">
+            <span class="camera-icon">📷</span>
+            <p>Tap to take a photo<br /><small>or select from gallery</small></p>
+          </div>
+          <img id="preview-image" class="hidden" alt="Photo preview" />
+        </div>
+
+        <form id="upload-form">
+          <input type="file" id="photo-input" name="photo" accept="image/*" capture="environment" class="hidden" />
+          <input type="hidden" id="input-lat" name="lat" />
+          <input type="hidden" id="input-lon" name="lon" />
+          <input type="hidden" id="input-heading" name="heading" />
+          <input type="hidden" id="input-session" name="session_id" />
+          <input type="hidden" id="input-captured-at" name="captured_at" />
+
+          <button type="submit" id="submit-btn" class="submit-btn" disabled>
+            <span class="btn-icon">🔥</span>
+            <span>Submit Report</span>
+          </button>
+        </form>
+
+        <div id="upload-progress" class="progress-bar hidden">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Bayesian Panel ======== -->
+  <div id="bayesian-panel" class="bayesian-panel hidden">
+    <div class="bayesian-header">
+      <span class="bayesian-pulse"></span>
+      <span class="bayesian-title">Bayesian Fire Grid</span>
+    </div>
+    <div class="bayesian-legend">
+      <div class="bayesian-legend-gradient">
+        <span class="legend-grad-label" style="left:0">Low</span>
+        <span class="legend-grad-label" style="left:50%">Med</span>
+        <span class="legend-grad-label" style="right:0">High</span>
+      </div>
+      <div class="bayesian-legend-bar">
+        <span class="legend-bar-segment" style="background:#eab308;flex:2"></span>
+        <span class="legend-bar-segment" style="background:#f59e0b;flex:1"></span>
+        <span class="legend-bar-segment" style="background:#f97316;flex:1"></span>
+        <span class="legend-bar-segment" style="background:#ef4444;flex:1"></span>
+        <span class="legend-bar-segment" style="background:#dc2626;flex:2"></span>
+      </div>
+    </div>
+    <div class="bayesian-stats" id="bayesian-stats">
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label">Max prob:</span>
+        <span id="bayesian-stat-maxp" class="bayesian-stat-value">0.00</span>
+      </div>
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label">Fire area:</span>
+        <span id="bayesian-stat-area" class="bayesian-stat-value">— ha</span>
+      </div>
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label">Cells >10%:</span>
+        <span id="bayesian-stat-cells" class="bayesian-stat-value">0</span>
+      </div>
+    </div>
+    <div class="bayesian-controls">
+      <div class="bayesian-control-row">
+        <label class="bayesian-toggle-label">
+          <input type="checkbox" id="bayesian-heatmap-toggle" checked />
+          <span class="toggle-switch"></span>
+          Heatmap
+        </label>
+        <label class="bayesian-toggle-label">
+          <input type="checkbox" id="bayesian-contour-toggle" checked />
+          <span class="toggle-switch"></span>
+          Contour
+        </label>
+      </div>
+      <div class="bayesian-control-row">
+        <label class="bayesian-slider-label">
+          <span>Threshold</span>
+          <input type="range" id="bayesian-threshold" min="0" max="0.9" step="0.01" value="0.05" />
+        </label>
+      </div>
+      <div class="bayesian-control-row bayesian-satellite-row">
+        <button id="satellite-pass-btn" class="satellite-btn" title="Inject a one-time simulated satellite hotspot pass into active fires">
+          <span class="btn-icon">🎲</span>
+          <span>Simulate</span>
+        </button>
+        <label class="bayesian-toggle-label">
+          <input type="checkbox" id="satellite-poller-toggle" />
+          <span class="toggle-switch"></span>
+          Sim Poller
+        </label>
+      </div>
+      <div class="bayesian-control-row bayesian-satellite-row">
+        <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API">
+          <span class="btn-icon">🛰️</span>
+          <span>Fetch FIRMS</span>
+        </button>
+        <label class="bayesian-toggle-label" title="Auto-fetch NASA FIRMS data every 5 minutes">
+          <input type="checkbox" id="firms-poller-toggle" />
+          <span class="toggle-switch"></span>
+          FIRMS Live
+        </label>
+      </div>
+      <div class="satellite-status" id="satellite-status">Satellite: idle</div>
+      <div class="bayesian-control-row bayesian-roadrisk-row">
+        <label class="bayesian-toggle-label" title="Overlay roads colored by fire spread risk">
+          <input type="checkbox" id="roadrisk-toggle" />
+          <span class="toggle-switch"></span>
+          Road Risk
+        </label>
+        <span class="roadrisk-status" id="roadrisk-status">🛣️ idle</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Historic Demo Panel ======== -->
+  <div id="historic-panel" class="historic-panel hidden">
+    <div class="historic-header">
+      <span class="historic-pulse"></span>
+      <span class="historic-title">Creek Fire — Replay</span>
+      <button id="historic-cancel-btn" class="historic-cancel-btn" title="Cancel replay">&times;</button>
+    </div>
+    <div class="historic-subtitle" id="historic-subtitle">2020 · Sierra National Forest</div>
+    <div class="historic-progress-track">
+      <div id="historic-progress-fill" class="historic-progress-fill"></div>
+    </div>
+    <div class="historic-info">
+      <div class="historic-info-row">
+        <span class="historic-label">Step</span>
+        <span id="historic-step-label" class="historic-value">Day 1 — Initial Detection</span>
+      </div>
+      <div class="historic-info-row">
+        <span class="historic-label">Wind</span>
+        <span id="historic-wind" class="historic-value">2 m/s → W</span>
+      </div>
+      <div class="historic-info-row">
+        <span class="historic-label">Hotspots</span>
+        <span id="historic-hotspot-count" class="historic-value">2</span>
+      </div>
+      <div class="historic-info-row">
+        <span class="historic-label">Fire area</span>
+        <span id="historic-fire-area" class="historic-value">— ha</span>
+      </div>
+    </div>
+    <div class="historic-description" id="historic-description">
+      VIIRS satellite detects first hotspot near Shaver Lake.
+    </div>
+  </div>
+
+  <!-- ======== Toast Notifications ======== -->
+  <div id="toast-container"></div>
+
+  <!-- ======== Scripts ======== -->
+  <script src="/app.js"></script>
+</body>
+</html>
