@@ -10,6 +10,16 @@ python-dotenv==1.0.1   # .env loading (server.py / worker.py / migrate.py)
 psycopg[binary,pool]
 procrastinate[psycopg]
 
+# --- Photo storage (photo_storage.py) ---
+# Uploaded photos go to S3 when WILDFRAME_S3_BUCKET is set (needed on
+# PaaS with ephemeral disk); otherwise they stay on local disk.
+boto3==1.41.5
+
+# --- iPhone HEIC/HEIF uploads (server.py _convert_heic_to_jpeg) ---
+# Converts HEIC/HEIF to JPEG (EXIF/GPS preserved) so EXIF, the AI scan
+# and photo storage all work. Wheel bundles libheif — no system dep.
+pillow-heif
+
 # --- Optional: AI-powered fire/smoke detection (fire_vision.py) ---
 # Set ROBOFLOW_API_KEY=your_key_here to enable automatic photo scanning.
 # Get a free key at https://app.roboflow.com/ (US$60/mo free credits).

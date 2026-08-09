@@ -11,6 +11,7 @@
   const STATE = {
     secret: sessionStorage.getItem("wildframe_admin_secret") || "",
     reports: [],
+    autoApproved: [],
     processing: new Set(),  // report IDs currently being processed
   };
 
@@ -32,6 +33,9 @@
     logoutBtn: $("#admin-logout-btn"),
     container: $("#reports-container"),
     emptyState: $("#empty-state"),
+    autoSection: $("#auto-approved-section"),
+    autoList: $("#auto-approved-list"),
+    autoCount: $("#auto-approved-count"),
     toastContainer: $("#admin-toast-container"),
   };
 
@@ -132,11 +136,107 @@
 
       els.pendingCount.textContent = `${STATE.reports.length} pending`;
       renderReports();
+      loadAutoApproved();
     } catch (err) {
       if (err.message !== "Session expired. Please log in again.") {
         console.error("Failed to load reports:", err);
         toast("Failed to load reports", "error");
       }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Recently auto-approved (human backstop)
+  // -----------------------------------------------------------------------
+  async function loadAutoApproved() {
+    if (!STATE.secret) return;
+    try {
+      const res = await adminFetch("/api/admin/auto-approved");
+      const data = await res.json();
+      STATE.autoApproved = data.reports || [];
+      renderAutoApproved();
+    } catch (err) {
+      if (err.message !== "Session expired. Please log in again.") {
+        console.error("Failed to load auto-approved reports:", err);
+      }
+    }
+  }
+
+  function renderAutoApproved() {
+    if (!els.autoSection || !els.autoList) return;
+    const rows = STATE.autoApproved;
+    els.autoList.innerHTML = "";
+
+    if (rows.length === 0) {
+      els.autoSection.classList.add("hidden");
+      return;
+    }
+
+    els.autoSection.classList.remove("hidden");
+    els.autoCount.textContent = `${rows.length} — reject any that look wrong`;
+
+    rows.forEach((r) => {
+      const src =
+        r.approval_source === "satellite" ? "satellite (FIRMS)" :
+        r.approval_source === "cluster" ? "nearby confirmed report" :
+        "satellite + cluster";
+      const clsTag =
+        r.approval_class === "flame" ? "🔥" :
+        r.approval_class === "smoke" ? "💨" : "🤖";
+      const confTxt =
+        typeof r.approval_confidence === "number" && isFinite(r.approval_confidence)
+          ? ` ${Math.round(Math.min(Math.max(r.approval_confidence, 0), 1) * 100)}%`
+          : "";
+      const cancelled = r.status === "cancelled"
+        ? `<span class="sat-badge sat-none" title="This report was cancelled (agency cancel / fire contained)">❌ Cancelled</span>`
+        : "";
+      const row = document.createElement("div");
+      row.className = "auto-approved-row" + (cancelled ? " cancelled" : "");
+      row.id = `auto-${r.id}`;
+      row.innerHTML = `
+        <div class="auto-thumb">
+          ${r.photo_url
+            ? `<img src="${r.photo_url}" alt="" loading="lazy" />`
+            : `<span class="auto-no-photo">📸</span>`
+          }
+        </div>
+        <div class="auto-meta">
+          <div class="auto-title">🤖 Auto-approved via ${src} — ${clsTag}${confTxt}${cancelled}</div>
+          <div class="auto-sub">${new Date(r.captured_at).toLocaleString()} · ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+        </div>
+        <button class="card-btn reject-btn auto-reject-btn" data-id="${r.id}" title="Reject and delete this auto-approved report">
+          <span>❌</span> Reject
+        </button>
+      `;
+      els.autoList.appendChild(row);
+    });
+
+    els.autoList.querySelectorAll(".auto-reject-btn").forEach((btn) => {
+      btn.addEventListener("click", () => rejectAutoApproved(btn.dataset.id));
+    });
+  }
+
+  async function rejectAutoApproved(id) {
+    if (STATE.processing.has(id)) return;
+    STATE.processing.add(id);
+    const row = document.getElementById(`auto-${id}`);
+    if (row) row.style.opacity = "0.4";
+
+    try {
+      const res = await adminFetch(`/api/admin/reject/${id}`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to reject");
+      }
+      toast("🗑️ Auto-approved report rejected", "info");
+      STATE.autoApproved = STATE.autoApproved.filter((r) => r.id !== id);
+      if (row) row.remove();
+      renderAutoApproved();
+    } catch (err) {
+      toast(err.message || "Failed to reject report", "error");
+      if (row) row.style.opacity = "";
+    } finally {
+      STATE.processing.delete(id);
     }
   }
 
@@ -184,6 +284,7 @@
             ? `<img src="${r.photo_url}" alt="Report photo" loading="lazy" />`
             : `<div class="card-no-photo"><span>📸</span><p>No photo</p></div>`
           }
+          ${aiBadge(r.ai_analysis)}
         </div>
         <div class="card-info">
           <div class="card-info-row">
@@ -238,6 +339,43 @@
     $$(".sat-check-btn").forEach((btn) => {
       btn.addEventListener("click", () => checkSatellite(btn.dataset.id));
     });
+  }
+
+  // -----------------------------------------------------------------------
+  // AI certainty badge
+  // -----------------------------------------------------------------------
+  function aiBadge(analysis) {
+    if (!analysis || typeof analysis !== "object" || !("verdict" in analysis)) {
+      return '<span class="ai-badge ai-unknown" title="No AI analysis for this report">🤖 No AI scan</span>';
+    }
+
+    const verdict = analysis.verdict || "error";
+    const conf = analysis.confidence;
+    const confPct =
+      typeof conf === "number" && isFinite(conf)
+        ? `${Math.round(Math.min(Math.max(conf, 0), 1) * 100)}%`
+        : "—";
+
+    const labels = {
+      flame: ["🔥 Fire", "ai-fire"],
+      smoke: ["💨 Smoke", "ai-smoke"],
+      both: ["🔥 Fire + Smoke", "ai-fire"],
+      // "nothing" reports are KEPT for human review (the hosted model can
+      // miss borderline fires) — neutral styling, not a green all-clear.
+      nothing: ["🤔 None — review", "ai-review"],
+      error: ["⚠️ Scan error", "ai-error"],
+      unknown: ["❔ Unknown", "ai-unknown"],
+    };
+    const [label, cls] = labels[verdict] || labels.unknown;
+
+    const title =
+      verdict === "error"
+        ? "AI scan failed (no verdict)"
+        : verdict === "nothing"
+          ? "AI found nothing — kept for human review"
+          : `AI verdict: ${verdict} — certainty ${confPct}`;
+
+    return `<span class="ai-badge ${cls}" title="${title}">${label} ${confPct}</span>`;
   }
 
   // -----------------------------------------------------------------------
@@ -379,6 +517,7 @@
     pollInterval = setInterval(() => {
       if (STATE.secret && els.dashboard.classList.contains("hidden") === false) {
         loadPending();
+        loadAutoApproved();
       }
     }, ms);
   }

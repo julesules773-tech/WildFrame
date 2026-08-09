@@ -1,0 +1,1692 @@
+{
+  "meta": {
+    "images": 200,
+    "api_calls": 200,
+    "elapsed_s": 283.6
+  },
+  "rows": [
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.1.png",
+      "name": "fire.1.png",
+      "positive": true,
+      "fire_conf": 0.8891,
+      "smoke_conf": 0.5397,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.10.png",
+      "name": "fire.10.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.100.png",
+      "name": "fire.100.png",
+      "positive": true,
+      "fire_conf": 0.7157,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.101.png",
+      "name": "fire.101.png",
+      "positive": true,
+      "fire_conf": 0.723,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.102.png",
+      "name": "fire.102.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.7666,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.103.png",
+      "name": "fire.103.png",
+      "positive": true,
+      "fire_conf": 0.8033,
+      "smoke_conf": 0.4855,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.104.png",
+      "name": "fire.104.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.6656,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.105.png",
+      "name": "fire.105.png",
+      "positive": true,
+      "fire_conf": 0.8882,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.106.png",
+      "name": "fire.106.png",
+      "positive": true,
+      "fire_conf": 0.6861,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.107.png",
+      "name": "fire.107.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.4144,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.108.png",
+      "name": "fire.108.png",
+      "positive": true,
+      "fire_conf": 0.94,
+      "smoke_conf": 0.6336,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.109.png",
+      "name": "fire.109.png",
+      "positive": true,
+      "fire_conf": 0.9243,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.11.png",
+      "name": "fire.11.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.110.png",
+      "name": "fire.110.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.5304,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.111.png",
+      "name": "fire.111.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.112.png",
+      "name": "fire.112.png",
+      "positive": true,
+      "fire_conf": 0.8192,
+      "smoke_conf": 0.7482,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.113.png",
+      "name": "fire.113.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.114.png",
+      "name": "fire.114.png",
+      "positive": true,
+      "fire_conf": 0.9293,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.115.png",
+      "name": "fire.115.png",
+      "positive": true,
+      "fire_conf": 0.8682,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.116.png",
+      "name": "fire.116.png",
+      "positive": true,
+      "fire_conf": 0.9099,
+      "smoke_conf": 0.4735,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.117.png",
+      "name": "fire.117.png",
+      "positive": true,
+      "fire_conf": 0.6679,
+      "smoke_conf": 0.4535,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.118.png",
+      "name": "fire.118.png",
+      "positive": true,
+      "fire_conf": 0.777,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.119.png",
+      "name": "fire.119.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.12.png",
+      "name": "fire.12.png",
+      "positive": true,
+      "fire_conf": 0.617,
+      "smoke_conf": 0.4679,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.120.png",
+      "name": "fire.120.png",
+      "positive": true,
+      "fire_conf": 0.9317,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.121.png",
+      "name": "fire.121.png",
+      "positive": true,
+      "fire_conf": 0.9075,
+      "smoke_conf": 0.4502,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.122.png",
+      "name": "fire.122.png",
+      "positive": true,
+      "fire_conf": 0.8622,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.123.png",
+      "name": "fire.123.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.4173,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.124.png",
+      "name": "fire.124.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.6278,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.125.png",
+      "name": "fire.125.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.126.png",
+      "name": "fire.126.png",
+      "positive": true,
+      "fire_conf": 0.6625,
+      "smoke_conf": 0.483,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.127.png",
+      "name": "fire.127.png",
+      "positive": true,
+      "fire_conf": 0.8376,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.128.png",
+      "name": "fire.128.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.129.png",
+      "name": "fire.129.png",
+      "positive": true,
+      "fire_conf": 0.8964,
+      "smoke_conf": 0.701,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.13.png",
+      "name": "fire.13.png",
+      "positive": true,
+      "fire_conf": 0.9081,
+      "smoke_conf": 0.69,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.130.png",
+      "name": "fire.130.png",
+      "positive": true,
+      "fire_conf": 0.7968,
+      "smoke_conf": 0.9255,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.131.png",
+      "name": "fire.131.png",
+      "positive": true,
+      "fire_conf": 0.7891,
+      "smoke_conf": 0.4462,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.132.png",
+      "name": "fire.132.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.133.png",
+      "name": "fire.133.png",
+      "positive": true,
+      "fire_conf": 0.9248,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.134.png",
+      "name": "fire.134.png",
+      "positive": true,
+      "fire_conf": 0.9497,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.135.png",
+      "name": "fire.135.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.136.png",
+      "name": "fire.136.png",
+      "positive": true,
+      "fire_conf": 0.7753,
+      "smoke_conf": 0.4167,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.137.png",
+      "name": "fire.137.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.4728,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.138.png",
+      "name": "fire.138.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.8422,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.139.png",
+      "name": "fire.139.png",
+      "positive": true,
+      "fire_conf": 0.8755,
+      "smoke_conf": 0.7322,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.14.png",
+      "name": "fire.14.png",
+      "positive": true,
+      "fire_conf": 0.8112,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.140.png",
+      "name": "fire.140.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.8099,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.141.png",
+      "name": "fire.141.png",
+      "positive": true,
+      "fire_conf": 0.8339,
+      "smoke_conf": 0.5825,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.142.png",
+      "name": "fire.142.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.7326,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.143.png",
+      "name": "fire.143.png",
+      "positive": true,
+      "fire_conf": 0.9476,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.144.png",
+      "name": "fire.144.png",
+      "positive": true,
+      "fire_conf": 0.635,
+      "smoke_conf": 0.917,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.145.png",
+      "name": "fire.145.png",
+      "positive": true,
+      "fire_conf": 0.8531,
+      "smoke_conf": 0.9636,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.146.png",
+      "name": "fire.146.png",
+      "positive": true,
+      "fire_conf": 0.8197,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.147.png",
+      "name": "fire.147.png",
+      "positive": true,
+      "fire_conf": 0.8718,
+      "smoke_conf": 0.8922,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.148.png",
+      "name": "fire.148.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.149.png",
+      "name": "fire.149.png",
+      "positive": true,
+      "fire_conf": 0.8145,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.15.png",
+      "name": "fire.15.png",
+      "positive": true,
+      "fire_conf": 0.8763,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.150.png",
+      "name": "fire.150.png",
+      "positive": true,
+      "fire_conf": 0.7419,
+      "smoke_conf": 0.5811,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.151.png",
+      "name": "fire.151.png",
+      "positive": true,
+      "fire_conf": 0.8979,
+      "smoke_conf": 0.8897,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.152.png",
+      "name": "fire.152.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.153.png",
+      "name": "fire.153.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.154.png",
+      "name": "fire.154.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.9462,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.155.png",
+      "name": "fire.155.png",
+      "positive": true,
+      "fire_conf": 0.7214,
+      "smoke_conf": 0.6389,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.156.png",
+      "name": "fire.156.png",
+      "positive": true,
+      "fire_conf": 0.8219,
+      "smoke_conf": 0.625,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.157.png",
+      "name": "fire.157.png",
+      "positive": true,
+      "fire_conf": 0.7904,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.158.png",
+      "name": "fire.158.png",
+      "positive": true,
+      "fire_conf": 0.8477,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.159.png",
+      "name": "fire.159.png",
+      "positive": true,
+      "fire_conf": 0.7308,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.16.png",
+      "name": "fire.16.png",
+      "positive": true,
+      "fire_conf": 0.8383,
+      "smoke_conf": 0.9264,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.160.png",
+      "name": "fire.160.png",
+      "positive": true,
+      "fire_conf": 0.779,
+      "smoke_conf": 0.4808,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.161.png",
+      "name": "fire.161.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.6543,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.162.png",
+      "name": "fire.162.png",
+      "positive": true,
+      "fire_conf": 0.78,
+      "smoke_conf": 0.7691,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.163.png",
+      "name": "fire.163.png",
+      "positive": true,
+      "fire_conf": 0.8566,
+      "smoke_conf": 0.9618,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.164.png",
+      "name": "fire.164.png",
+      "positive": true,
+      "fire_conf": 0.7912,
+      "smoke_conf": 0.5214,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.165.png",
+      "name": "fire.165.png",
+      "positive": true,
+      "fire_conf": 0.692,
+      "smoke_conf": 0.5123,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.166.png",
+      "name": "fire.166.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.3825,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.167.png",
+      "name": "fire.167.png",
+      "positive": true,
+      "fire_conf": 0.7235,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.168.png",
+      "name": "fire.168.png",
+      "positive": true,
+      "fire_conf": 0.9264,
+      "smoke_conf": 0.8704,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.169.png",
+      "name": "fire.169.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.7955,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.17.png",
+      "name": "fire.17.png",
+      "positive": true,
+      "fire_conf": 0.9023,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.170.png",
+      "name": "fire.170.png",
+      "positive": true,
+      "fire_conf": 0.6719,
+      "smoke_conf": 0.8151,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.171.png",
+      "name": "fire.171.png",
+      "positive": true,
+      "fire_conf": 0.9391,
+      "smoke_conf": 0.9574,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.172.png",
+      "name": "fire.172.png",
+      "positive": true,
+      "fire_conf": 0.6227,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.173.png",
+      "name": "fire.173.png",
+      "positive": true,
+      "fire_conf": 0.8653,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.174.png",
+      "name": "fire.174.png",
+      "positive": true,
+      "fire_conf": 0.7805,
+      "smoke_conf": 0.8347,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.175.png",
+      "name": "fire.175.png",
+      "positive": true,
+      "fire_conf": 0.6491,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.176.png",
+      "name": "fire.176.png",
+      "positive": true,
+      "fire_conf": 0.6773,
+      "smoke_conf": 0.5185,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.177.png",
+      "name": "fire.177.png",
+      "positive": true,
+      "fire_conf": 0.882,
+      "smoke_conf": 0.6432,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.178.png",
+      "name": "fire.178.png",
+      "positive": true,
+      "fire_conf": 0.8844,
+      "smoke_conf": 0.6057,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.179.png",
+      "name": "fire.179.png",
+      "positive": true,
+      "fire_conf": 0.7661,
+      "smoke_conf": 0.8163,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.18.png",
+      "name": "fire.18.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.180.png",
+      "name": "fire.180.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.181.png",
+      "name": "fire.181.png",
+      "positive": true,
+      "fire_conf": 0.8527,
+      "smoke_conf": 0.5082,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.182.png",
+      "name": "fire.182.png",
+      "positive": true,
+      "fire_conf": 0.9305,
+      "smoke_conf": 0.6125,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.183.png",
+      "name": "fire.183.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.6558,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.184.png",
+      "name": "fire.184.png",
+      "positive": true,
+      "fire_conf": 0.927,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.185.png",
+      "name": "fire.185.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.5581,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.186.png",
+      "name": "fire.186.png",
+      "positive": true,
+      "fire_conf": 0.7487,
+      "smoke_conf": 0.5628,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.187.png",
+      "name": "fire.187.png",
+      "positive": true,
+      "fire_conf": 0.8466,
+      "smoke_conf": 0.7556,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.188.png",
+      "name": "fire.188.png",
+      "positive": true,
+      "fire_conf": 0.8129,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/fire_images/fire.189.png",
+      "name": "fire.189.png",
+      "positive": true,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.1.png",
+      "name": "non_fire.1.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.10.png",
+      "name": "non_fire.10.png",
+      "positive": false,
+      "fire_conf": 0.8082,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.100.png",
+      "name": "non_fire.100.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.101.png",
+      "name": "non_fire.101.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.4579,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.102.png",
+      "name": "non_fire.102.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.103.png",
+      "name": "non_fire.103.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.104.png",
+      "name": "non_fire.104.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.105.png",
+      "name": "non_fire.105.png",
+      "positive": false,
+      "fire_conf": 0.7233,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.106.png",
+      "name": "non_fire.106.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.107.png",
+      "name": "non_fire.107.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.108.png",
+      "name": "non_fire.108.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.109.png",
+      "name": "non_fire.109.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.11.png",
+      "name": "non_fire.11.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.6228,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.110.png",
+      "name": "non_fire.110.png",
+      "positive": false,
+      "fire_conf": 0.6645,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.111.png",
+      "name": "non_fire.111.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.112.png",
+      "name": "non_fire.112.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.113.png",
+      "name": "non_fire.113.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.114.png",
+      "name": "non_fire.114.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.115.png",
+      "name": "non_fire.115.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.116.png",
+      "name": "non_fire.116.png",
+      "positive": false,
+      "fire_conf": 0.6552,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.117.png",
+      "name": "non_fire.117.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.118.png",
+      "name": "non_fire.118.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.119.png",
+      "name": "non_fire.119.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.12.png",
+      "name": "non_fire.12.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.120.png",
+      "name": "non_fire.120.png",
+      "positive": false,
+      "fire_conf": 0.9397,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.121.png",
+      "name": "non_fire.121.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.122.png",
+      "name": "non_fire.122.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.123.png",
+      "name": "non_fire.123.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.124.png",
+      "name": "non_fire.124.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.125.png",
+      "name": "non_fire.125.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.126.png",
+      "name": "non_fire.126.png",
+      "positive": false,
+      "fire_conf": 0.745,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.127.png",
+      "name": "non_fire.127.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.128.png",
+      "name": "non_fire.128.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.129.png",
+      "name": "non_fire.129.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.8103,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.13.png",
+      "name": "non_fire.13.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.130.png",
+      "name": "non_fire.130.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.131.png",
+      "name": "non_fire.131.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.132.png",
+      "name": "non_fire.132.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.133.png",
+      "name": "non_fire.133.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.5032,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.134.png",
+      "name": "non_fire.134.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.135.png",
+      "name": "non_fire.135.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.136.png",
+      "name": "non_fire.136.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.137.png",
+      "name": "non_fire.137.png",
+      "positive": false,
+      "fire_conf": 0.7222,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.138.png",
+      "name": "non_fire.138.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.139.png",
+      "name": "non_fire.139.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.14.png",
+      "name": "non_fire.14.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.140.png",
+      "name": "non_fire.140.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.141.png",
+      "name": "non_fire.141.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.142.png",
+      "name": "non_fire.142.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.143.png",
+      "name": "non_fire.143.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.144.png",
+      "name": "non_fire.144.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.145.png",
+      "name": "non_fire.145.png",
+      "positive": false,
+      "fire_conf": 0.6876,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.146.png",
+      "name": "non_fire.146.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.147.png",
+      "name": "non_fire.147.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.148.png",
+      "name": "non_fire.148.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.149.png",
+      "name": "non_fire.149.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.15.png",
+      "name": "non_fire.15.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.150.png",
+      "name": "non_fire.150.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.151.png",
+      "name": "non_fire.151.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.152.png",
+      "name": "non_fire.152.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.153.png",
+      "name": "non_fire.153.png",
+      "positive": false,
+      "fire_conf": 0.6904,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.154.png",
+      "name": "non_fire.154.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.155.png",
+      "name": "non_fire.155.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.156.png",
+      "name": "non_fire.156.png",
+      "positive": false,
+      "fire_conf": 0.7583,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.157.png",
+      "name": "non_fire.157.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.158.png",
+      "name": "non_fire.158.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.159.png",
+      "name": "non_fire.159.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.16.png",
+      "name": "non_fire.16.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.160.png",
+      "name": "non_fire.160.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.161.png",
+      "name": "non_fire.161.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.162.png",
+      "name": "non_fire.162.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.163.png",
+      "name": "non_fire.163.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.164.png",
+      "name": "non_fire.164.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.165.png",
+      "name": "non_fire.165.png",
+      "positive": false,
+      "fire_conf": 0.7845,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.166.png",
+      "name": "non_fire.166.png",
+      "positive": false,
+      "fire_conf": 0.6105,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.167.png",
+      "name": "non_fire.167.png",
+      "positive": false,
+      "fire_conf": 0.7926,
+      "smoke_conf": 0.4489,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.168.png",
+      "name": "non_fire.168.png",
+      "positive": false,
+      "fire_conf": 0.8472,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.169.png",
+      "name": "non_fire.169.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.17.png",
+      "name": "non_fire.17.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.170.png",
+      "name": "non_fire.170.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.171.png",
+      "name": "non_fire.171.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.172.png",
+      "name": "non_fire.172.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.173.png",
+      "name": "non_fire.173.png",
+      "positive": false,
+      "fire_conf": 0.8447,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.174.png",
+      "name": "non_fire.174.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.175.png",
+      "name": "non_fire.175.png",
+      "positive": false,
+      "fire_conf": 0.7379,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.176.png",
+      "name": "non_fire.176.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.177.png",
+      "name": "non_fire.177.png",
+      "positive": false,
+      "fire_conf": 0.7028,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.178.png",
+      "name": "non_fire.178.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.179.png",
+      "name": "non_fire.179.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.18.png",
+      "name": "non_fire.18.png",
+      "positive": false,
+      "fire_conf": 0.7589,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.180.png",
+      "name": "non_fire.180.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.181.png",
+      "name": "non_fire.181.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.182.png",
+      "name": "non_fire.182.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.183.png",
+      "name": "non_fire.183.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.184.png",
+      "name": "non_fire.184.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.185.png",
+      "name": "non_fire.185.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.186.png",
+      "name": "non_fire.186.png",
+      "positive": false,
+      "fire_conf": 0.8627,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.187.png",
+      "name": "non_fire.187.png",
+      "positive": false,
+      "fire_conf": 0.6348,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.188.png",
+      "name": "non_fire.188.png",
+      "positive": false,
+      "fire_conf": 0.8079,
+      "smoke_conf": 0.0,
+      "error": null
+    },
+    {
+      "file": "../Downloads/fire_dataset/non_fire_images/non_fire.189.png",
+      "name": "non_fire.189.png",
+      "positive": false,
+      "fire_conf": 0.0,
+      "smoke_conf": 0.0,
+      "error": "All inference paths failed: Hosted API HTTP 400: {\"message\":\"Failed to assemble `image`. Could not successfully use any deserializer for declared kinds. Details: \\nKind: `image` - Error: Detected runtime parameter `image` defined as `WorkflowImage` "
+    }
+  ],
+  "sweep": [
+    {
+      "threshold": 0.5,
+      "tp": 81,
+      "fp": 24,
+      "tn": 75,
+      "fn": 19,
+      "precision": 0.7714,
+      "recall": 0.81,
+      "f1": 0.7902,
+      "accuracy": 0.7839
+    },
+    {
+      "threshold": 0.6,
+      "tp": 79,
+      "fp": 23,
+      "tn": 76,
+      "fn": 21,
+      "precision": 0.7745,
+      "recall": 0.79,
+      "f1": 0.7822,
+      "accuracy": 0.7789
+    },
+    {
+      "threshold": 0.7,
+      "tp": 67,
+      "fp": 16,
+      "tn": 83,
+      "fn": 33,
+      "precision": 0.8072,
+      "recall": 0.67,
+      "f1": 0.7322,
+      "accuracy": 0.7538
+    },
+    {
+      "threshold": 0.8,
+      "tp": 50,
+      "fp": 7,
+      "tn": 92,
+      "fn": 50,
+      "precision": 0.8772,
+      "recall": 0.5,
+      "f1": 0.6369,
+      "accuracy": 0.7136
+    },
+    {
+      "threshold": 0.85,
+      "tp": 34,
+      "fp": 2,
+      "tn": 97,
+      "fn": 66,
+      "precision": 0.9444,
+      "recall": 0.34,
+      "f1": 0.5,
+      "accuracy": 0.6583
+    },
+    {
+      "threshold": 0.9,
+      "tp": 21,
+      "fp": 1,
+      "tn": 98,
+      "fn": 79,
+      "precision": 0.9545,
+      "recall": 0.21,
+      "f1": 0.3443,
+      "accuracy": 0.598
+    },
+    {
+      "threshold": 0.95,
+      "tp": 3,
+      "fp": 0,
+      "tn": 99,
+      "fn": 97,
+      "precision": 1.0,
+      "recall": 0.03,
+      "f1": 0.0583,
+      "accuracy": 0.5126
+    }
+  ],
+  "recommendation": {
+    "best_f1_threshold": 0.5,
+    "zero_fp_threshold": 0.95
+  }
+}

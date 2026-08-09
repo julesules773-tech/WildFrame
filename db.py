@@ -29,6 +29,7 @@ A thread-safe psycopg connection pool. Configure with the
 """
 
 import json
+import math
 import os
 import time
 from datetime import datetime, timezone, timedelta
@@ -114,6 +115,16 @@ CREATE TABLE IF NOT EXISTS reports (
 CREATE INDEX IF NOT EXISTS idx_reports_mode_status ON reports (mode, status);
 CREATE INDEX IF NOT EXISTS idx_reports_mode_captured ON reports (mode, captured_at);
 CREATE INDEX IF NOT EXISTS idx_reports_geom ON reports USING GIST (geom);
+-- External agency identity: (agency, incident_id) is the dedup key for
+-- government feeds (CAP sender+identifier, or a namespaced feed item id).
+-- Citizen/photo reports keep both NULL; a plain unique index ignores NULLs
+-- in Postgres, so existing rows never collide. Idempotent migration for
+-- databases created before these columns existed.
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS agency TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS incident_id TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reports_agency_incident
+    ON reports (mode, agency, incident_id);
 
 CREATE TABLE IF NOT EXISTS bayesian_grids (
     id               TEXT PRIMARY KEY,
@@ -243,6 +254,104 @@ def insert_reports(reports: list[dict], mode: str) -> int:
                     ),
                 )
     return len(reports)
+
+
+def upsert_agency_incident(incident: dict, mode: str) -> dict:
+    """Insert or update one agency incident, keyed by ``(mode, agency, incident_id)``.
+
+    Idempotent by construction: a retry of the same message (or an older
+    one) is a no-op thanks to the unique index + staleness guard, so a
+    redelivered CAP alert or a Lambda retry can never create a duplicate
+    fire or resurrect a cancelled one.
+
+    ``incident`` is a full report dict plus at least:
+      - ``agency``       : source (CAP sender, or namespaced feed name)
+      - ``incident_id``  : CAP identifier, or the feed item id
+      - ``sent_at``      : message time (ISO) — the staleness clock. Only a
+                           NEWER sent_at can overwrite an existing row, so
+                           out-of-order delivery can't regress a report.
+
+    ``mode`` must be "production" or "demo". Returns ``(report, created, applied)``
+    where ``report`` is the authoritative dict as stored (newest version wins),
+    ``created`` is True only when this call actually inserted a fresh row, and
+    ``applied`` is True only when the row was actually inserted or updated
+    (False for a stale rejection or a pure duplicate retry — use it to gate
+    downstream effects like grid evidence fusion).
+    """
+    assert incident.get("agency") and incident.get("incident_id")
+    captured = _parse_ts(incident.get("captured_at"))
+    created_ts = _parse_ts(incident.get("created_at"))
+    sent_at = _parse_ts(incident.get("sent_at"))
+    with _conn() as conn:
+        with conn.transaction():
+            # RETURNING (xmax = 0) is Postgres' classic "was this a fresh
+            # insert?" probe: a brand-new tuple has xmax = 0, an updated one
+            # (DO UPDATE fired) does not. Note: when the staleness WHERE
+            # clause rejects the update, the statement returns NO row at all
+            # (neither inserted nor updated), so we fall back to a re-select
+            # below.
+            result = conn.execute(
+                """
+                INSERT INTO reports
+                    (id, mode, lat, lon, geom, photo_url, captured_at,
+                     device_heading, session_id, status, source_type,
+                     created_at, data, agency, incident_id, sent_at)
+                VALUES (%s, %s, %s, %s,
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (mode, agency, incident_id) DO UPDATE SET
+                    lat = EXCLUDED.lat,
+                    lon = EXCLUDED.lon,
+                    geom = EXCLUDED.geom,
+                    photo_url = EXCLUDED.photo_url,
+                    captured_at = EXCLUDED.captured_at,
+                    device_heading = EXCLUDED.device_heading,
+                    session_id = EXCLUDED.session_id,
+                    status = EXCLUDED.status,
+                    source_type = EXCLUDED.source_type,
+                    created_at = EXCLUDED.created_at,
+                    data = EXCLUDED.data,
+                    sent_at = EXCLUDED.sent_at
+                WHERE EXCLUDED.sent_at > reports.sent_at
+                   OR (EXCLUDED.sent_at IS NULL AND reports.sent_at IS NULL)
+                RETURNING id, status, data, (xmax = 0) AS inserted
+                """,
+                (
+                    incident["id"], mode, incident["lat"], incident["lon"],
+                    incident["lon"], incident["lat"],
+                    incident.get("photo_url"), captured,
+                    incident.get("device_heading"), incident.get("session_id"),
+                    (incident.get("status") or "pending"), incident.get("source_type"),
+                    created_ts, Jsonb(incident),
+                    incident["agency"], incident["incident_id"], sent_at,
+                ),
+            ).fetchone()
+            if result is None:
+                # The staleness guard rejected the update — an existing row
+                # is newer, so nothing changed. Return the authoritative row.
+                row = conn.execute(
+                    "SELECT id, status, data FROM reports "
+                    "WHERE mode = %s AND agency = %s AND incident_id = %s",
+                    (mode, incident["agency"], incident["incident_id"]),
+                ).fetchone()
+                return _row_to_report(row), False, False
+    return _row_to_report(result), bool(result["inserted"]), True
+
+
+def find_grid_near(
+    mode: str,
+    lat: float,
+    lon: float,
+    max_dist_m: float = GRID_MATCH_RADIUS_M,
+) -> Optional[str]:
+    """Return the id of the nearest grid within ``max_dist_m`` of a point,
+    or None. Used to target an existing grid with evidence (e.g. an agency
+    cancel) WITHOUT creating a new grid — cancels must not spin up fires."""
+    with _conn() as conn:
+        nearest = _nearest_grid(conn, mode, lat, lon)
+        if nearest is not None and nearest["dist_m"] <= max_dist_m:
+            return nearest["id"]
+    return None
 
 
 def list_reports(
@@ -635,6 +744,291 @@ def find_or_create_grid(
             }
 
 
+def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in metres (duplicated from server.py to avoid
+    an import cycle — db.py is imported BY server.py)."""
+    R = 6_371_000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _loc_cell(lat: float, lon: float, cell_deg: float) -> tuple[int, int]:
+    """Spatial-hash cell for a lat/lon (longitude widened by 1/cos(lat))."""
+    c = max(math.cos(math.radians(lat)), 0.3)
+    return (math.floor(lon / (cell_deg / c)), math.floor(lat / cell_deg))
+
+
+def _next_grid_ids(conn, mode: str, n: int) -> list[int]:
+    """Atomically bump the GLOBAL grid id counter by n; return the n new ids.
+
+    Same counter/prefix rules as _next_grid_id, but for bulk creation: one
+    upsert instead of one per new grid."""
+    if n <= 0:
+        return []
+    key = "grid_counter:global"
+    row = conn.execute(
+        """
+        INSERT INTO kv_store (key, value) VALUES (%s, jsonb_build_object('n', %s))
+        ON CONFLICT (key) DO UPDATE
+            SET value = jsonb_build_object('n', (kv_store.value->>'n')::int + %s)
+        RETURNING value->>'n' AS n
+        """,
+        (key, n, n),
+    ).fetchone()
+    end = int(row["n"])
+    return list(range(end - n + 1, end + 1))
+
+
+_BULK_GRID_INSERT_SQL = """
+INSERT INTO bayesian_grids
+    (id, mode, centroid_lat, centroid_lon, geom,
+     wind_speed, wind_dir_deg, state, max_p,
+     last_evidence_at)
+VALUES (%s, %s, %s, %s,
+        ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+        %s, %s, %s, %s, %s)
+"""
+
+_BULK_GRID_CENTROID_SQL = """
+UPDATE bayesian_grids
+   SET centroid_lat = %s, centroid_lon = %s,
+       geom = ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+ WHERE id = %s
+"""
+
+
+def bulk_find_or_create_grids(
+    mode: str,
+    clusters: list[dict],
+    wind_speed: float = 3.0,
+    wind_dir_deg: float = 270.0,
+) -> list[str]:
+    """Return one grid_id per cluster (in order), creating grids in bulk.
+
+    Batch equivalent of find_or_create_grid() for the global FIRMS pass,
+    which feeds ~10k-100k clusters per fetch. The per-cluster version costs
+    one transaction + advisory lock + PostGIS nearest query PER CLUSTER
+    (~25 ms each -> ~10-40 minutes). This version:
+
+      1. Loads every existing grid's centroid ONCE (single query).
+      2. Matches each cluster to the nearest grid within GRID_MATCH_RADIUS_M
+         in memory via a spatial hash (same semantics as the DB nearest
+         query, O(n) instead of O(n) round trips). A grid created earlier
+         in THIS pass is added to the hash, so a later cluster can reuse
+         it too — identical to the sequential find_or_create_grid
+         behaviour.
+      3. Bulk-inserts only the genuinely-new grids in ONE transaction
+         (executemany + a single counter bump).
+
+    Returns grid ids aligned with ``clusters`` (same length, same order).
+    Matched grids keep their existing id; new grids get a fresh one.
+
+    Unlike find_or_create_grid(), this does NOT take the per-bucket
+    Postgres advisory lock. Duplicate creation is prevented instead by the
+    pass-level ``firms_fetch_in_progress`` flag (one fetch at a time); the
+    advisory lock is dropped deliberately because it was the ~25ms/cluster
+    round trip that made the sequential path too slow.
+    """
+    if not clusters:
+        return []
+
+    cell_deg = 0.15  # ~16 km — > 2x the 10 km match radius
+    existing = list_grid_meta(mode)  # one query for all centroids
+
+    # grid_id -> (lat, lon) tracked centroid; a brand-new grid gets a
+    # placeholder key ("__new_0") so later clusters can match it in-memory
+    # before real ids are allocated.
+    centroids: dict[str, tuple[float, float]] = {
+        row["id"]: (row["centroid_lat"], row["centroid_lon"]) for row in existing
+    }
+    by_cell: dict[tuple[int, int], list[str]] = {}
+    for gid, (glat, glon) in centroids.items():
+        by_cell.setdefault(_loc_cell(glat, glon, cell_deg), []).append(gid)
+
+    def _recenter(gid: str, clat: float, clon: float) -> None:
+        """Move a grid's tracked centroid (and its hash bucket) to clat/clon."""
+        old_lat, old_lon = centroids[gid]
+        if old_lat == clat and old_lon == clon:
+            return
+        centroids[gid] = (clat, clon)
+        old_key = _loc_cell(old_lat, old_lon, cell_deg)
+        bucket = by_cell.get(old_key)
+        if bucket is not None:
+            try:
+                bucket.remove(gid)
+            except ValueError:
+                pass
+            if not bucket:
+                del by_cell[old_key]
+        by_cell.setdefault(_loc_cell(clat, clon, cell_deg), []).append(gid)
+
+    def _nearest(clat: float, clon: float):
+        """(grid_id, dist_m) of the nearest known grid centroid."""
+        best_id, best_d = None, float("inf")
+        cx, cy = _loc_cell(clat, clon, cell_deg)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for gid in by_cell.get((cx + dx, cy + dy), ()):
+                    glat, glon = centroids[gid]
+                    d = _haversine_m(clat, clon, glat, glon)
+                    if d < best_d:
+                        best_d, best_id = d, gid
+        return best_id, best_d
+
+    # --- Single pass: assign every cluster to a grid (match or create) ---
+    prefix = "demo-" if mode == "demo" else ""
+    result: list[str] = []
+    new_clusters: list[dict] = []        # clusters needing a brand-new grid
+    new_centroids: list[tuple[float, float]] = []  # matching (clat, clon)
+    centroid_moves: dict[str, tuple[float, float]] = {}  # existing grid -> new centroid
+    placeholder_n = 0
+
+    for c in clusters:
+        clat, clon = c["centroid_lat"], c["centroid_lon"]
+        gid, dist = _nearest(clat, clon)
+        if gid is not None and dist <= GRID_MATCH_RADIUS_M:
+            result.append(gid)
+            _recenter(gid, clat, clon)
+            if not gid.startswith("__new_"):
+                centroid_moves[gid] = (clat, clon)
+        else:
+            # Reserve a fresh grid in-memory so later clusters can reuse it.
+            placeholder = f"__new_{placeholder_n}"
+            placeholder_n += 1
+            result.append(placeholder)
+            centroids[placeholder] = (clat, clon)
+            by_cell.setdefault(_loc_cell(clat, clon, cell_deg), []).append(placeholder)
+            new_clusters.append(c)
+            new_centroids.append((clat, clon))
+
+    # --- Bulk-create the new grids, one transaction ---
+    new_ids: list[str] = []
+    if new_clusters:
+        with _conn() as conn:
+            with conn.transaction():
+                ids = [
+                    f"{prefix}grid-{n}"
+                    for n in _next_grid_ids(conn, mode, len(new_clusters))
+                ]
+                rows = []
+                for grid_id, c, (clat, clon) in zip(ids, new_clusters, new_centroids):
+                    lats = [p[0] for p in c.get("points", [[clat, clon]])]
+                    lons = [p[1] for p in c.get("points", [[clat, clon]])]
+                    sizing = auto_grid_size(lats, lons) or {
+                        "center_lat": clat, "center_lon": clon,
+                        "cell_size_m": DEFAULT_CELL_SIZE_M, "nx": 40, "ny": 40,
+                    }
+                    grid = BayesianFireGrid(
+                        center_lat=sizing["center_lat"],
+                        center_lon=sizing["center_lon"],
+                        cell_size_m=sizing["cell_size_m"],
+                        nx=sizing["nx"], ny=sizing["ny"],
+                    )
+                    rows.append((
+                        grid_id, mode, clat, clon, clon, clat,
+                        wind_speed, wind_dir_deg,
+                        Jsonb(grid.to_dict()),
+                        float(grid.get_statistics()["max_p"]),
+                        float(grid.last_updated.max()),  # 0 — fresh grid
+                    ))
+                with conn.cursor() as cur:
+                    cur.executemany(_BULK_GRID_INSERT_SQL, rows)
+                new_ids = ids
+
+    # --- Persist centroid moves for matched EXISTING grids (one UPDATE batch) ---
+    if centroid_moves:
+        moves = [
+            (clat, clon, clon, clat, gid)
+            for gid, (clat, clon) in centroid_moves.items()
+        ]
+        with _conn() as conn:
+            with conn.transaction():
+                with conn.cursor() as cur:
+                    cur.executemany(_BULK_GRID_CENTROID_SQL, moves)
+
+    # --- Swap placeholders for real ids ---
+    id_by_placeholder = {
+        f"__new_{i}": real for i, real in enumerate(new_ids)
+    }
+    return [id_by_placeholder.get(gid, gid) for gid in result]
+
+
+def bulk_mutate_grids(
+    mode: str,
+    jobs: list[tuple[str, Callable[[BayesianFireGrid, dict], Any]]],
+    chunk: int = 500,
+) -> dict[str, Any]:
+    """Run ``fn(grid, entry)`` for many grids, persisting all in bulk.
+
+    Batch equivalent of mutate_grid() for the global FIRMS pass (which
+    feeds one grid per cluster — ~10k-100k grids). The per-grid version
+    opens a transaction + FOR UPDATE lock + full reload + UPDATE for EACH
+    grid; this version loads up to ``chunk`` grids with one ``id = ANY()``
+    query, runs the callable on each in memory, and writes them back with
+    one executemany — a handful of transactions instead of one per grid.
+
+    jobs: list of (grid_id, fn) where fn(grid, entry) mutates the grid in
+    place and returns a result value (stored under its grid_id).
+
+    Returns {grid_id: fn_result} for grids that were loaded successfully.
+    """
+    if not jobs:
+        return {}
+
+    results: dict[str, Any] = {}
+    for start in range(0, len(jobs), chunk):
+        batch = jobs[start:start + chunk]
+        ids = [gid for gid, _ in batch]
+        with _conn() as conn:
+            with conn.transaction():
+                rows = conn.execute(
+                    "SELECT * FROM bayesian_grids WHERE id = ANY(%s) AND mode = %s FOR UPDATE",
+                    (ids, mode),
+                ).fetchall()
+                row_by_id = {r["id"]: r for r in rows}
+                updates = []
+                for gid, fn in batch:
+                    row = row_by_id.get(gid)
+                    if row is None:
+                        continue
+                    grid = _grid_from_row(row)
+                    entry = {
+                        "centroid_lat": row["centroid_lat"],
+                        "centroid_lon": row["centroid_lon"],
+                        "wind_speed": row["wind_speed"],
+                        "wind_dir_deg": row["wind_dir_deg"],
+                    }
+                    results[gid] = fn(grid, entry)
+                    max_p = float(grid.get_statistics()["max_p"])
+                    last_evidence_at = float(grid.last_updated.max())
+                    updates.append((
+                        Jsonb(grid.to_dict()),
+                        entry["centroid_lat"], entry["centroid_lon"],
+                        entry["centroid_lon"], entry["centroid_lat"],
+                        entry["wind_speed"], entry["wind_dir_deg"],
+                        max_p, last_evidence_at, gid, mode,
+                    ))
+                with conn.cursor() as cur:
+                    cur.executemany(
+                        """
+                        UPDATE bayesian_grids
+                           SET state = %s,
+                               centroid_lat = %s, centroid_lon = %s,
+                               geom = ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                               wind_speed = %s, wind_dir_deg = %s,
+                               max_p = %s,
+                               last_evidence_at = %s,
+                               updated_at = now()
+                         WHERE id = %s AND mode = %s
+                        """,
+                        updates,
+                    )
+    return results
+
+
 def upsert_grid(
     mode: str,
     grid_id: str,
@@ -1006,7 +1400,7 @@ def import_json_data(
 # ---------------------------------------------------------------------------
 
 def get_poller_config(kind: str, defaults: dict) -> dict:
-    """kind: 'satellite' | 'firms'. Returns merged {active, params...}."""
+    """kind: 'satellite' | 'firms' | 'cap'. Returns merged {active, params...}."""
     stored = kv_get(f"{kind}_poller", {}) or {}
     merged = dict(defaults)
     merged.update({k: v for k, v in stored.items() if k != "active"})

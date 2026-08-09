@@ -60,7 +60,15 @@
         <span class="dot"></span>
         <span id="status-text">Initializing…</span>
       </div>
+      <!-- Mobile overflow: secondary controls collapse into a ⋯ menu on
+           narrow screens (app.js moves them in/out via _layoutTopBar). -->
+      <button id="top-menu-btn" class="top-menu-btn" title="More options" aria-label="More options" aria-expanded="false">
+        <span class="menu-icon">⋯</span>
+      </button>
     </div>
+
+    <!-- Mobile overflow menu (dropdown under the top bar) -->
+    <div id="top-menu" class="top-menu"></div>
   </header>
 
   <!-- Demo-mode banner (shown while the map displays simulated data) -->

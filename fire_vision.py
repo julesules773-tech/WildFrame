@@ -8,8 +8,9 @@ Detects fire and/or smoke in uploaded photographs using a Roboflow workflow.
 via a local Roboflow inference server (http://127.0.0.1:9001) using the
 ``inference_sdk`` package.
 
-**Fallback path**: If the local server is unreachable, calls the Roboflow
-hosted inference API at ``outline.roboflow.com`` using stdlib ``urllib``.
+**Fallback path**: If the local server is unreachable, runs the same workflow
+via the Roboflow hosted inference API at ``serverless.roboflow.com`` using
+stdlib ``urllib`` (JSON body with a base64 image).
 
 Usage
 -----
@@ -25,10 +26,16 @@ Prerequisites
 3. (Optional) Run local inference server for faster scans:
        docker run --rm -p 9001:9001 roboflow/roboflow-inference-server-cpu
        # or GPU variant: roboflow/roboflow-inference-server-gpu
+4. Optional: Pillow (pillow). Only used to downscale oversized photos
+   before sending them to the hosted API, so they don't exceed Roboflow's
+   request-body limit (HTTP 413). Without it, large images are sent as-is
+   and may be rejected by the hosted API.
 """
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import logging
 import os
@@ -51,11 +58,41 @@ _WORKFLOW_ID = "fire-and-smoke-segmentation-alerts-1784557902550"
 # Local inference server (primary — fast, no rate limits)
 _LOCAL_INFERENCE_URL = "http://127.0.0.1:9001"
 
-# Hosted fallback — direct REST API on outline.roboflow.com
-_FULL_MODEL_PATH = "roboflow-universe-projects/fire-and-smoke-segmentation/11"
-_API_HOST = "https://outline.roboflow.com"
+# Hosted fallback — the unified hosted inference API (outline.roboflow.com
+# and the old detect/classify/segment hosts are deprecated). Hosted
+# workflows run at /infer/workflows/<workspace>/<workflow_id>.
+_API_HOST = "https://serverless.roboflow.com"
 _USER_AGENT = "WildFrame/1.0 (fire-vision; contact@wildframe.example)"
-_TIMEOUT_S = 30
+# Hosted inference can be slow on large photos (we measured read/write
+# timeouts right at the 30s mark), so allow up to 60s before giving up.
+_TIMEOUT_S = 60
+
+# Cap the long edge of photos sent to the hosted API. The request body is
+# base64-encoded (~33% inflation) and Roboflow's gateway rejects oversized
+# bodies with HTTP 413 (measured: a 13 MB PNG -> ~17 MB base64 -> 413).
+#
+# 2560px @ q92 is a hard-won balance, measured with a real 9796x3846
+# panorama that contains a small, distant fire:
+#   - 1280px @ q88: fire never detected (0.0) — the tiny fire is crushed
+#   - 2048px @ q88: cliff edge — detected in one run, missed in another
+#   - 2048px @ q92 and up: fire ~0.62-0.65 in the sessions where the API
+#     was in a detecting state (see nondeterminism note below)
+#   - worst real images at 2560px @ q92: <= ~4 MB base64 (39% of the limit)
+#
+# IMPORTANT — the hosted API is NONDETERMINISTIC across time: the exact
+# same byte-identical JPEG scored fire=0.618/0.652 in one session and 0.000
+# eight scans in a row in a later session. Within a session it is
+# deterministic (same bytes, same result), so the variance appears to come
+# from Roboflow routing to different backends/versions over time, not from
+# request noise. Downscaling is therefore necessary-but-not-sufficient: a
+# borderline image (small fire in a big frame) may scan as "nothing" on one
+# day and "flame" the next, and a re-scan can return a different verdict.
+#
+# A small fire in a big frame needs enough pixels to survive both our
+# downscale and the model's own resize — so we keep the cap generous and
+# the JPEG quality high rather than chasing the smallest payload.
+_MAX_HOSTED_EDGE_PX = 2560
+_JPEG_QUALITY = 92
 
 # Minimum confidence to accept a prediction as valid
 _CONFIDENCE_THRESHOLD = 0.10
@@ -202,28 +239,17 @@ def _extract_predictions_from_workflow(
     """
     Extract prediction dicts from a Roboflow workflow result.
 
-    Workflows return a list of output dicts (one per input image). Each
-    dict can have various field names depending on how the workflow is
-    configured. We scan for any field that looks like a list of predictions
-    (dicts with ``class`` and ``confidence`` keys).
+    Workflows return a list of output dicts (one per input image) wrapped
+    in various shapes depending on where they run (local server vs hosted
+    API). We recursively scan the structure for any list of prediction
+    dicts (dicts with ``class`` and ``confidence`` keys), which is the
+    shape every workflow output ultimately takes. Handles:
 
-    Handles two common formats:
-      1. ``{"predictions": [{"class": "smoke", ...}, ...]}`` (list)
-      2. ``{"predictions": {"predictions": [...], "width": 678, "height": 452}}``
+      1. ``[{"predictions": [...]}]`` — bare per-image list
+      2. ``{"predictions": {"predictions": [...], "width": ..., "height": ...}}``
          (dict wrapper — Roboflow inference API format)
+      3. ``{"outputs": [{"predictions": [...]}]}`` — hosted API envelope
     """
-    if isinstance(workflow_result, list):
-        if len(workflow_result) == 0:
-            return []
-        candidates = workflow_result[0]
-    else:
-        candidates = workflow_result
-
-    if not isinstance(candidates, dict):
-        if isinstance(candidates, list):
-            return candidates
-        return []
-
     # ----- Helper: check if a value is a prediction-like list -----
     def _looks_like_predictions(val: object) -> list[dict] | None:
         """If *val* is a non-empty list of prediction dicts, return it; else None."""
@@ -234,22 +260,42 @@ def _extract_predictions_from_workflow(
             return val
         return None
 
-    # ----- Scan top-level fields -----
-    for value in candidates.values():
-        # Case 1: direct list of predictions
-        found = _looks_like_predictions(value)
+    def _scan_dict(d: dict) -> list[dict] | None:
+        """Depth-first search for a prediction-like list anywhere in *d*."""
+        for value in d.values():
+            found = _looks_like_predictions(value)
+            if found is not None:
+                return found
+            if isinstance(value, dict):
+                found = _scan_dict(value)
+                if found is not None:
+                    return found
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        found = _scan_dict(item)
+                        if found is not None:
+                            return found
+        return None
+
+    if isinstance(workflow_result, list):
+        for item in workflow_result:
+            if isinstance(item, dict):
+                found = _scan_dict(item)
+                if found is not None:
+                    return found
+        # Bare nested list: only trust it if it is actually prediction-like.
+        if workflow_result and isinstance(workflow_result[0], list):
+            found = _looks_like_predictions(workflow_result[0])
+            if found is not None:
+                return found
+        return []
+
+    if isinstance(workflow_result, dict):
+        found = _scan_dict(workflow_result)
         if found is not None:
             return found
 
-        # Case 2: dict wrapper (e.g. {"predictions": [...], "width": ..., "height": ...})
-        if isinstance(value, dict):
-            # Check every sub-field for a prediction-like list
-            for sub_val in value.values():
-                found = _looks_like_predictions(sub_val)
-                if found is not None:
-                    return found
-
-    # ----- Fallback: if no structured predictions found, return empty -----
     return []
 
 
@@ -258,24 +304,79 @@ def _extract_predictions_from_workflow(
 # ---------------------------------------------------------------------------
 
 
+def _prepare_hosted_image_bytes(path: Path) -> bytes:
+    """Return the image bytes to send to the hosted API.
+
+    Small images (long edge <= ``_MAX_HOSTED_EDGE_PX``) are sent as-is with
+    no re-encode, preserving their original format and quality. Larger ones
+    are downscaled to fit the cap and re-encoded as JPEG (EXIF orientation
+    applied first) so the base64 request body stays well under Roboflow's
+    gateway limit — the model resizes to its native input size anyway, so
+    this costs no detection accuracy.
+
+    Falls back to the raw file bytes if PIL is unavailable (keeps the module
+    importable without Pillow, matching the lazy-import pattern of the local
+    workflow path) or can't decode the image (e.g. a corrupt file), letting
+    the API's own error handling report it.
+    """
+    try:
+        # Lazy import: Pillow is only needed for downscaling, and this module
+        # otherwise stays stdlib-only so minimal environments (e.g. a sweep
+        # in a bare venv) can still import it without crashing.
+        from PIL import Image, ImageOps
+    except ImportError:
+        return path.read_bytes()
+    try:
+        with Image.open(path) as img:
+            img = ImageOps.exif_transpose(img)
+            if max(img.size) <= _MAX_HOSTED_EDGE_PX:
+                return path.read_bytes()
+            scale = _MAX_HOSTED_EDGE_PX / max(img.size)
+            new_size = (max(1, round(img.width * scale)),
+                        max(1, round(img.height * scale)))
+            # LANCZOS keeps edges sharp; resize after exif_transpose so the
+            # capped dimension is the *oriented* long edge.
+            img = img.resize(new_size, Image.LANCZOS)
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=_JPEG_QUALITY, optimize=True)
+            return buf.getvalue()
+    except Exception:
+        # Unreadable/corrupt image — send raw bytes and let the API report it.
+        return path.read_bytes()
+
+
 def _scan_via_hosted_api(
     path: Path,
     api_key: str,
     confidence_threshold: float,
 ) -> dict[str, Any]:
-    """Call the Roboflow hosted inference API directly (same as old implementation)."""
-    raw_bytes = path.read_bytes()
-    import base64
-    b64_data = base64.b64encode(raw_bytes).decode("ascii")
+    """
+    Run the fire/smoke workflow via the Roboflow hosted inference API.
 
-    url = f"{_API_HOST}/{_FULL_MODEL_PATH}?api_key={api_key}"
-    payload_bytes = b64_data.encode("ascii")
+    The old per-task hosts (outline/detect/classify/segment.roboflow.com)
+    are deprecated; the unified hosted API lives at serverless.roboflow.com
+    and takes a JSON body with the API key and a base64 image input. Images
+    are downscaled to ``_MAX_HOSTED_EDGE_PX`` first so oversized photos can't
+    trigger HTTP 413 on the base64 request body.
+    """
+    image_bytes = _prepare_hosted_image_bytes(path)
+    b64_data = base64.b64encode(image_bytes).decode("ascii")
+
+    url = f"{_API_HOST}/infer/workflows/{_WORKSPACE_NAME}/{_WORKFLOW_ID}"
+    payload = json.dumps(
+        {
+            "api_key": api_key,
+            "inputs": {"image": {"type": "base64", "value": b64_data}},
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         url,
-        data=payload_bytes,
+        data=payload,
         headers={
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
             "User-Agent": _USER_AGENT,
         },
     )
@@ -285,14 +386,16 @@ def _scan_via_hosted_api(
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        log.warning("Hosted API HTTP %d: %s", exc.code, body)
+        # Never let the API key end up in logs or the stored error message.
+        body = body.replace(api_key, "[REDACTED]")
+        log.warning("Hosted API HTTP %d: %s", exc.code, body[:300])
         raise RuntimeError(f"Hosted API HTTP {exc.code}: {body[:200]}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Hosted API connection error: {exc.reason}") from exc
 
     data = json.loads(raw)
-    predictions: list[dict] = data.get("predictions", [])
-    return _build_result(predictions, confidence_threshold, _FULL_MODEL_PATH)
+    predictions = _extract_predictions_from_workflow(data)
+    return _build_result(predictions, confidence_threshold, f"workflow:{_WORKFLOW_ID}@hosted")
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ need to be added/removed at runtime.
 
 Scheduling notes
 ----------------
-Both jobs use a 5-field cron (``* * * * *`` = once a minute) and then
+Periodic jobs use a 5-field cron (``* * * * *`` = once a minute) and then
 self-throttle against the configured ``interval_s`` using their last-run
 heartbeat. 6-field (second-resolution) crons are NOT used because the
 installed croniter (6.x) misparses them without ``second_at_beginning``
@@ -27,8 +27,10 @@ Run the worker (handles both job execution and periodic deferral):
 """
 
 import logging
+import os
 import time
 
+import cap_adapter
 import db
 
 logging.basicConfig(
@@ -48,6 +50,17 @@ def _make_app():
 
 
 app = _make_app()
+
+
+def _as_bool(value, default: bool = False) -> bool:
+    """Parse a poller-config flag robustly (bools or common string spellings),
+    so e.g. ``"include_test": "false"`` from a UI/JSON config never becomes
+    ``True`` via Python's string truthiness."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return default
 
 
 def _should_run(kind: str, default_interval_s: float, cfg: dict) -> tuple[bool, str]:
@@ -234,6 +247,96 @@ def firms_fetch_job(**kwargs):
         logger.error("[firms-poller] Error: %s", exc)
         db.kv_set("firms_fetch_in_progress", False)
         db.kv_set("firms_fetch_last_result", {
+            "finished_at": time.time(),
+            "error": str(exc),
+        })
+        return {"error": str(exc)}
+
+
+@app.periodic(cron="* * * * *")
+@app.task(name="agencies.cap_poll")
+def cap_poll_job(**kwargs):
+    """Pull a government CAP feed and push every alert through the agency
+    ingest endpoint — the pull path of the government-incident pipeline.
+
+    Periodic runs self-throttle to the configured ``interval_s`` (default
+    300 s / 5 min). Reads ``db.get_poller_config("cap", ...)``:
+
+      - ``feed_url``     : CAP feed URL (required — the job is a no-op when
+                           unset, so the machinery ships dormant)
+      - ``base_url``     : WildFrame server to POST incidents to (defaults
+                           to the ``WILDFRAME_BASE_URL`` env var, else
+                           http://localhost:4141)
+      - ``mode``         : "production" | "demo" (default production)
+      - ``include_test`` : include drill/Test CAP alerts (sandbox testing)
+      - ``api_key``      : X-Agency-Key sent to the ingest endpoint
+                           (defaults to the ``WILDFRAME_AGENCY_API_KEY`` env)
+
+    Configure with::
+
+        db.set_poller_active("cap", True, {
+            "feed_url": "https://.../cap.xml",
+            "mode": "demo",
+        })
+
+    Results land in ``kv_store["cap_poller_last_result"]`` and the
+    ``cap_poller_heartbeat`` drives the ``_should_run`` throttle. Note the
+    heartbeat is stamped BEFORE the fetch: a failed or slow pass backs off
+    the throttle for the full ``interval_s`` (unlike ``firms.fetch``, which
+    only stamps on success) — a deliberate failure-backoff so a flaky feed
+    can't turn into a per-minute retry firehose.
+    """
+    cfg = db.get_poller_config("cap", {})
+    run, reason = _should_run("cap", 300.0, cfg)
+    if not run:
+        return {"skipped": True, "reason": reason}
+
+    feed_url = (cfg.get("feed_url") or "").strip()
+    if not feed_url:
+        # Warn + record ONCE per state change, not every minute: the job
+        # runs every 60 s via the periodic deferrer, and "active but no
+        # feed_url" is a config mistake, not a condition to log 1440×/day.
+        msg = "No CAP feed_url configured — see agencies.cap_poll docstring"
+        last = db.kv_get("cap_poller_last_result") or {}
+        if last.get("error") != "feed_url not configured":
+            logger.warning("[cap-poller] %s", msg)
+            db.kv_set("cap_poller_last_result", {
+                "finished_at": time.time(),
+                "message": msg,
+                "error": "feed_url not configured",
+            })
+        return {"skipped": True, "reason": "feed_url not configured"}
+
+    base_url = (
+        cfg.get("base_url")
+        or os.environ.get("WILDFRAME_BASE_URL")
+        or "http://localhost:4141"
+    ).rstrip("/")
+    mode = cfg.get("mode", "production")
+    include_test = _as_bool(cfg.get("include_test", False))
+    api_key = cfg.get("api_key") or os.environ.get("WILDFRAME_AGENCY_API_KEY") or ""
+
+    db.kv_set("cap_poller_heartbeat", {"at": time.time()})
+    try:
+        result = cap_adapter.consume_cap_feed(
+            feed_url, base_url, mode=mode, include_test=include_test,
+            api_key=api_key or None,
+        )
+        db.kv_set("cap_poller_last_result", {
+            "finished_at": time.time(),
+            "fetched": result.get("fetched", 0),
+            "message": "CAP poll: %d alert(s) processed" % result.get("fetched", 0),
+            "results": result.get("results", []),
+        })
+        if result.get("fetched", 0):
+            logger.info(
+                "[cap-poller] Processed %d CAP alert(s) via %s",
+                result["fetched"], base_url,
+            )
+        return result
+    except Exception as exc:
+        logger.error("[cap-poller] Error: %s", exc)
+        db.kv_set("cap_poller_last_result", {
             "finished_at": time.time(),
             "error": str(exc),
         })

@@ -166,6 +166,32 @@ class Evidence:
         )
 
     @classmethod
+    def agency_confirm(cls, lat: float, lon: float) -> "Evidence":
+        """Government-confirmed incident (CAP alert / agency feed) — the
+        strongest evidence WildFrame can receive: a verified ground-truth
+        fire, so it outranks even a satellite hotspot. LR ≈ 100:1 → ln ≈ 4.6."""
+        return cls(
+            lat=lat, lon=lon,
+            log_likelihood_ratio=math.log(100.0),
+            spatial_radius_m=DEFAULT_CELL_SIZE_M / 2.0,  # tight — confirmed location
+            source="agency-confirm",
+        )
+
+    @classmethod
+    def agency_cancel(cls, lat: float, lon: float) -> "Evidence":
+        """Agency 'contained/cancelled' message — the inverse of a confirm.
+        Negative LR (ln(1/100) ≈ -4.6) supports *not burning*, pulling the
+        grid's probability back down. Because the LR is negative, update()
+        does NOT stamp ``last_updated`` — a cancel must never keep a grid
+        alive or reset its expiry clock."""
+        return cls(
+            lat=lat, lon=lon,
+            log_likelihood_ratio=math.log(1.0 / 100.0),
+            spatial_radius_m=DEFAULT_CELL_SIZE_M / 2.0,
+            source="agency-cancel",
+        )
+
+    @classmethod
     def visible_flame(
         cls, lat: float, lon: float,
         semi_major: float = 0.0, semi_minor: float = 0.0,
@@ -777,15 +803,21 @@ class BayesianFireGrid:
         np.clip(self.logits, -30.0, 30.0, out=self.logits)
         self._compute_probs()
 
-        now = datetime.now(timezone.utc).timestamp()
-        self.last_updated[ci, cj] = now
-        if evidence.spatial_radius_m > self.cell_size:
-            # Update timestamps for all affected cells
-            i_min = max(0, ci - 5)
-            i_max = min(self.nx, ci + 6)
-            j_min = max(0, cj - 5)
-            j_max = min(self.ny, cj + 6)
-            self.last_updated[i_min:i_max, j_min:j_max] = now
+        # Only positive (supports-burning) evidence stamps a cell as freshly
+        # observed. Negative evidence (agency cancels, etc.) must NOT advance
+        # last_updated — otherwise a cancel would keep the grid alive in
+        # expire_stale and reset last_evidence_at to "confirmed just now"
+        # when the opposite is true.
+        if evidence.log_likelihood_ratio > 0:
+            now = datetime.now(timezone.utc).timestamp()
+            self.last_updated[ci, cj] = now
+            if evidence.spatial_radius_m > self.cell_size:
+                # Update timestamps for all affected cells
+                i_min = max(0, ci - 5)
+                i_max = min(self.nx, ci + 6)
+                j_min = max(0, cj - 5)
+                j_max = min(self.ny, cj + 6)
+                self.last_updated[i_min:i_max, j_min:j_max] = now
 
     # ------------------------------------------------------------------
     # Export / Serialization

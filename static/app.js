@@ -100,6 +100,8 @@
     inputLonManual: $("#input-lon-manual"),
 
     gpsRefreshBtn: $("#gps-refresh-btn"),
+    topMenu: $("#top-menu"),
+    topMenuBtn: $("#top-menu-btn"),
     seedBtn: $("#seed-btn"),
     seedForestBtn: $("#seed-forest-btn"),
     liveDemoBtn: $("#live-demo-btn"),
@@ -653,6 +655,13 @@
         opacity = 0.85;
         fillOpacity = 0.7;
         weight = 1;
+      } else if (r.status === "cancelled") {
+        // Agency-cancelled (fire contained / alert retracted) — grey, faded
+        color = "#94a3b8";
+        radius = 5;
+        opacity = 0.35;
+        fillOpacity = 0.3;
+        weight = 1;
       } else if (r.status === "rejected") {
         color = "#64748b";
         radius = 5;
@@ -684,11 +693,15 @@
       const ai = r.ai_analysis;
       let aiBadge = "";
       if (ai && ai.verdict && ai.verdict !== "error") {
+        // "nothing" verdicts are kept for human review, NOT verified-clear
+        // — give them a neutral look so moderators can triage at a glance.
         const aiEmoji = ai.verdict === "flame" || ai.verdict === "both"
-          ? "🔥" : ai.verdict === "smoke" ? "💨" : "✅";
-        const aiLabel = ai.verdict === "both" ? "FIRE + SMOKE" : ai.verdict.toUpperCase();
+          ? "🔥" : ai.verdict === "smoke" ? "💨" : "🤔";
+        const aiLabel = ai.verdict === "both" ? "FIRE + SMOKE"
+          : ai.verdict === "nothing" ? "NONE — kept for review"
+          : ai.verdict.toUpperCase();
         const aiColor = ai.verdict === "flame" || ai.verdict === "both"
-          ? "#ef4444" : ai.verdict === "smoke" ? "#a78bfa" : "#22c55e";
+          ? "#ef4444" : ai.verdict === "smoke" ? "#a78bfa" : "#94a3b8";
         const aiConf = (ai.confidence * 100).toFixed(0);
         aiBadge = `
           <div style="margin-top:6px;padding:6px 8px;background:rgba(0,0,0,0.3);border-radius:6px;
@@ -1568,9 +1581,12 @@
   async function fetchRoadRisk() {
     if (!STATE.map || !STATE.bayesian.roadRiskActive) return;
 
-    // Throttle: skip this call if we fetched recently
+    // Throttle: skip this call if we attempted recently. Updated for BOTH
+    // successes and failures so a down Overpass can't turn into a retry
+    // firehose (each retry would miss the OSM cache and hammer the API).
     const now = Date.now();
     if (now - _lastRoadRiskFetch < ROAD_RISK_THROTTLE_MS) return;
+    _lastRoadRiskFetch = now;
 
     const statusEl = document.getElementById("roadrisk-status");
     if (statusEl) statusEl.textContent = "🛣️ fetching…";
@@ -1594,11 +1610,6 @@
         if (statusEl) statusEl.textContent = `🛣️ ${msg}`;
         return;
       }
-
-      // Update throttle timestamp ONLY after a successful response,
-      // so a failed fetch (even one that returns valid JSON with an
-      // error message) doesn't block the next retry.
-      _lastRoadRiskFetch = Date.now();
 
       // Remove old road risk layer
       if (STATE.bayesian.roadRiskLayer && STATE.map) {
@@ -1991,21 +2002,19 @@
           throw new Error(data.error || "Upload failed");
         }
 
-        // --- Handle AI-rejected uploads (no fire detected in photo) ---
-        if (data.accepted === false) {
-          const ai = data.ai_analysis || {};
-          const conf = ai.confidence ? ` (${(ai.confidence * 100).toFixed(0)}% confidence)` : "";
-          toast(`📸 No fire detected${conf} — photo discarded`, "info");
-          resetForm();
-          els.uploadCard.classList.add("hidden");
-          els.uploadTrigger.classList.remove("hidden");
-          return;
-        }
-
+        // NOTE: the server no longer returns accepted:false — even a
+        // "nothing" AI verdict is kept as a pending report for human review
+        // (the hosted model can miss borderline fires), so every successful
+        // upload follows the success path below.
         if (STATE.mode === "demo") {
           // Uploads are real citizen reports and always go to the LIVE
           // (production) store — they won't show on the demo map.
           toast("✅ Report submitted to LIVE data (switch to Live mode to see it)", "info");
+        } else if (data.report?.ai_analysis?.verdict === "nothing") {
+          // The AI found nothing, but the photo is kept for a human
+          // moderator (the hosted model can miss borderline fires) —
+          // never silently discard a real fire.
+          toast("ℹ️ No fire detected by AI — photo kept for human review", "info");
         } else {
           toast("✅ Report submitted successfully!", "success");
         }
@@ -2376,11 +2385,120 @@
   }
 
   // -----------------------------------------------------------------------
+  // Mobile top-bar overflow menu
+  // -----------------------------------------------------------------------
+
+  /**
+   * The secondary controls that live in the top bar on desktop but collapse
+   * into the ⋯ overflow menu on narrow screens. Order matters — it defines
+   * both the menu order (mobile) and the restored order (desktop). The mode
+   * switch stays in the bar on every screen size.
+   */
+  function _mobileMenuItems() {
+    return [
+      document.getElementById("live-demo-btn"),
+      document.querySelector(".admin-link"),
+      document.getElementById("seed-btn"),
+      document.getElementById("seed-forest-btn"),
+      document.getElementById("bayesian-toggle"),
+      document.getElementById("historic-demo-btn"),
+      document.getElementById("status-badge"),
+    ];
+  }
+
+  // Guarded so an ancient browser without matchMedia degrades to the
+  // desktop layout (all controls stay in the top bar) instead of crashing.
+  const MOBILE_MENU_QUERY =
+    typeof window.matchMedia === "function"
+      ? window.matchMedia("(max-width: 600px)")
+      : { matches: false, addEventListener() {}, addListener() {} };
+
+  /**
+   * Move the secondary controls between the top bar and the ⋯ menu based on
+   * viewport width. Re-parenting is safe here: all listeners are attached to
+   * the elements themselves in init(), so they keep working wherever they
+   * live, and any active/disabled state travels with them.
+   */
+  function _layoutTopBar() {
+    const menu = els.topMenu;
+    const actions = document.querySelector(".top-actions");
+    if (!menu || !actions) return;
+
+    const mobile = MOBILE_MENU_QUERY.matches;
+    _mobileMenuItems().forEach((el) => {
+      if (!el) return;
+      if (mobile && el.parentNode !== menu) menu.appendChild(el);
+      else if (!mobile && el.parentNode !== actions) actions.appendChild(el);
+    });
+
+    // Never leave a stray open menu when switching back to desktop.
+    if (!mobile && menu.classList.contains("open")) {
+      _closeTopMenu();
+    }
+  }
+
+  function _toggleTopMenu() {
+    if (!els.topMenu) return;
+    const open = els.topMenu.classList.toggle("open");
+    if (els.topMenuBtn) {
+      els.topMenuBtn.classList.toggle("active", open);
+      els.topMenuBtn.setAttribute("aria-expanded", String(open));
+    }
+  }
+
+  function _closeTopMenu() {
+    if (els.topMenu) els.topMenu.classList.remove("open");
+    if (els.topMenuBtn) {
+      els.topMenuBtn.classList.remove("active");
+      els.topMenuBtn.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function _setupTopBarMenu() {
+    _layoutTopBar();
+
+    // ⋯ button toggles the menu.
+    if (els.topMenuBtn) {
+      els.topMenuBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        _toggleTopMenu();
+      });
+    }
+
+    // Picking an action closes the menu.
+    if (els.topMenu) {
+      els.topMenu.addEventListener("click", (e) => {
+        if (e.target.closest("button, a")) _closeTopMenu();
+      });
+    }
+
+    // Close on outside click or Escape.
+    document.addEventListener("click", (e) => {
+      if (!els.topMenu || !els.topMenu.classList.contains("open")) return;
+      if (els.topMenuBtn && els.topMenuBtn.contains(e.target)) return;
+      if (els.topMenu.contains(e.target)) return;
+      _closeTopMenu();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") _closeTopMenu();
+    });
+
+    // Re-layout whenever the viewport crosses the mobile breakpoint.
+    if (MOBILE_MENU_QUERY.addEventListener) {
+      MOBILE_MENU_QUERY.addEventListener("change", _layoutTopBar);
+    } else if (MOBILE_MENU_QUERY.addListener) {
+      MOBILE_MENU_QUERY.addListener(_layoutTopBar);
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Init
   // -----------------------------------------------------------------------
   async function init() {
     STATE.sessionId = getSessionId();
     els.inputSession.value = STATE.sessionId;
+
+    _setupTopBarMenu();
 
     setStatus("Acquiring GPS…", "pending");
 

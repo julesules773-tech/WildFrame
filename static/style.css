@@ -32,7 +32,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* ---------- Top Bar ---------- */
 #top-bar {
-  position: fixed; top: 16px; left: 16px; right: 16px; z-index: 1001;
+  position: fixed; top: 16px; left: 16px; right: 16px; z-index: 1002;  /* above stats/panels so the mobile menu drops over them */
   display: flex; align-items: center; justify-content: space-between;
   background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -88,6 +88,63 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); animation: pulse-dot 2s infinite; }
 .status-badge .dot.active { background: var(--success); }
 .status-badge .dot.error { background: var(--danger); }
+
+/* ---------- Mobile overflow menu ---------- */
+/* The ⋯ button only exists on narrow screens; hidden on desktop. */
+.top-menu-btn {
+  display: none;
+  align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer; transition: var(--transition);
+}
+.top-menu-btn:hover { background: rgba(249, 115, 22, 0.12); border-color: var(--accent); color: var(--accent); }
+.top-menu-btn:active { transform: scale(0.94); }
+.top-menu-btn.active { background: rgba(249, 115, 22, 0.15); border-color: var(--accent); color: var(--accent); }
+.top-menu-btn .menu-icon { font-size: 20px; line-height: 1; }
+
+/* Dropdown panel — closed by default, opened via .open */
+#top-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0; right: 0;
+  flex-direction: column; gap: 6px;
+  background: var(--bg-card);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px;
+  box-shadow: var(--shadow);
+  /* Never overflow short screens (e.g. landscape phones). */
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+}
+#top-menu.open { display: flex; animation: menu-in 0.18s ease; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Secondary controls become full-width rows inside the menu */
+#top-menu .live-demo-btn,
+#top-menu .seed-btn,
+#top-menu .seed-forest-btn,
+#top-menu .bayesian-toggle-btn,
+#top-menu .historic-demo-btn,
+#top-menu .admin-link {
+  width: 100%;
+  justify-content: flex-start;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+/* Status line pinned at the bottom of the menu */
+#top-menu .status-badge {
+  width: 100%;
+  margin-top: 4px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
 
 /* Admin link */
 .admin-link {
@@ -754,6 +811,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   .stat-label { font-size: 9px; }
   .upload-card { width: calc(100vw - 40px); right: 0; }
   #cluster-legend { display: none; }
-  #top-bar { left: 10px; right: 10px; padding: 10px 14px; }
+  #top-bar { left: 10px; right: 10px; padding: 10px 12px; }
+  #top-bar .top-actions { gap: 8px; }
   .brand-text { font-size: 17px; }
+  .top-menu-btn { display: flex; }
 }

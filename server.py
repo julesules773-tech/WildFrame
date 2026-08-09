@@ -9,6 +9,7 @@ Flask server that:
   - Reports clusters via REST API for the Leaflet frontend
 """
 
+import hmac
 import json
 import logging
 import math
@@ -25,10 +26,15 @@ logger = logging.getLogger(__name__)
 
 # Load .env (WILDFRAME_DATABASE_URL, NASA_FIRMS_API_KEY, WILDFRAME_ADMIN_SECRET,
 # ROBOFLOW_API_KEY) before any project module reads environment variables.
-# Existing shell env vars take precedence — load_dotenv() never overrides them.
-from dotenv import load_dotenv
+# dotenv refuses to override existing shell vars — including EMPTY ones (a
+# leftover `export NASA_FIRMS_API_KEY=` shadows the real key in .env). Fill
+# in values for any key that is missing OR empty so .env actually applies.
+from dotenv import dotenv_values
 
-load_dotenv(Path(__file__).parent / ".env")
+_env_path = Path(__file__).parent / ".env"
+for _key, _value in dotenv_values(_env_path).items():
+    if _value and not os.environ.get(_key):
+        os.environ[_key] = _value
 
 from triangulation import triangulate, triangulate_cluster
 from bayesian_filter import (
@@ -40,13 +46,38 @@ from bayesian_filter import (
 from fire_vision import scan_photo
 import nasa_firms
 import db
+import photo_storage
 
 # The Procrastinate job app (jobs.py) is used to enqueue on-demand jobs
-# (e.g. a manual FIRMS fetch) from the web process. It must be OPEN before
-# deferring — the worker opens its own copy at startup, but the server's
-# copy is opened here once so `configure_task(...).defer(...)` works.
+# (e.g. a manual FIRMS fetch) from the web process. The worker opens its
+# own copy (async) at startup and lazily imports this module from inside
+# jobs — so a module-level sync open() would crash there with
+# NotImplementedError (sync open on an already-open async connector). The
+# server's copy is therefore opened lazily, exactly once, right before the
+# first defer (see _job_defer).
 from jobs import app as _job_app
-_job_app.open()
+
+_job_app_lock = threading.Lock()
+_job_app_opened = False
+
+
+def _job_defer(task_name: str, **kwargs):
+    """Open the job app exactly once, then defer ``task_name``.
+
+    Web process: opens the sync connector on first use so
+    ``configure_task(...).defer(...)`` works. Worker process: never calls
+    this (jobs execute the task directly), so importing this module there
+    no longer opens the app — fixing the crash where ``import server``
+    inside a job hit ``NotImplementedError`` from the sync ``open()`` on
+    top of the worker's already-open async app.
+    """
+    global _job_app_opened
+    if not _job_app_opened:
+        with _job_app_lock:
+            if not _job_app_opened:
+                _job_app.open()
+                _job_app_opened = True
+    return _job_app.configure_task(name=task_name).defer(**kwargs)
 
 from flask import Flask, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
@@ -67,7 +98,7 @@ ACTIVE_REPORT_HOURS = 48          # keep reports visible on map for 48h
 # Grid matching radius lives in db.py (shared with the persistence layer).
 GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_M
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}
 
 # Allowed report source types
 SOURCE_TYPES = {"citizen", "NASA", "Sentinel", "CCTV", "drone", "IoT", "ranger", "emergency services"}
@@ -78,6 +109,17 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 # Admin secret for dashboard access.
 # Set env var WILDFRAME_ADMIN_SECRET or use the default (change in production!).
 ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
+
+# --- Corroboration-gated auto-approval -------------------------------
+# A report with a positive AI verdict is auto-confirmed ONLY when an
+# independent source corroborates it (a confirmed report within 500 m / 2 h,
+# or a live FIRMS hotspot within 3 km / 12 h). Photo confidence alone never
+# auto-approves. Set WILDFRAME_AUTO_APPROVE=0 to keep every report in the
+# human-review queue.
+AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
+# Class-specific confidence floor (flame is noisy, smoke is precise).
+AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.80"))
+AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.40"))
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
@@ -154,6 +196,33 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 # ---------------------------------------------------------------------------
 # Clustering (single-pass, DBSCAN-inspired)
 # ---------------------------------------------------------------------------
+
+def _convert_heic_to_jpeg(filepath: Path) -> Path:
+    """Convert an iPhone HEIC/HEIF upload to JPEG, preserving EXIF/GPS.
+
+    Returns the path of the new JPEG (same stem, ``.jpg`` suffix) and removes
+    the original HEIC staging file. Raises ValueError if conversion fails (e.g.
+    ``pillow-heif`` not installed) so the caller can return a clean 400.
+    """
+    try:
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+    except ImportError as exc:
+        raise ValueError(
+            "HEIC support unavailable — install pillow-heif to accept iPhone photos"
+        ) from exc
+
+    try:
+        im = Image.open(filepath)
+        exif_bytes = im.info.get("exif")
+        jpeg_path = filepath.with_suffix(".jpg")
+        im.convert("RGB").save(jpeg_path, format="JPEG", quality=92, exif=exif_bytes)
+    except Exception as exc:
+        raise ValueError(f"Could not convert HEIC image: {exc}") from exc
+
+    filepath.unlink(missing_ok=True)
+    return jpeg_path
+
 
 def _compute_clusters(reports: list[dict]) -> list[dict]:
     """
@@ -248,6 +317,97 @@ def _request_mode() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Corroboration-gated auto-approval
+#
+# A positive AI photo verdict is treated as *suggestion*, not truth: the
+# model's confidence is miscalibrated, so a report only auto-confirms when an
+# INDEPENDENT source corroborates it — a nearby confirmed report, or a live
+# FIRMS hotspot. Everything else stays "pending" for human moderation.
+# ---------------------------------------------------------------------------
+
+def _cluster_corroborated(report: dict, reports: list[dict]) -> bool:
+    """True if a *confirmed* report exists within the cluster radius AND the
+    2h time window of ``report``. Pending/rejected reports don't corroborate,
+    and the candidate itself is excluded by id."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=CLUSTER_TIME_WINDOW_MINUTES)
+    for other in reports:
+        if other.get("id") == report.get("id"):
+            continue
+        if other.get("status") != "confirmed":
+            continue
+        ts = _parse_ts(other.get("captured_at", ""))
+        if ts < cutoff:
+            continue
+        d = _haversine(report["lat"], report["lon"], other["lat"], other["lon"])
+        if d <= CLUSTER_RADIUS_M:
+            return True
+    return False
+
+
+def _satellite_corroboration(report: dict) -> dict:
+    """Check live NASA FIRMS hotspots near the report. Fail-closed: a missing
+    key or API outage returns confirmed=False with the error surfaced, so a
+    scan can never be auto-approved on a broken satellite lookup."""
+    api_key = nasa_firms._get_api_key()
+    if not api_key:
+        return {"confirmed": False, "error": "NASA_FIRMS_API_KEY not set"}
+    try:
+        hotspots = nasa_firms.fetch_hotspots_near(
+            api_key=api_key,
+            center_lat=report["lat"],
+            center_lon=report["lon"],
+            radius_km=_FIRMS_CONFIRM_RADIUS_M / 1000.0,
+            day_range=2,
+            min_confidence="low",
+        )
+    except (ConnectionError, ValueError) as exc:
+        return {"confirmed": False, "error": str(exc)}
+    result = _match_report_to_hotspots(
+        report, hotspots,
+        radius_m=_FIRMS_CONFIRM_RADIUS_M,
+        window_hours=_FIRMS_CONFIRM_WINDOW_HOURS,
+    )
+    result["source"] = "auto-approval"
+    return result
+
+
+def _auto_approval_decision(
+    verdict: Optional[str],
+    fire_conf: float,
+    smoke_conf: float,
+    cluster_ok: bool,
+    sat_ok: bool,
+) -> tuple[bool, Optional[str]]:
+    """Decide auto-approval from an AI verdict plus corroboration.
+
+    Rules:
+      - verdict must be positive (flame/smoke/both); nothing/error/None never
+        auto-approve, even with high confidence.
+      - class-specific confidence floor: fire >= AUTO_APPROVE_FLAME_MIN_CONF
+        OR smoke >= AUTO_APPROVE_SMOKE_MIN_CONF (flame is noisy, smoke precise).
+      - at least one independent corroboration (cluster or satellite).
+    Returns (approved, source) with source "satellite+cluster" / "cluster" /
+    "satellite", or (False, None).
+    """
+    if verdict not in ("flame", "smoke", "both"):
+        return False, None
+    above_floor = (
+        fire_conf >= AUTO_APPROVE_FLAME_MIN_CONF
+        or smoke_conf >= AUTO_APPROVE_SMOKE_MIN_CONF
+    )
+    if not above_floor:
+        return False, None
+    if cluster_ok and sat_ok:
+        return True, "satellite+cluster"
+    if cluster_ok:
+        return True, "cluster"
+    if sat_ok:
+        return True, "satellite"
+    return False, None
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -295,6 +455,18 @@ def create_report():
     filepath = UPLOAD_DIR / filename
     file.save(str(filepath))
 
+    # --- iPhone HEIC/HEIF: convert to JPEG before anything reads the file ---
+    # EXIF extraction, the AI scan, and photo storage can't handle raw HEIC
+    # bytes, so normalize it to JPEG (EXIF/GPS preserved) right after staging.
+    if ext in ("heic", "heif"):
+        try:
+            filepath = _convert_heic_to_jpeg(filepath)
+            filename = filepath.name
+            print(f"[photo] converted {ext} upload to JPEG ({filename})")
+        except ValueError as exc:
+            filepath.unlink(missing_ok=True)
+            return jsonify({"error": str(exc)}), 400
+
     # --- Try EXIF GPS fallback ---
     if lat is None or lon is None:
         exif_gps = _exif_gps(filepath)
@@ -308,49 +480,46 @@ def create_report():
         return jsonify({"error": "No GPS coordinates provided — enable location services or upload a photo with GPS EXIF data"}), 400
 
     # --- Run AI-powered fire/smoke detection FIRST ---
-    # If the AI is confident there's no fire, delete the photo and reject
-    # the upload. If the scan errors out (no API key, server down, etc.),
-    # we still allow the report through — better a false alarm than a
-    # missed fire.
+    # A positive verdict means the report is created for (possible)
+    # auto-approval. A "nothing" verdict is NOT grounds to delete the
+    # photo: the hosted Roboflow API is nondeterministic across time — the
+    # exact same image bytes can score fire=0.62 one day and 0.000 the next
+    # (measured with a 9796x3846 panorama) — so a borderline-but-real fire
+    # would be silently lost. "Nothing" scans therefore become ordinary
+    # PENDING reports for a human moderator to judge, never auto-approved.
+    # If the scan errors out (no API key, server down, etc.), we still
+    # allow the report through — better a false alarm than a missed fire.
     ai_verdict = None
     try:
         ai_result = scan_photo(filepath)
         ai_verdict = ai_result["verdict"]
-
-        if ai_verdict == "nothing":
-            # AI says no fire — delete photo and return early
-            filepath.unlink(missing_ok=True)
-            print(f"[AI-vision] NOTHING detected in {filename} — photo discarded")
-            return jsonify({
-                "accepted": False,
-                "reason": "AI analysis detected no fire or smoke in the photo.",
-                "ai_analysis": {
-                    "verdict": "nothing",
-                    "confidence": ai_result["confidence"],
-                    "fire_confidence": ai_result["fire_confidence"],
-                    "smoke_confidence": ai_result["smoke_confidence"],
-                    "detection_count": ai_result["detection_count"],
-                    "model": ai_result["model"],
-                    "error": ai_result["error"],
-                },
-            }), 200
-
-        if ai_verdict != "error":
-            print(f"[AI-vision] {ai_verdict.upper()} detected "
-                  f"(confidence={ai_result['confidence']:.2f}, "
-                  f"fire={ai_result['fire_confidence']:.2f}, "
-                  f"smoke={ai_result['smoke_confidence']:.2f}) — creating report")
-
+        print(f"[AI-vision] verdict={ai_verdict} (confidence={ai_result['confidence']:.2f}, "
+              f"fire={ai_result['fire_confidence']:.2f}, smoke={ai_result['smoke_confidence']:.2f}) — {filename}")
     except Exception as exc:
         print(f"[AI-vision] Scan failed: {exc} — proceeding with report anyway")
         ai_result = None
 
-    # --- Build report (only reached if fire/smoke detected or scan errored) ---
+    # --- Persist photo: S3 (if configured) or local disk ---
+    # The file was staged on local disk for EXIF + AI scanning; now move
+    # the accepted photo to its real home. photo_storage returns the URL
+    # to store (S3 URL in S3 mode, /uploads/... otherwise) and removes
+    # the staging copy in S3 mode.
+    try:
+        photo_url = photo_storage.store_photo(filename, filepath)
+    except Exception as exc:
+        # Upload to S3 failed — don't leave an orphaned file on ephemeral
+        # disk; clean up the staging copy and tell the caller.
+        filepath.unlink(missing_ok=True)
+        print(f"[photo-storage] Failed to store photo {filename}: {exc}")
+        return jsonify({"error": "Failed to store photo — check S3 configuration and try again."}), 500
+
+    # --- Build report (reached for positive verdicts, "nothing" scans kept
+    # for human review, and scan errors — never for missing GPS) ---
     report = {
         "id": uuid.uuid4().hex,
         "lat": lat,
         "lon": lon,
-        "photo_url": f"/uploads/{filename}",
+        "photo_url": photo_url,
         "captured_at": captured_at,
         "device_heading": float(heading) if heading else None,
         "session_id": session_id,
@@ -381,8 +550,46 @@ def create_report():
             "error": "AI scan failed — report created for manual review",
         }
 
+    # --- Corroboration-gated auto-approval ---
+    # A positive AI verdict never auto-confirms on its own (the model's
+    # confidence is miscalibrated). Auto-approve only with independent
+    # corroboration: an existing confirmed report nearby, or a live FIRMS
+    # hotspot. Everything else stays "pending" for human moderation.
+    if AUTO_APPROVE_ENABLED and ai_verdict in ("flame", "smoke", "both"):
+        cluster_ok = _cluster_corroborated(report, _load_reports())
+        sat = None
+        if not cluster_ok:
+            # Cluster corroboration is enough — only hit FIRMS otherwise.
+            sat = _satellite_corroboration(report)
+            report["satellite_confirmation"] = sat
+        fire_conf = ai_result.get("fire_confidence", 0.0) if ai_result else 0.0
+        smoke_conf = ai_result.get("smoke_confidence", 0.0) if ai_result else 0.0
+        auto_approved, approval_source = _auto_approval_decision(
+            ai_verdict, fire_conf, smoke_conf,
+            cluster_ok, bool(sat and sat.get("confirmed")),
+        )
+        if auto_approved:
+            report["status"] = "confirmed"
+            report["auto_approved"] = True
+            report["approval_source"] = approval_source
+            report["approval_class"] = (
+                "flame" if fire_conf >= AUTO_APPROVE_FLAME_MIN_CONF else "smoke"
+            )
+            report["approval_confidence"] = round(max(fire_conf, smoke_conf), 4)
+            print(f"[auto-approve] {report['id']} auto-confirmed via {approval_source} "
+                  f"(class={report['approval_class']} "
+                  f"@{report['approval_confidence']:.2f}, "
+                  f"fire={fire_conf:.2f} smoke={smoke_conf:.2f})")
+        else:
+            report["auto_approved"] = False
+
     # Single-row INSERT — concurrent uploads can never clobber each other.
     db.insert_reports([report], "production")
+
+    # Auto-approved reports feed the Bayesian grid immediately (same as an
+    # admin accept), so the fire starts tracking right away.
+    if report.get("status") == "confirmed":
+        _feed_reports_into_grid([report])
 
     # --- Recompute clusters ---
     clusters = _compute_clusters(_load_reports())
@@ -640,6 +847,21 @@ def admin_list_pending():
     return jsonify({"reports": pending, "count": len(pending)})
 
 
+@app.route("/api/admin/auto-approved", methods=["GET"])
+def admin_list_auto_approved():
+    """Recently auto-approved (confirmed) reports, so a human can spot-check
+    them and reject any where the corroboration was wrong. Auto-approval is
+    fast-tracked, not irreversible — this list is the backstop."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    # "Recently auto-approved" — bound to the last 48h so we never scan the
+    # full confirmed list (which includes FIRMS-ingested reports) on every
+    # 8s poll; the strip is a human backstop, not an archive.
+    reports = db.list_reports("production", status="confirmed", since_hours=ACTIVE_REPORT_HOURS)
+    auto = [r for r in reports if r.get("auto_approved")][:20]
+    return jsonify({"reports": auto, "count": len(auto)})
+
+
 @app.route("/api/admin/accept/<report_id>", methods=["POST"])
 def admin_accept(report_id: str):
     if not _require_admin():
@@ -683,17 +905,10 @@ def admin_reject(report_id: str):
     if r is None:
         return jsonify({"error": "Report not found"}), 404
 
-    # Delete the uploaded photo from disk
+    # Delete the uploaded photo (S3 object or local file)
     photo_url = r.get("photo_url", "")
     if photo_url:
-        # photo_url looks like "/uploads/filename"
-        p = Path(photo_url.lstrip("/"))
-        try:
-            if p.exists():
-                p.unlink()
-                print(f"[admin] Deleted photo: {p}")
-        except Exception as exc:
-            print(f"[admin] Failed to delete photo {p}: {exc}")
+        photo_storage.delete_photo(photo_url)
 
     db.delete_report(report_id)
     clusters = _compute_clusters(_load_reports())
@@ -1242,6 +1457,18 @@ _osm_cache_lock = threading.Lock()
 # Track request timestamps per cache_key to enforce our own rate limit
 _osm_request_timestamps: dict[str, list[float]] = {}
 
+# Single-flight: per-key locks so N concurrent misses for the same
+# location trigger exactly one Overpass HTTP request (the others
+# wait on the lock and reuse the cached result).
+_osm_inflight_locks: dict[str, threading.Lock] = {}
+
+# Last-failure timestamps per cache_key: if every endpoint just failed
+# for a key, short-circuit repeat calls for a cooldown window instead
+# of hammering the mirrors again (they were already down or
+# rate-limited seconds ago).
+_osm_failed_at: dict[str, float] = {}
+_OSM_FAIL_COOLDOWN_S = 30.0
+
 # How many Overpass HTTP requests we allow per cache_key per minute before
 # falling back to cached/stale data (protects both Overpass and our own
 # error handling).
@@ -1329,20 +1556,36 @@ def _fetch_osm_roads(
     Fetch road segments from OpenStreetMap near a given point.
 
     Tries multiple API endpoints (Overpass mirrors → main OSM API), with
-    disk-persistent caching so each location is fetched at most once.
+    persistent caching so each location is fetched at most once.
 
-    **Caching**: roads don't move, so once fetched, data is saved to
-    ``data/osm_road_cache.json`` forever. Uses fuzzy matching: if the
-    exact contour centroid isn't cached, any cached centroid within
-    1.5 km with the same radius is reused (the contour shifts slightly
-    on every poll as the fire spreads).
+    **Caching**: roads don't move, so once fetched, data is saved to the
+    Postgres ``osm_road_cache`` table (see db.py) forever. Uses fuzzy
+    matching: if the exact contour centroid isn't cached, any cached
+    centroid within 1.5 km with the same radius is reused (the contour
+    shifts slightly on every poll as the fire spreads).
 
     **Endpoint order**: Overpass mirrors first, then the main OSM API
     (returns XML, more reliable). Each endpoint is tried until one
     succeeds or all fail.
 
+    **Single-flight**: N concurrent misses for the same cache key trigger
+    exactly one HTTP request; the other callers wait on a per-key lock and
+    reuse the result.
+
+    **Scoped fallback**: when only the main OSM API succeeds it covers a
+    smaller area (capped at 1.5 km), so its result is cached under a
+    scoped 1.5 km key — never under the requested full-radius key (that
+    would poison the cache with a partial dataset).
+
+    **Empty results are never cached**: a 0-segment response can mean the
+    API degraded, so we return ``[]`` without persisting it.
+
     **Rate limiting**: max ``_OSM_REQ_BUDGET_PER_MIN`` (20) requests per
     cache key per minute. Fuzzy-matched lookups don't consume budget.
+
+    **Failure short-circuit**: if every endpoint just failed for a key,
+    repeat calls within ``_OSM_FAIL_COOLDOWN_S`` skip the network entirely
+    and serve stale data (or raise) instead of hammering the mirrors.
 
     Parameters
     ----------
@@ -1360,26 +1603,7 @@ def _fetch_osm_roads(
 
     cache_key = _osm_cache_key(center_lat, center_lon, radius_km)
 
-    # ---- Helper: read cache entry from Postgres ----
-    def _get_cache():
-        return db.osm_get(cache_key)
-
-    # ---- Helper: return stale data with a log message, or raise ----
-    def _serve_stale_or_raise(
-        error_msg: str,
-        contexts: Optional[list[str]] = None,
-    ) -> list[list[tuple[float, float]]]:
-        entry = _get_cache()
-        if entry and entry.get("segments"):
-            age_s = time.time() - entry.get("stored_at", 0)
-            ctx = f" ({'; '.join(contexts)}) " if contexts else " "
-            print(f"[road-cache]{ctx}{error_msg} — serving stale data "
-                  f"({len(entry['segments'])} segments, {age_s:.0f}s old)")
-            return entry["segments"]
-        raise Exception(error_msg)
-
-    # ---- Helper: parse a cache key into (lat, lon, radius_km) ----
-    def _parse_cache_key(k: str) -> Optional[tuple[float, float, float]]:
+    def _parse_cache_key(k: str):
         parts = k.split(",")
         if len(parts) == 3:
             try:
@@ -1388,19 +1612,17 @@ def _fetch_osm_roads(
                 pass
         return None
 
-    # ---- Check Postgres cache (exact match) ----
-    # Since roads don't move, if we have segments for this key they're
-    # always valid regardless of age.
+    # ---- Exact cache hit (no lock needed) ----
     entry = db.osm_get(cache_key)
     if entry and entry.get("segments"):
         print(f"[road-cache] HIT for {cache_key} ({len(entry['segments'])} segments)")
         return entry["segments"]
 
-    # ---- Fuzzy cache lookup: same radius, centroid within 1km ----
+    # ---- Fuzzy cache lookup: same radius, centroid within 1.5 km ----
     # The contour centroid shifts slightly on every poll as the fire
-    # spreads, so exact key match may miss even though we have data
-    # for a nearby location. Scan all cache entries with the same
-    # radius and find the closest one within FUZZY_MATCH_DISTANCE_M.
+    # spreads, so an exact key match may miss even though we have data
+    # for a nearby location. Scan all cache entries with the same radius
+    # and find the closest one within FUZZY_MATCH_DISTANCE_M.
     FUZZY_MATCH_DISTANCE_M = 1500.0
     for k, v in db.osm_iter():
         parsed = _parse_cache_key(k)
@@ -1416,152 +1638,198 @@ def _fetch_osm_roads(
             db.osm_set(cache_key, v["segments"], v.get("stored_at", time.time()))
             return v["segments"]
 
-    # ---- Enforce our own client-side rate budget ----
-    if not _osm_enforce_client_rate_limit(cache_key):
-        cached = _get_cache()
+    # ---- Failure short-circuit: don't re-hammer mirrors we just lost ----
+    last_fail = _osm_failed_at.get(cache_key)
+    if last_fail is not None and time.time() - last_fail < _OSM_FAIL_COOLDOWN_S:
+        cached = db.osm_get(cache_key)
         if cached and cached.get("segments"):
-            print(f"[road-cache] BUDGET EXCEEDED — using cached data for {cache_key}")
+            print(f"[road-cache] SHORT-CIRCUIT (failed {time.time() - last_fail:.0f}s ago) — serving stale for {cache_key}")
             return cached["segments"]
-        raise Exception(
-            f"Request budget exceeded for this area ({_OSM_REQ_BUDGET_PER_MIN}/min). "
-            f"Try again in a few minutes."
-        )
+        raise Exception("All OSM API endpoints failed.")
 
-    # ---- Cache miss — fetch from Overpass, trying endpoints in order ----
-    print(f"[road-cache] MISS for {cache_key} — fetching from Overpass...")
+    # ---- Single-flight: one fetch per key, N waiters reuse the result ----
+    with _osm_inflight_locks.setdefault(cache_key, threading.Lock()):
+        # A waiter may have filled the cache while we waited for the lock.
+        entry = db.osm_get(cache_key)
+        if entry and entry.get("segments"):
+            print(f"[road-cache] HIT for {cache_key} ({len(entry['segments'])} segments)")
+            return entry["segments"]
 
-    radius_m = int(radius_km * 1000)
+        # ---- Enforce our own client-side rate budget ----
+        if not _osm_enforce_client_rate_limit(cache_key):
+            cached = db.osm_get(cache_key)
+            if cached and cached.get("segments"):
+                print(f"[road-cache] BUDGET EXCEEDED — using cached data for {cache_key}")
+                return cached["segments"]
+            raise Exception(
+                f"Request budget exceeded for this area ({_OSM_REQ_BUDGET_PER_MIN}/min). "
+                f"Try again in a few minutes."
+            )
 
-    # Optimised query: only major road types (not footpaths, service roads,
-    # tracks, etc.) to minimise payload and timeout risk.
-    query = f"""
-    [out:json][timeout:8];
-    (
-      way["highway"~"^(motorway|trunk|primary|secondary|tertiary)(_link)?$"](around:{radius_m},{center_lat},{center_lon});
-    );
-    out body;
-    >;
-    out skel qt;
-    """.strip()
+        # ---- Cache miss — fetch from Overpass, trying endpoints in order ----
+        print(f"[road-cache] MISS for {cache_key} — fetching from Overpass...")
 
-    user_agent = "WildFrame/1.0 (wildfire-risk-assessment; contact@wildframe.example)"
+        radius_m = int(radius_km * 1000)
 
-    contexts_attempted: list = []
+        # Optimised query: exact-tag union (indexed lookups, NOT a regex
+        # scan) restricted to major road types only, to keep payloads small
+        # and avoid Overpass query-timeout rejections.
+        query = f"""
+        [out:json][timeout:15];
+        (
+          way["highway"="motorway"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="motorway_link"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="trunk"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="trunk_link"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="primary"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="primary_link"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="secondary"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="secondary_link"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="tertiary"](around:{radius_m},{center_lat},{center_lon});
+          way["highway"="tertiary_link"](around:{radius_m},{center_lat},{center_lon});
+        );
+        out body;
+        >;
+        out skel qt;
+        """.strip()
 
-    for endpoint in _OSM_API_ENDPOINTS:
-        ep_url = endpoint["url"]
-        ep_type = endpoint["type"]
-        ep_name = ep_url.split("/")[2]
+        user_agent = "WildFrame/1.0 (wildfire-risk-assessment; contact@wildframe.example)"
 
-        try:
-            post_data: Optional[bytes] = None
+        contexts_attempted: list = []
 
-            if ep_type == "overpass":
-                # Overpass API — POST the query as form data. Overpass's own
-                # docs recommend POST for anything beyond trivial queries;
-                # putting the query on the URL (GET) risks length limits and
-                # WAF/proxy rejections (we were seeing 406s from this).
-                post_data = urllib.parse.urlencode({"data": query}).encode("utf-8")
-                url = ep_url
-            else:
-                # Main OSM API — use bbox query. This endpoint returns ALL
-                # data in the bbox (buildings, POIs, everything — not just
-                # roads) and hard-caps at 50,000 nodes, so we deliberately
-                # use a smaller radius here than the caller asked for to
-                # avoid tripping that limit (this is a last-resort fallback,
-                # not an equivalent replacement for Overpass).
-                osmapi_radius_m = min(radius_m, 1500)
-                lat_rad = math.radians(center_lat)
-                dlat = osmapi_radius_m / 6_371_000.0  # radians
-                dlon = osmapi_radius_m / (6_371_000.0 * math.cos(lat_rad))
-                bbox = (
-                    center_lon - math.degrees(dlon),
-                    center_lat - math.degrees(dlat),
-                    center_lon + math.degrees(dlon),
-                    center_lat + math.degrees(dlat),
-                )
-                url = f"{ep_url}?bbox={bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
+        for endpoint in _OSM_API_ENDPOINTS:
+            ep_url = endpoint["url"]
+            ep_type = endpoint["type"]
+            ep_name = ep_url.split("/")[2]
 
-            headers = {"User-Agent": user_agent}
-            if ep_type == "osmapi":
-                headers["Accept"] = "application/xml"
-            else:
-                headers["Accept"] = "application/json"
-            req = urllib.request.Request(url, data=post_data, headers=headers)
+            try:
+                post_data: Optional[bytes] = None
 
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                raw = resp.read()
+                if ep_type == "overpass":
+                    # Overpass API — POST the query as form data. Overpass's
+                    # own docs recommend POST for anything beyond trivial
+                    # queries; putting the query on the URL (GET) risks
+                    # length limits and WAF/proxy rejections (we were seeing
+                    # 406s from this).
+                    post_data = urllib.parse.urlencode({"data": query}).encode("utf-8")
+                    url = ep_url
+                else:
+                    # Main OSM API — use bbox query. This endpoint returns
+                    # ALL data in the bbox (buildings, POIs, everything —
+                    # not just roads) and hard-caps at 50,000 nodes, so we
+                    # deliberately use a smaller radius here than the caller
+                    # asked for to avoid tripping that limit (this is a
+                    # last-resort fallback, not an equivalent replacement
+                    # for Overpass).
+                    osmapi_radius_m = min(radius_m, 1500)
+                    lat_rad = math.radians(center_lat)
+                    dlat = osmapi_radius_m / 6_371_000.0  # radians
+                    dlon = osmapi_radius_m / (6_371_000.0 * math.cos(lat_rad))
+                    bbox = (
+                        center_lon - math.degrees(dlon),
+                        center_lat - math.degrees(dlat),
+                        center_lon + math.degrees(dlon),
+                        center_lat + math.degrees(dlat),
+                    )
+                    url = f"{ep_url}?bbox={bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
 
-            if ep_type == "overpass":
-                # Parse JSON response from Overpass
-                data = json.loads(raw.decode("utf-8"))
+                headers = {"User-Agent": user_agent}
+                if ep_type == "osmapi":
+                    headers["Accept"] = "application/xml"
+                else:
+                    headers["Accept"] = "application/json"
+                req = urllib.request.Request(url, data=post_data, headers=headers)
 
-                # Overpass reports rate-limiting and query errors IN-BAND
-                # via a "remark" field, still with HTTP 200 — it does not
-                # always use a 429 status. Treat this the same as a hard
-                # failure so we fall through to the next endpoint instead
-                # of caching a false "zero roads here" result forever.
-                remark = data.get("remark")
-                if remark:
-                    raise ValueError(f"Overpass remark: {remark}")
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    raw = resp.read()
 
-                nodes: dict[int, tuple[float, float]] = {}
-                for element in data.get("elements", []):
-                    if element["type"] == "node":
-                        nodes[element["id"]] = (element["lat"], element["lon"])
+                if ep_type == "overpass":
+                    # Parse JSON response from Overpass
+                    data = json.loads(raw.decode("utf-8"))
 
-                segment_dicts: list[dict] = []
-                for element in data.get("elements", []):
-                    if element["type"] == "way" and "nodes" in element:
-                        seg = []
-                        for node_id in element["nodes"]:
-                            if node_id in nodes:
-                                seg.append(nodes[node_id])
-                        if len(seg) >= 2:
-                            highway_type = element.get("tags", {}).get("highway", "unknown")
-                            name = element.get("tags", {}).get("name", "")
-                            segment_dicts.append({"coords": seg, "highway": highway_type, "name": name})
+                    # Overpass reports rate-limiting and query errors IN-BAND
+                    # via a "remark" field, still with HTTP 200 — it does not
+                    # always use a 429 status. Treat this the same as a hard
+                    # failure so we fall through to the next endpoint instead
+                    # of caching a false "zero roads here" result forever.
+                    remark = data.get("remark")
+                    if remark:
+                        raise ValueError(f"Overpass remark: {remark}")
 
-                result = [s["coords"] for s in segment_dicts]
-            else:
-                # Parse XML response from main OSM API
-                result = _parse_osm_xml_roads(raw)
+                    nodes: dict[int, tuple[float, float]] = {}
+                    for element in data.get("elements", []):
+                        if element["type"] == "node":
+                            nodes[element["id"]] = (element["lat"], element["lon"])
 
-            # Store in Postgres cache
-            db.osm_set(cache_key, result, time.time())
+                    result: list[list[tuple[float, float]]] = []
+                    for element in data.get("elements", []):
+                        if element["type"] == "way" and "nodes" in element:
+                            seg = []
+                            for node_id in element["nodes"]:
+                                if node_id in nodes:
+                                    seg.append(nodes[node_id])
+                            if len(seg) >= 2:
+                                result.append(seg)
+                else:
+                    # Parse XML response from main OSM API
+                    result = _parse_osm_xml_roads(raw)
 
-            print(f"[road-cache] STORED {cache_key} ({len(result)} segments, endpoint={ep_name})")
-            return result
+                # Never cache an empty result: it can mean the API degraded
+                # (or the area genuinely has no major roads), and freezing
+                # that into the cache would mask future fixes.
+                if not result:
+                    print(f"[road-cache] EMPTY result from {ep_name} for {cache_key} — not cached")
+                    return []
 
-        except urllib.error.HTTPError as e:
-            ctx = f"{ep_name}: HTTP {e.code}"
-            contexts_attempted.append(ctx)
-            print(f"[road-cache] {ctx} for {cache_key}")
+                if ep_type == "osmapi":
+                    # Degraded fallback: it covered a smaller area than the
+                    # caller asked for, so DON'T cache under the requested
+                    # key (that would poison the full-radius cache entry).
+                    # Cache under a scoped 1.5 km key instead.
+                    scoped_key = f"{round(center_lat, 3)},{round(center_lon, 3)},1.5"
+                    db.osm_set(scoped_key, result, time.time())
+                    print(f"[road-cache] STORED {scoped_key} ({len(result)} segments, endpoint={ep_name}) — scoped fallback")
+                    return result
 
-            # A 429 means THIS endpoint is rate-limiting us, not that every
-            # mirror is — move on and try the remaining endpoints instead
-            # of abandoning the whole chain.
-            continue
+                # Full-radius success (Overpass mirror) — cache under the
+                # requested key.
+                db.osm_set(cache_key, result, time.time())
+                print(f"[road-cache] STORED {cache_key} ({len(result)} segments, endpoint={ep_name})")
+                return result
 
-        except urllib.error.URLError as e:
-            ctx = f"{ep_name}: {e.reason}"
-            contexts_attempted.append(ctx)
-            print(f"[road-cache] {ctx} for {cache_key}")
-            continue
+            except urllib.error.HTTPError as e:
+                ctx = f"{ep_name}: HTTP {e.code}"
+                contexts_attempted.append(ctx)
+                print(f"[road-cache] {ctx} for {cache_key}")
+                # A 429 means THIS endpoint is rate-limiting us, not that
+                # every mirror is — move on and try the remaining endpoints
+                # instead of abandoning the whole chain.
+                continue
 
-        except (OSError, ValueError, json.JSONDecodeError) as e:
-            ctx = f"{ep_name}: {e}"
-            contexts_attempted.append(ctx)
-            print(f"[road-cache] {ctx} for {cache_key}")
-            continue
+            except urllib.error.URLError as e:
+                ctx = f"{ep_name}: {e.reason}"
+                contexts_attempted.append(ctx)
+                print(f"[road-cache] {ctx} for {cache_key}")
+                continue
 
-    # ---- All endpoints exhausted — serve stale or raise ----
-    return _serve_stale_or_raise(
-        "All OSM API endpoints failed.",
-        contexts=contexts_attempted,
-    )
+            except (OSError, ValueError, json.JSONDecodeError) as e:
+                ctx = f"{ep_name}: {e}"
+                contexts_attempted.append(ctx)
+                print(f"[road-cache] {ctx} for {cache_key}")
+                continue
 
-
+        # ---- All endpoints exhausted ----
+        # Remember the failure so repeat calls short-circuit during the
+        # cooldown window instead of hammering mirrors that are down.
+        _osm_failed_at[cache_key] = time.time()
+        ctx = " (" + "; ".join(contexts_attempted) + ")" if contexts_attempted else ""
+        entry = db.osm_get(cache_key)
+        if entry and entry.get("segments"):
+            age_s = time.time() - entry.get("stored_at", 0)
+            print(f"[road-cache]{ctx} All endpoints failed — serving stale data "
+                  f"({len(entry['segments'])} segments, {age_s:.0f}s old)")
+            return entry["segments"]
+        raise Exception("All OSM API endpoints failed.")
 @app.route("/api/bayesian/road-risk", methods=["POST"])
 def bayesian_road_risk():
     """
@@ -1626,6 +1894,8 @@ def bayesian_road_risk():
     all_features: list[dict] = []
     grids_without_contour = 0   # fire hasn't crossed contour_level yet
     grids_without_roads = 0     # established fire edge, but 0 roads nearby
+    grids_fetch_failed = 0      # grids whose OSM fetch failed (all endpoints down)
+    first_fetch_error: Optional[str] = None
     max_peak_probability = 0.0  # highest peak prob among no-contour grids —
                                  # helps distinguish "close" from "nowhere near"
 
@@ -1662,9 +1932,15 @@ def bayesian_road_risk():
             try:
                 segments = _fetch_osm_roads(clat, clon, radius_km)
             except Exception as exc:
-                return jsonify({
-                    "error": f"Failed to fetch road data from OpenStreetMap: {exc}",
-                }), 502
+                # One grid's fetch failing (Overpass mirrors down/rate-limited)
+                # shouldn't 502 the whole overlay — log it, skip this grid,
+                # assess the rest. Only a total failure (every grid failed)
+                # returns an error below.
+                grids_fetch_failed += 1
+                if first_fetch_error is None:
+                    first_fetch_error = str(exc)
+                print(f"[road-risk] {key}: OSM fetch failed ({exc}) — skipping grid")
+                continue
 
         # Compute risk for this grid's roads
         risk_results = compute_road_risk(
@@ -1710,6 +1986,16 @@ def bayesian_road_risk():
     # frontend doesn't have to guess between "fire not established yet",
     # "no roads nearby", and (implicitly) "fetch succeeded but was empty".
     empty_reason = None
+    # 502 ONLY when every grid with an established contour failed its fetch
+    # (all mirrors down) — a genuine outage. Grids skipped for having no
+    # contour yet, or that succeeded and simply found no roads, are NOT
+    # failures, so a partial/legitimately-empty result isn't misreported.
+    contoured = len(viewport_items) - grids_without_contour
+    if (not all_features and grids_fetch_failed > 0
+            and grids_fetch_failed == contoured):
+        return jsonify({
+            "error": f"Failed to fetch road data from OpenStreetMap: {first_fetch_error}",
+        }), 502
     if not all_features:
         if grids_without_contour and not grids_without_roads:
             empty_reason = (
@@ -1731,8 +2017,178 @@ def bayesian_road_risk():
             "radius_km": radius_km,
             "grids_without_contour": grids_without_contour,
             "grids_without_roads": grids_without_roads,
+            "grids_fetch_failed": grids_fetch_failed,
             "empty_reason": empty_reason,
         },
+    })
+
+
+AGENCY_API_KEY_HEADER = "X-Agency-Key"
+_warned_missing_agency_key = False
+
+
+def _agency_api_key() -> str:
+    """Shared secret for the agency ingest endpoints.
+
+    Resolution: env ``WILDFRAME_AGENCY_API_KEY`` (from .env) first, then the
+    ``kv_store`` key ``agency_api_key``. ENV WINS — if the env var is set,
+    the kv_store value is ignored (so a runtime rotation via kv_store only
+    takes effect when env is unset; set the env var for a fixed key). Read
+    per-request so kv rotation is otherwise instant.
+    """
+    key = os.environ.get("WILDFRAME_AGENCY_API_KEY") or ""
+    if not key:
+        stored = db.kv_get("agency_api_key") or {}
+        key = stored.get("key") or ""
+    return key
+
+
+def _require_agency_key():
+    """Enforce the shared secret on agency ingest endpoints.
+
+    Fail-open when no key is configured (local dev) — but log a one-time
+    warning so exposing the server publicly without a key is a visible
+    mistake. Once a key is set (env or kv_store), every request must send it
+    in the ``X-Agency-Key`` header; comparison is constant-time.
+    """
+    global _warned_missing_agency_key
+    expected = _agency_api_key()
+    if not expected:
+        if not _warned_missing_agency_key:
+            _warned_missing_agency_key = True
+            logger.warning(
+                "Agency ingest is OPEN (no WILDFRAME_AGENCY_API_KEY set) — "
+                "set one in .env or kv_store before exposing the server publicly."
+            )
+        return None
+    provided = request.headers.get(AGENCY_API_KEY_HEADER, "")
+    if not provided or not hmac.compare_digest(provided, expected):
+        logger.warning(
+            "Agency ingest rejected (bad/missing X-Agency-Key) from %s — "
+            "possible probe or misconfigured client.",
+            request.remote_addr or "unknown",
+        )
+        return jsonify({"error": "invalid or missing X-Agency-Key"}), 401
+    return None
+
+
+@app.route("/api/agencies/ingest", methods=["POST"])
+def agencies_ingest():
+    """Ingest one normalized agency incident (CAP / GeoJSON / GeoRSS adapter
+    output). This is the front door for the government-feed pipeline: a
+    Lambda (push) or a poller job (pull) calls this with a canonical
+    incident dict and gets idempotent, staleness-guarded storage plus
+    Bayesian grid evidence fusion in one shot.
+
+    Auth: when ``WILDFRAME_AGENCY_API_KEY`` (or kv_store ``agency_api_key``)
+    is configured, the request must carry the matching ``X-Agency-Key``
+    header; otherwise the endpoint fails open with a warning (local dev).
+
+    Expected body (all adapter outputs must converge on this shape):
+
+    .. code-block:: json
+
+        {
+          "agency": "gov-cap:meteoalarm",   // CAP sender, or namespaced feed name
+          "incident_id": "cap-2026-0810-004",  // CAP identifier / feed item id
+          "action": "create",               // create | update | cancel | delete
+          "sent_at": "2026-08-10T09:30:00Z", // staleness clock — only newer wins
+          "lat": 51.106,
+          "lon": 18.941,
+          "status": "confirmed",            // optional; create defaults confirmed
+          "source_type": "government",
+          "severity": "Extreme",            // optional, stored in data blob
+          "data": {}                         // optional extra metadata
+        }
+
+    Returns the authoritative stored report (newest version wins) plus
+    ``created``/``stale`` flags and the grid mutation outcome.
+
+    Grid dispatch:
+      - create/update (confirmed) → find-or-create grid at the point and fuse
+        strong positive evidence (Evidence.agency_confirm).
+      - cancel/delete → mark the report ``cancelled``, find the NEAREST
+        EXISTING grid (never create one) and fuse negative evidence
+        (Evidence.agency_cancel), decaying the fire rather than deleting it.
+    """
+    auth_error = _require_agency_key()
+    if auth_error is not None:
+        return auth_error
+
+    data = request.get_json(silent=True) or {}
+    mode = data.get("mode", "production")
+    if mode not in ("production", "demo"):
+        return jsonify({"error": "invalid mode"}), 400
+
+    agency = data.get("agency")
+    incident_id = data.get("incident_id")
+    action = data.get("action", "create")
+    if not agency or not incident_id:
+        return jsonify({"error": "agency and incident_id are required"}), 400
+    if action not in ("create", "update", "cancel", "delete"):
+        return jsonify({"error": f"invalid action: {action}"}), 400
+    if data.get("lat") is None or data.get("lon") is None:
+        return jsonify({"error": "lat and lon are required"}), 400
+
+    # Normalize into the canonical report shape the rest of the system uses.
+    incident = dict(data)
+    incident.setdefault("id", uuid.uuid4().hex)
+    incident.setdefault("source_type", "government")
+    incident.setdefault("sent_at", datetime.now(timezone.utc).isoformat())
+    incident.setdefault("captured_at", incident["sent_at"])
+    if action == "cancel" or action == "delete":
+        incident["status"] = "cancelled"
+    else:
+        # An explicit status (e.g. "pending" from an adapter) is respected;
+        # anything falsy defaults to the high-trust confirmed lane.
+        incident["status"] = incident.get("status") or "confirmed"
+    # Keep the full normalized envelope (including CAP fields like severity)
+    # inside the round-trip data blob so the UI/admin can render it.
+    incident["data"] = incident.get("data") or {}
+    incident["data"]["action"] = action
+    incident["data"]["agency"] = agency
+    incident["data"]["incident_id"] = incident_id
+
+    stored, created, applied = db.upsert_agency_incident(incident, mode)
+
+    # NOTE: ``sent_at`` must live inside the data blob (upsert_agency_incident
+    # stores the full incident dict), because _row_to_report rebuilds the
+    # report from that blob — that's what makes this comparison meaningful.
+    stale = (not created) and stored.get("sent_at") != incident.get("sent_at")
+    duplicate = (not created) and (not applied) and (not stale)
+
+    grid_result = {"fused": False, "grid_id": None}
+    demo = mode == "demo"
+    # Only mutate grid evidence when this message actually changed the row
+    # (applied). A stale (guard-rejected) or duplicate (same sent_at retry)
+    # message must NOT touch the grid: the row is unchanged, so fusing would
+    # double-count evidence (e.g. a redelivered create) or contradict the
+    # stored state (e.g. a stale cancel degrading a confirmed fire).
+    took_effect = applied
+    if took_effect and stored.get("status") == "cancelled":
+        # Never create a grid for a cancel — only fuse into an existing one.
+        grid_id = db.find_grid_near(mode, float(data["lat"]), float(data["lon"]))
+        if grid_id:
+            db.mutate_grid(mode, grid_id, lambda g, _e: g.update(
+                Evidence.agency_cancel(float(data["lat"]), float(data["lon"]))
+            ))
+            grid_result = {"fused": True, "grid_id": grid_id}
+    elif took_effect and stored.get("status") == "confirmed":
+        grid_id, _grid = _find_or_create_grid_for_point(
+            float(data["lat"]), float(data["lon"]), demo=demo,
+        )
+        db.mutate_grid(mode, grid_id, lambda g, _e: g.update(
+            Evidence.agency_confirm(float(data["lat"]), float(data["lon"]))
+        ))
+        grid_result = {"fused": True, "grid_id": grid_id}
+
+    return jsonify({
+        "report": stored,
+        "action": action,
+        "created": created,
+        "stale": stale,
+        "duplicate": duplicate,
+        "grid": grid_result,
     })
 
 
@@ -2485,7 +2941,8 @@ def satellite_firms_fetch():
     db.kv_set("firms_fetch_in_progress", {"at": time.time()})
     db.kv_set("firms_fetch_last_result", None)
     try:
-        _job_app.configure_task(name="firms.fetch").defer(
+        _job_defer(
+            "firms.fetch",
             force=True,
             day_range=int(day_range),
             min_confidence=str(min_confidence),

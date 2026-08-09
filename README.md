@@ -78,8 +78,80 @@ take precedence** — `load_dotenv()` never overrides an existing env var.
 | `NASA_FIRMS_API_KEY` | — | NASA FIRMS hotspot ingestion — free key at <https://firms.modaps.eosdis.nasa.gov/api/map_key/>. `FIRMS_API_KEY` is accepted as an alias. |
 | `ROBOFLOW_API_KEY` | — | optional AI fire/smoke photo scanning — free account at <https://app.roboflow.com/> |
 | `WILDFRAME_ADMIN_SECRET` | `wildframe-admin` | shared secret for the admin dashboard (`/admin.html`, sent as the `X-Admin-Secret` header). **Change it in production!** |
+| `WILDFRAME_S3_BUCKET` | — | S3 bucket for uploaded photos. **When set, accepted photos are stored in S3** (required on PaaS with ephemeral disk); when unset, photos stay on local disk (`uploads/`). |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | AWS credentials for S3 (boto3 default credential chain — an IAM role also works) |
+| `AWS_REGION` | `us-east-1` | Region of the S3 bucket |
+| `WILDFRAME_S3_PUBLIC_URL` | — | optional public base URL for photos (e.g. a CloudFront domain) — defaults to the bucket's S3 URL |
+| `WILDFRAME_S3_PREFIX` | `photos` | object-key prefix inside the bucket |
+| `WILDFRAME_AUTO_APPROVE` | `1` | corroboration-gated auto-approval (see below). Set to `0` to keep every report in the human-review queue |
+| `WILDFRAME_AUTO_APPROVE_FLAME_CONF` | `0.80` | minimum **fire-class** confidence for auto-approval. Flame is the noisy class (false positives up to 0.94 on clean images), so its bar is high |
+| `WILDFRAME_AUTO_APPROVE_SMOKE_CONF` | `0.40` | minimum **smoke-class** confidence for auto-approval. Smoke detections stay precise at low confidence (91.8% precision at 0.40), so its bar is low. Both floors calibrated with `threshold_sweep.py` against the fire dataset |
+
+## Corroboration-gated auto-approval
+
+A positive AI photo verdict is treated as a *suggestion*, not truth: the
+model's confidence is miscalibrated (see `backtest_vision.py` — false
+positives were measured at up to 0.93, higher than the 0.84 scored by a
+real fire). So a report is **never auto-confirmed on photo confidence
+alone**. When `WILDFRAME_AUTO_APPROVE` is enabled (default), a report with
+a positive verdict (`flame` / `smoke` / `both`) is auto-confirmed only
+when **both** of these hold:
+
+- **Its class clears the confidence floor** — `fire_confidence >= 0.80`
+  **or** `smoke_confidence >= 0.40` (flame is the noisy class, smoke is
+  precise at low confidence — calibrated with `threshold_sweep.py`, see
+  the config table for overrides); **and**
+- **An independent source corroborates it:**
+  - **Cluster corroboration** — an already-confirmed report exists within
+    `CLUSTER_RADIUS_M` (500 m) and the cluster time window (2 h). This
+    path accepts a fire when nearby reports already agree even if FIRMS
+    hasn't had a satellite pass yet; or
+  - **Satellite corroboration** — a live FIRMS hotspot is found within
+    3 km / 12 h of the report (the same matcher as the admin dashboard's
+    manual check; fail-closed on API errors).
+
+Auto-approved reports are flagged (`auto_approved`, `approval_source`,
+`approval_class`, `approval_confidence`) and feed the Bayesian grid
+immediately, but stay visible in the **"Recently auto-approved" strip on
+the admin dashboard** (showing the class + confidence that cleared the
+floor), so a human can still reject anywhere the corroboration was wrong.
 
 `.env` is gitignored; only `.env.example` is committed.
+
+## Photo storage (S3)
+
+Uploaded photos are the one piece of state that doesn't live in Postgres.
+They're staged on local disk first (EXIF GPS + AI scan both read from
+disk), then stored in S3 when `WILDFRAME_S3_BUCKET` is set — otherwise
+they stay in local `uploads/` (local dev). `photo_url` on a report is just
+a URL, so the frontend and DB schema need no changes.
+
+**One-time bucket setup** (AWS console / CLI):
+
+```bash
+aws s3 mb s3://wildframe-photos --region us-east-1
+```
+
+Photos are uploaded public-read. If your bucket uses *Bucket owner
+enforced* object ownership (the modern default), object ACLs are rejected
+and you must grant public read via a bucket policy instead:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::wildframe-photos/photos/*"
+  }]
+}
+```
+
+For production, prefer a private bucket + CloudFront (set
+`WILDFRAME_S3_PUBLIC_URL` to the distribution domain) over public reads.
+Rejected reports and admin-rejected photos are deleted from S3
+(`photo_storage.delete_photo`).
 
 ## Demo vs production isolation
 

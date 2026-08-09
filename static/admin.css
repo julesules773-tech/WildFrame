@@ -130,6 +130,23 @@
 .card-no-photo span { font-size: 40px; margin-bottom: 8px; }
 .card-no-photo p { font-size: 13px; }
 
+/* AI certainty badge (overlaid on photo) */
+.ai-badge {
+  position: absolute; bottom: 10px; left: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  cursor: default;
+}
+.ai-fire { background: rgba(249, 115, 22, 0.82); color: #fff; }
+.ai-smoke { background: rgba(148, 163, 184, 0.85); color: #0f172a; }
+.ai-clear { background: rgba(34, 197, 94, 0.85); color: #fff; }
+.ai-review { background: rgba(250, 204, 21, 0.28); color: #fbbf24; border: 1px dashed rgba(251, 191, 36, 0.5); }
+.ai-error { background: rgba(239, 68, 68, 0.85); color: #fff; }
+.ai-unknown { background: rgba(51, 65, 85, 0.85); color: var(--text-secondary); }
+
 /* Info */
 .card-info { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .card-info-row { display: flex; justify-content: space-between; align-items: center; }
@@ -182,6 +199,61 @@
 }
 @keyframes sp-spin { to { transform: rotate(360deg); } }
 
+/* ---------- Recently auto-approved strip ---------- */
+.auto-approved-section {
+  flex-shrink: 0;
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: var(--radius);
+  box-shadow: 0 0 24px rgba(249, 115, 22, 0.06);
+}
+.auto-approved-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.auto-approved-title {
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  letter-spacing: 0.3px;
+}
+.auto-approved-count { font-size: 12px; color: var(--text-muted); }
+.auto-approved-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 220px; overflow-y: auto;
+}
+.auto-approved-list::-webkit-scrollbar { width: 6px; }
+.auto-approved-list::-webkit-scrollbar-track { background: transparent; }
+.auto-approved-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.auto-approved-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: opacity 0.3s ease, background 0.2s ease;
+}
+.auto-approved-row:hover { background: rgba(255, 255, 255, 0.05); }
+.auto-approved-row.cancelled { opacity: 0.6; }
+.auto-approved-row.cancelled .auto-title { text-decoration: line-through; }
+.auto-thumb {
+  width: 48px; height: 48px; border-radius: 8px; overflow: hidden;
+  flex-shrink: 0; background: rgba(255, 255, 255, 0.04);
+  display: flex; align-items: center; justify-content: center;
+}
+.auto-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.auto-no-photo { font-size: 22px; }
+.auto-meta { flex: 1; min-width: 0; }
+.auto-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.auto-sub {
+  font-size: 11.5px; color: var(--text-muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.auto-reject-btn {
+  flex: 0 0 auto; width: auto; padding: 7px 12px;
+  font-size: 12px;
+}
+
 /* ---------- Empty state ---------- */
 .empty-state {
   grid-column: 1 / -1;
@@ -211,8 +283,12 @@
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
   #reports-container { grid-template-columns: 1fr; padding: 12px; }
-  #admin-header { padding: 10px 14px; }
-  .admin-brand-text { font-size: 15px; }
+  #admin-header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; row-gap: 6px; }
+  /* Keep the header on one line: drop the wordmark, keep the shield. */
+  .admin-brand-text { display: none; }
+  .pending-count { padding: 4px 10px; font-size: 12px; }
+  .admin-accept-all-btn { padding: 6px 10px; font-size: 12px; gap: 4px; }
+  .admin-action-btn { width: 34px; height: 34px; font-size: 15px; }
   .card-photo { height: 180px; }
   .login-card { padding: 28px 20px; }
 }

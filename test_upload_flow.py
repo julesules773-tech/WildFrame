@@ -5,7 +5,8 @@ test_upload_flow.py — End-to-end test of the AI photo upload flow.
 Simulates exactly what server.py's create_report() does:
   1. Save uploaded photo to disk
   2. Run AI scan (fire_vision.scan_photo)
-  3. If verdict == "nothing": delete photo, print REJECTED
+  3. If verdict == "nothing": keep photo, create PENDING report (the hosted
+     model can miss borderline fires — never silently discard a photo)
   4. If verdict == flame/smoke/both: create report record, print ACCEPTED
   5. If verdict == "error": create report anyway (fail-open)
 """
@@ -70,12 +71,13 @@ def simulate_upload(image_path: str, expected_verdict: str = None) -> dict:
 
     # Step 3: Decision
     if verdict == "nothing":
-        # REJECT — delete photo
-        saved_path.unlink(missing_ok=True)
-        print(f"  🗑️  NOTHING detected — photo DELETED")
+        # KEEP for human review — do NOT delete the photo. The hosted model
+        # can miss borderline fires (nondeterministic across time), so a
+        # "nothing" scan becomes a pending report for a moderator to judge.
+        print(f"  🤔 NOTHING detected — photo KEPT as pending for review")
         result = {
-            "accepted": False,
-            "reason": "AI detected no fire or smoke",
+            "accepted": True,
+            "reason": "AI detected nothing — kept for human review",
             "ai_analysis": ai_result,
         }
     elif verdict == "error":
@@ -135,9 +137,9 @@ if __name__ == "__main__":
     assert result1["accepted"] == True, "Fire photo should be ACCEPTED"
     report("PASS", "Fire photo accepted")
 
-    # Test 2: Clean nature photo (should be nothing → photo deleted)
+    # Test 2: Clean nature photo (should be nothing → kept as pending review)
     print("\n" + "─" * 60)
-    print("🌲 TEST 2: Clean nature photo (nothing expected)")
+    print("🌲 TEST 2: Clean nature photo (nothing expected → kept for review)")
     print("─" * 60)
     # Find a sample from the backtest
     sample_dir = Path(__file__).parent / "sample_test_images"
@@ -146,8 +148,10 @@ if __name__ == "__main__":
         if samples:
             clean_path = str(samples[0])
             result2 = simulate_upload(clean_path, expected_verdict="nothing")
-            assert result2["accepted"] == False, "Clean photo should be REJECTED"
-            report("PASS", "Clean photo rejected")
+            # A "nothing" verdict is NOT rejected anymore — the photo is kept
+            # as a pending report so a real fire is never silently discarded.
+            assert result2["accepted"] == True, "Clean photo should be KEPT for review"
+            report("PASS", "Clean photo kept for human review")
         else:
             report("FAIL", "No sample images found in sample_test_images/")
     else:
