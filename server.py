@@ -817,6 +817,16 @@ def uploaded_file(filename: str):
     return send_from_directory(str(UPLOAD_DIR), filename)
 
 
+@app.route("/healthz")
+def healthz():
+    """Cheap liveness/readiness probe for the host (PaaS healthchecks)."""
+    try:
+        db.ping()
+        return jsonify({"status": "ok", "db": "ok"}), 200
+    except Exception as exc:
+        return jsonify({"status": "degraded", "db": "error", "detail": str(exc)}), 503
+
+
 @app.route("/")
 def index():
     return send_from_directory(str(STATIC_DIR), "index.html")

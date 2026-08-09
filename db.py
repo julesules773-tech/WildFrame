@@ -1414,3 +1414,10 @@ def set_poller_active(kind: str, active: bool, params: Optional[dict] = None) ->
         stored.update(params)
     stored["active"] = active
     kv_set(f"{kind}_poller", stored)
+
+
+def ping() -> None:
+    """Cheap liveness probe for health checks: round-trips one query through
+    the connection pool (raises on DB outage)."""
+    with _conn() as conn:
+        conn.execute("SELECT 1")

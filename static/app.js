@@ -1003,32 +1003,27 @@
       const regions = this._regions || [];
 
       // --- Draw organic "lava field" heatmap ---
-      // Technique: draw each cell as a soft radial gradient of white alpha,
-      // composited additively ("lighter") so overlapping/adjacent cells
-      // MERGE into continuous blobby shapes instead of a grid of squares.
-      // Then remap the accumulated intensity field through a lava color
-      // ramp per-pixel, so hotter (more certain) regions glow brighter.
+      // Technique: draw each cell as a soft radial gradient whose brightness
+      // IS the cell's absolute probability (t = p), composited with per-
+      // channel max ("lighten") so overlapping/adjacent cells MERGE into
+      // continuous blobby shapes instead of a grid of squares — and so
+      // overlapping cells never sum into a brighter color than their
+      // certainty deserves. Then remap the intensity field through a lava
+      // color ramp per-pixel: hotter (more certain) regions glow brighter.
       //
       // Cells come from potentially several independent grids (one per
       // fire cluster), each with its own cell size / reference latitude,
-      // so pixel radius is computed per-region — but all regions share one
-      // global intensity scale so relative certainty reads consistently
-      // across different fires.
+      // so pixel radius is computed per-region. The color scale is ABSOLUTE
+      // (probability 0..1, matching the "Max prob" stat): yellow is always
+      // low probability, red is always ≥0.6, no matter what else is on
+      // screen or at any zoom level.
       const anyCells = regions.some((r) => r.cells && r.cells.length > 0);
       if (this._showHeatmap && anyCells) {
-        let maxP = this._threshold;
-        for (const region of regions) {
-          for (const cell of region.cells) {
-            if (cell.p > maxP) maxP = cell.p;
-          }
-        }
-        const range = Math.max(maxP - this._threshold, 1e-6);
-
-        // Pass 1: accumulate a grayscale intensity field via additive blobs.
+        // Pass 1: accumulate a grayscale intensity field via per-cell max.
         const accumCanvas = this._getOffscreenCanvas(canvasW, canvasH);
         const accumCtx = accumCanvas.getContext('2d');
         accumCtx.clearRect(0, 0, canvasW, canvasH);
-        accumCtx.globalCompositeOperation = 'lighter';
+        accumCtx.globalCompositeOperation = 'lighten';
 
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
@@ -1045,10 +1040,14 @@
             if (pt.x < -radius || pt.x > canvasW + radius ||
                 pt.y < -radius || pt.y > canvasH + radius) continue;
 
-            const t = Math.min(1, Math.max(0, (p - this._threshold) / range));
+            // Absolute scale: brightness = the cell's true probability.
+            // (Grid probabilities live in 0..1 — bayesian_filter clamps at
+            // PROB_MAX=0.9999 — so 1.0 is the natural "hot" end.)
+            const t = Math.min(1, Math.max(0, p));
+            const v = Math.round(255 * t);
             const grd = accumCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radius);
-            grd.addColorStop(0, `rgba(255,255,255,${0.55 + 0.45 * t})`);
-            grd.addColorStop(1, 'rgba(255,255,255,0)');
+            grd.addColorStop(0, `rgba(${v},${v},${v},1)`);
+            grd.addColorStop(1, 'rgba(0,0,0,1)');
             accumCtx.fillStyle = grd;
             accumCtx.beginPath();
             accumCtx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
@@ -1071,7 +1070,7 @@
         const imgData = blurCtx.getImageData(0, 0, canvasW, canvasH);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
-          const intensity = data[i + 3] / 255; // accumulated alpha channel
+          const intensity = data[i] / 255; // gray channel (max of cells, not summed overlap)
           if (intensity < 0.03) {
             data[i + 3] = 0;
             continue;
@@ -1147,11 +1146,13 @@
 
     /**
      * Certainty color ramp.
-     * Maps probability to a clear yellow→orange→red gradient:
-     *   yellow  = uncertain / low probability
-     *   orange  = moderately certain
-     *   red     = certain / high probability
-     *   deep red = very certain / very high probability
+     * Maps an ABSOLUTE probability (t = p, 0..1) to a fixed
+     * yellow→orange→red→crimson gradient — the same color always means the
+     * same probability, independent of what else is on screen:
+     *   yellow       = low probability  (< 0.3)
+     *   orange       = moderate         (0.3 – 0.6)
+     *   red          = high             (0.6 – 0.85)
+     *   deep crimson = very high        (≥ 0.85)
      */
     _lavaColor: function (t) {
       t = Math.min(1, Math.max(0, t));
@@ -1782,9 +1783,11 @@
   }
 
   function _metaDotColor(p) {
-    if (p >= 0.5) return "#ff1a1a";
-    if (p >= 0.25) return "#ff6600";
-    if (p >= 0.1) return "#ffaa00";
+    // Same absolute stops as the heatmap lava ramp (0.85 / 0.6 / 0.3) so the
+    // low-zoom dots and the full heatmap agree on what a color means.
+    if (p >= 0.85) return "#ff1a1a";
+    if (p >= 0.6) return "#ff6600";
+    if (p >= 0.3) return "#ffaa00";
     return "#ffd633";
   }
 

@@ -474,19 +474,26 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 @keyframes bayesian-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 6px #22d3ee; } 50% { opacity: 0.4; box-shadow: 0 0 14px #22d3ee; } }
 .bayesian-title { font-size: 13px; font-weight: 600; color: #22d3ee; flex: 1; }
 
-/* Legend gradient bar */
+/* Legend gradient bar — ABSOLUTE color scale (see _lavaColor in app.js).
+   Stops at 30% / 60% / 85% are the fixed ramp thresholds 0.3 / 0.6 / 0.85
+   (yellow→orange, orange→red, red→crimson); colors are the ramp's exact
+   piecewise-linear RGB path, so the legend matches the heatmap 1:1. */
 .bayesian-legend { margin-bottom: 10px; }
 .bayesian-legend-gradient {
-  position: relative; height: 8px; margin-bottom: 4px;
-  background: linear-gradient(90deg, transparent 0%, #eab308 20%, #f59e0b 35%, #f97316 50%, #ef4444 70%, #dc2626 100%);
+  position: relative; height: 8px; margin: 4px 12px 16px;
+  background: linear-gradient(90deg,
+    rgb(255, 200, 40) 0%,
+    rgb(255, 140, 0) 30%,
+    rgb(255, 60, 0) 60%,
+    rgb(255, 0, 0) 85%,
+    rgb(255, 0, 40) 100%);
   border-radius: 4px;
 }
 .legend-grad-label {
   position: absolute; top: 12px; font-size: 9px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.5px;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
-.bayesian-legend-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 0; }
-.legend-bar-segment { height: 100%; }
 
 /* Stats */
 .bayesian-stats {

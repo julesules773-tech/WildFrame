@@ -25,7 +25,9 @@ from fire_vision import scan_photo
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-API_KEY = os.environ.get("ROBOFLOW_API_KEY") or "anQm43Si6DlwZMvBM0LC"
+# Key comes ONLY from the environment — never hardcode it in the repo.
+# Run with ROBOFLOW_API_KEY set (see .env.example) or the test skips.
+API_KEY = os.environ.get("ROBOFLOW_API_KEY") or ""
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -125,6 +127,9 @@ def simulate_upload(image_path: str, expected_verdict: str = None) -> dict:
 # Main
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
+    if not API_KEY:
+        print("SKIPPED: ROBOFLOW_API_KEY is not set (see .env.example) — this test needs a live model key.")
+        sys.exit(0)
     print("=" * 60)
     print("🧪 AI UPLOAD FLOW TEST")
     print("=" * 60)

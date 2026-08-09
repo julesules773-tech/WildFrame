@@ -212,17 +212,15 @@
       <span class="bayesian-title">Bayesian Fire Grid</span>
     </div>
     <div class="bayesian-legend">
+      <!-- Absolute color scale: the same probability always maps to the
+           same color (see _lavaColor in app.js). Ticks mark the fixed
+           ramp stops: 0.3 yellow→orange, 0.6 orange→red, 0.85 red→crimson. -->
       <div class="bayesian-legend-gradient">
-        <span class="legend-grad-label" style="left:0">Low</span>
-        <span class="legend-grad-label" style="left:50%">Med</span>
-        <span class="legend-grad-label" style="right:0">High</span>
-      </div>
-      <div class="bayesian-legend-bar">
-        <span class="legend-bar-segment" style="background:#eab308;flex:2"></span>
-        <span class="legend-bar-segment" style="background:#f59e0b;flex:1"></span>
-        <span class="legend-bar-segment" style="background:#f97316;flex:1"></span>
-        <span class="legend-bar-segment" style="background:#ef4444;flex:1"></span>
-        <span class="legend-bar-segment" style="background:#dc2626;flex:2"></span>
+        <span class="legend-grad-label" style="left:0%">0</span>
+        <span class="legend-grad-label" style="left:30%">0.3</span>
+        <span class="legend-grad-label" style="left:60%">0.6</span>
+        <span class="legend-grad-label" style="left:85%">0.85</span>
+        <span class="legend-grad-label" style="left:100%">1</span>
       </div>
     </div>
     <div class="bayesian-stats" id="bayesian-stats">
