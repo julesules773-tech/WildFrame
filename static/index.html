@@ -103,7 +103,6 @@
       </div>
       <div class="card-body">
         <div class="location-status" id="location-status">
-          <span class="loc-icon">📍</span>
           <span id="loc-text">Acquiring GPS…</span>
           <button id="gps-refresh-btn" class="gps-refresh-btn" title="Re-acquire GPS location">
             <span class="refresh-icon">⟳</span>
@@ -121,7 +120,7 @@
         <div class="photo-preview" id="photo-preview">
           <div class="preview-placeholder" id="preview-placeholder">
             <span class="camera-icon">📷</span>
-            <p>Tap to take a photo<br /><small>or select from gallery</small></p>
+            <p>Tap to take a photo</p>
           </div>
           <img id="preview-image" class="hidden" alt="Photo preview" />
         </div>
@@ -199,7 +198,6 @@
         </label>
       </div>
       <div class="bayesian-control-row bayesian-satellite-row">
-      <div class="bayesian-control-row bayesian-satellite-row">
         <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
           <span class="btn-icon">🛰️</span>
           <span>Fetch FIRMS</span>
@@ -215,14 +213,13 @@
         <label class="bayesian-toggle-label" title="Overlay roads colored by fire spread risk">
           <input type="checkbox" id="roadrisk-toggle" />
           <span class="toggle-switch"></span>
-          Road Risk
+          Road Risk (Beta)
         </label>
-        <span class="roadrisk-status" id="roadrisk-status">🛣️ idle</span>
+        <span class="roadrisk-status" id="roadrisk-status">idle</span>
       </div>
     </div>
   </div>
 
-  <!-- ======== Historic Demo Panel ======== -->
 
   <!-- ======== Toast Notifications ======== -->
   <div id="toast-container"></div>
