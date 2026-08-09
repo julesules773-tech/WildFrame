@@ -25,35 +25,14 @@
       <span class="brand-text">WildFrame</span>
     </div>
     <div class="top-actions">
-      <!-- Live / Demo mode switch: demo actions (seed, live demo, historic
-           replay, simulated satellite) only ever touch the demo store, and
-           this toggle tells the map which store to display. -->
-      <div class="mode-switch" id="mode-switch" title="Switch between Live (real reports + FIRMS) and Demo (seed/simulated) data">
-        <button id="mode-live-btn" class="mode-btn mode-live active" title="Show live / operational data only">Live</button>
-        <button id="mode-demo-btn" class="mode-btn mode-demo" title="Show demo / simulated data only">Demo</button>
-      </div>
-      <button id="live-demo-btn" class="live-demo-btn" title="Start live triangulation simulation">
-        <span class="live-icon">▶️</span>
-        <span class="live-text">Live Demo</span>
-      </button>
       <a href="/admin" class="admin-link" title="Admin moderation dashboard">
         <span class="admin-link-icon">🛡️</span>
         <span class="admin-link-text">Admin</span>
       </a>
-      <button id="seed-btn" class="seed-btn" title="Load Greek wildfire test data">
-        <span class="seed-icon">🇬🇷</span>
-        <span class="seed-text">Greece</span>
-      </button>
-      <button id="seed-forest-btn" class="seed-forest-btn" title="Load Yosemite forest fire test data">
-        <span class="seed-forest-icon">🌲</span>
-        <span class="seed-forest-text">Forest</span>
-      </button>
       <button id="bayesian-toggle" class="bayesian-toggle-btn" title="Toggle Bayesian probability heatmap">
         <span class="bayesian-icon">🌀</span>
         <span class="bayesian-text">Bayesian</span>
       </button>
-      <button id="historic-demo-btn" class="historic-demo-btn" title="Replay 2020 Creek Fire with satellite + weather data">
-        <span class="historic-icon">🌲</span>
         <span class="historic-text">Historic</span>
       </button>
       <div class="status-badge" id="status-badge">
@@ -72,11 +51,6 @@
   </header>
 
   <!-- Demo-mode banner (shown while the map displays simulated data) -->
-  <div id="demo-banner" class="hidden">
-    <span class="demo-banner-dot"></span>
-    <span>DEMO MODE — showing simulated / seed data only</span>
-    <button id="demo-banner-close" class="demo-banner-close" title="Switch back to Live mode">&times;</button>
-  </div>
 
   <!-- ======== Stats Panel ======== -->
   <div id="stats-panel">
@@ -111,39 +85,6 @@
     </div>
   </div>
 
-  <!-- ======== Live Demo Panel (triangulation status) ======== -->
-  <div id="live-status" class="live-status hidden">
-    <div class="live-status-header">
-      <span class="live-pulse"></span>
-      <span class="live-status-title">Live Demo — Triangulating…</span>
-      <button id="live-cancel-btn" class="live-cancel-btn" title="Cancel live demo">&times;</button>
-    </div>
-    <div class="live-progress-track">
-      <div id="live-progress-fill" class="live-progress-fill"></div>
-    </div>
-    <div class="live-details">
-      <span id="live-step-info">Step 0 / 6</span>
-      <span id="live-report-count">0 reports</span>
-    </div>
-    <div class="live-triangulation-result hidden" id="live-tri-result">
-      <div class="live-tri-line">
-        <span class="live-tri-label">Fire origin:</span>
-        <span id="live-tri-coords" class="live-tri-value">—</span>
-      </div>
-      <div class="live-tri-line">
-        <span class="live-tri-label">Confidence:</span>
-        <span id="live-tri-confidence" class="live-tri-value">—</span>
-      </div>
-      <div class="live-tri-line">
-        <span class="live-tri-label">Uncertainty:</span>
-        <span id="live-tri-uncertainty" class="live-tri-value">—</span>
-      </div>
-      <div class="live-tri-line">
-        <span class="live-tri-label">Error from true:</span>
-        <span id="live-tri-error" class="live-tri-value">—</span>
-      </div>
-    </div>
-  </div>
 
   <!-- ======== Upload Panel (floating card) ======== -->
   <div id="upload-panel">
@@ -257,16 +198,6 @@
         </label>
       </div>
       <div class="bayesian-control-row bayesian-satellite-row">
-        <button id="satellite-pass-btn" class="satellite-btn" title="Inject a one-time simulated satellite hotspot pass into active fires">
-          <span class="btn-icon">🎲</span>
-          <span>Simulate</span>
-        </button>
-        <label class="bayesian-toggle-label">
-          <input type="checkbox" id="satellite-poller-toggle" />
-          <span class="toggle-switch"></span>
-          Sim Poller
-        </label>
-      </div>
       <div class="bayesian-control-row bayesian-satellite-row">
         <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
           <span class="btn-icon">🛰️</span>
@@ -291,38 +222,6 @@
   </div>
 
   <!-- ======== Historic Demo Panel ======== -->
-  <div id="historic-panel" class="historic-panel hidden">
-    <div class="historic-header">
-      <span class="historic-pulse"></span>
-      <span class="historic-title">Creek Fire — Replay</span>
-      <button id="historic-cancel-btn" class="historic-cancel-btn" title="Cancel replay">&times;</button>
-    </div>
-    <div class="historic-subtitle" id="historic-subtitle">2020 · Sierra National Forest</div>
-    <div class="historic-progress-track">
-      <div id="historic-progress-fill" class="historic-progress-fill"></div>
-    </div>
-    <div class="historic-info">
-      <div class="historic-info-row">
-        <span class="historic-label">Step</span>
-        <span id="historic-step-label" class="historic-value">Day 1 — Initial Detection</span>
-      </div>
-      <div class="historic-info-row">
-        <span class="historic-label">Wind</span>
-        <span id="historic-wind" class="historic-value">2 m/s → W</span>
-      </div>
-      <div class="historic-info-row">
-        <span class="historic-label">Hotspots</span>
-        <span id="historic-hotspot-count" class="historic-value">2</span>
-      </div>
-      <div class="historic-info-row">
-        <span class="historic-label">Fire area</span>
-        <span id="historic-fire-area" class="historic-value">— ha</span>
-      </div>
-    </div>
-    <div class="historic-description" id="historic-description">
-      VIIRS satellite detects first hotspot near Shaver Lake.
-    </div>
-  </div>
 
   <!-- ======== Toast Notifications ======== -->
   <div id="toast-container"></div>

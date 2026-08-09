@@ -102,19 +102,6 @@
     gpsRefreshBtn: $("#gps-refresh-btn"),
     topMenu: $("#top-menu"),
     topMenuBtn: $("#top-menu-btn"),
-    seedBtn: $("#seed-btn"),
-    seedForestBtn: $("#seed-forest-btn"),
-    liveDemoBtn: $("#live-demo-btn"),
-    liveCancelBtn: $("#live-cancel-btn"),
-    liveStatus: $("#live-status"),
-    liveProgressFill: $("#live-progress-fill"),
-    liveStepInfo: $("#live-step-info"),
-    liveReportCount: $("#live-report-count"),
-    liveTriResult: $("#live-tri-result"),
-    liveTriCoords: $("#live-tri-coords"),
-    liveTriConfidence: $("#live-tri-confidence"),
-    liveTriUncertainty: $("#live-tri-uncertainty"),
-    liveTriError: $("#live-tri-error"),
     toastContainer: $("#toast-container"),
   };
 
@@ -1530,6 +1517,10 @@
     }
   }
 
+  /**
+   * FIRMS Live is the default: on boot, sync the toggle with the server's
+   * durable poller state, and start the poller if it isn't already running.
+   */
   async function toggleSatellitePoller(active) {
     // The simulated poller only injects into demo grids.
     if (active && STATE.mode !== "demo") {
@@ -2394,17 +2385,12 @@
   /**
    * The secondary controls that live in the top bar on desktop but collapse
    * into the ⋯ overflow menu on narrow screens. Order matters — it defines
-   * both the menu order (mobile) and the restored order (desktop). The mode
-   * switch stays in the bar on every screen size.
+   * both the menu order (mobile) and the restored order (desktop).
    */
   function _mobileMenuItems() {
     return [
-      document.getElementById("live-demo-btn"),
       document.querySelector(".admin-link"),
-      document.getElementById("seed-btn"),
-      document.getElementById("seed-forest-btn"),
       document.getElementById("bayesian-toggle"),
-      document.getElementById("historic-demo-btn"),
       document.getElementById("status-badge"),
     ];
   }
@@ -2556,43 +2542,6 @@
       });
     }
 
-    // --- Mode switch (Live / Demo) ---
-    const modeLiveBtn = document.getElementById("mode-live-btn");
-    const modeDemoBtn = document.getElementById("mode-demo-btn");
-    if (modeLiveBtn) modeLiveBtn.addEventListener("click", () => setMode("production"));
-    if (modeDemoBtn) modeDemoBtn.addEventListener("click", () => setMode("demo"));
-    const demoBannerClose = document.getElementById("demo-banner-close");
-    if (demoBannerClose) demoBannerClose.addEventListener("click", () => setMode("production"));
-
-    // Apply mode-appropriate button availability on boot
-    setMode(STATE.mode);
-
-    // Seed data buttons
-    if (els.seedBtn) {
-      els.seedBtn.addEventListener("click", seedGreeceData);
-    }
-    if (els.seedForestBtn) {
-      els.seedForestBtn.addEventListener("click", seedForestData);
-    }
-
-    // Live Demo buttons
-    if (els.liveDemoBtn) {
-      els.liveDemoBtn.addEventListener("click", startLiveDemo);
-    }
-    if (els.liveCancelBtn) {
-      els.liveCancelBtn.addEventListener("click", cancelLiveDemo);
-    }
-
-    // --- Historic Demo Button ---
-    const historicBtn = document.getElementById("historic-demo-btn");
-    const historicCancelBtn = document.getElementById("historic-cancel-btn");
-    if (historicBtn) {
-      historicBtn.addEventListener("click", startHistoricDemo);
-    }
-    if (historicCancelBtn) {
-      historicCancelBtn.addEventListener("click", cancelHistoricDemo);
-    }
-
     // --- Bayesian Toggle ---
     const bayesianToggle = document.getElementById("bayesian-toggle");
     if (bayesianToggle) {
@@ -2601,6 +2550,7 @@
       });
     }
 
+    // --- Users-only filter ---
     // --- Bayesian Layer Controls ---
     const heatmapToggle = document.getElementById("bayesian-heatmap-toggle");
     if (heatmapToggle) {
@@ -2635,18 +2585,6 @@
     }
 
     // --- Satellite Controls ---
-    const satellitePassBtn = document.getElementById("satellite-pass-btn");
-    if (satellitePassBtn) {
-      satellitePassBtn.addEventListener("click", simulateSatellitePass);
-    }
-
-    const satellitePollerToggle = document.getElementById("satellite-poller-toggle");
-    if (satellitePollerToggle) {
-      satellitePollerToggle.addEventListener("change", (e) => {
-        toggleSatellitePoller(e.target.checked);
-      });
-    }
-
     // FIRMS fetch button
     const firmsFetchBtn = document.getElementById("firms-fetch-btn");
     if (firmsFetchBtn) {
@@ -2661,6 +2599,7 @@
       });
     }
 
+    // FIRMS Live is the default — sync/start the poller on boot.
     // --- Road Risk Toggle ---
     const roadRiskToggle = document.getElementById("roadrisk-toggle");
     if (roadRiskToggle) {
