@@ -129,6 +129,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 #top-menu .seed-btn,
 #top-menu .seed-forest-btn,
 #top-menu .bayesian-toggle-btn,
+#top-menu .users-only-btn,
 #top-menu .historic-demo-btn,
 #top-menu .admin-link {
   width: 100%;
@@ -157,6 +158,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .admin-link:hover { background: rgba(249, 115, 22, 0.18); border-color: rgba(249, 115, 22, 0.35); color: #fb923c; }
 .admin-link:active { transform: scale(0.97); }
 .admin-link-icon { font-size: 14px; line-height: 1; }
+/* Hidden until the browser holds the admin cookie (set via /admin?key=...).
 
 /* Seed data button */
 .seed-btn {
@@ -562,6 +564,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .bayesian-toggle-btn.active {
   background: rgba(34, 211, 238, 0.18); border-color: #22d3ee;
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+}
+
+.users-only-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(34, 197, 94, 0.10); border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #22c55e; border-radius: 8px; padding: 6px 12px;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: var(--transition); white-space: nowrap;
+}
+.users-only-btn:hover { background: rgba(34, 197, 94, 0.18); border-color: rgba(34, 197, 94, 0.4); color: #4ade80; }
+.users-only-btn:active { transform: scale(0.97); }
+.users-only-btn.active {
+  background: rgba(34, 197, 94, 0.18); border-color: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
 }
 
 /* Satellite controls */

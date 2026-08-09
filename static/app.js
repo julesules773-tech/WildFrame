@@ -43,6 +43,7 @@
       metaSig: "",      // signature of last-rendered dots (skip DOM rebuild when unchanged)
       satellitePollerActive: false,
       firmsPollerActive: false,
+      usersOnly: false,       // hide satellite/Bayesian layers, show user reports only
       roadRiskActive: false,   // road risk overlay toggle state
       roadRiskLayer: null,     // Leaflet GeoJSON layer for road risk
     },
@@ -1521,6 +1522,24 @@
    * FIRMS Live is the default: on boot, sync the toggle with the server's
    * durable poller state, and start the poller if it isn't already running.
    */
+  async function syncFirmsPollerDefault() {
+    try {
+      const res = await fetch("/api/satellite/poller/status");
+      const st = await res.json();
+      const toggle = document.getElementById("firms-poller-toggle");
+      if (st && st.firms_poller_active) {
+        STATE.bayesian.firmsPollerActive = true;
+        if (toggle) toggle.checked = true;
+        _setSatelliteStatus("🛰️ FIRMS live: polling every 10 min", "active");
+      } else {
+        // Nothing running yet — FIRMS Live is the default.
+        await toggleFirmsPoller(true);
+      }
+    } catch (err) {
+      console.warn("FIRMS default sync failed:", err);
+    }
+  }
+
   async function toggleSatellitePoller(active) {
     // The simulated poller only injects into demo grids.
     if (active && STATE.mode !== "demo") {
@@ -1747,6 +1766,10 @@
     if (!STATE.map) return;
     // Skip the DOM rebuild when nothing changed (most 5s polls) — avoids
     // churning hundreds of markers every poll.
+    // Users-only filter hides all satellite-derived overlays — do not even
+    // create the layer, otherwise it would be added straight to the map.
+    if (STATE.bayesian.usersOnly) return;
+
     const sig = (dots || [])
       .map((d) => `${d.id}:${(d.max_p || 0).toFixed(4)}`)
       .join("|");
@@ -1791,6 +1814,9 @@
 
     if (!STATE.map) return;
 
+    // Users-only filter hides all satellite-derived overlays.
+    if (STATE.bayesian.usersOnly) return;
+
     for (let i = 0; i < grids.length; i++) {
       const g = grids[i];
       const region = regions[i];
@@ -1826,6 +1852,58 @@
   }
 
   /**
+   * Add/remove the satellite-derived grid layers (heatmap canvas, low-zoom
+   * meta dots) from the map based on the Bayesian toggle AND the users-only
+   * filter. Wind labels are handled separately (renderGridWindLabels).
+   */
+  function _applyGridLayerVisibility() {
+    if (!STATE.map) return;
+    const showGrid = STATE.bayesian.active && !STATE.bayesian.usersOnly;
+
+    if (STATE.bayesian.heatmapLayer) {
+      if (showGrid) {
+        if (!STATE.map.hasLayer(STATE.bayesian.heatmapLayer)) {
+          STATE.map.addLayer(STATE.bayesian.heatmapLayer);
+        }
+      } else if (STATE.map.hasLayer(STATE.bayesian.heatmapLayer)) {
+        STATE.map.removeLayer(STATE.bayesian.heatmapLayer);
+      }
+    }
+
+    if (STATE.bayesian.metaLayer && STATE.map) {
+      if (showGrid) {
+        if (!STATE.map.hasLayer(STATE.bayesian.metaLayer)) {
+          STATE.map.addLayer(STATE.bayesian.metaLayer);
+        }
+      } else if (STATE.map.hasLayer(STATE.bayesian.metaLayer)) {
+        STATE.map.removeLayer(STATE.bayesian.metaLayer);
+      }
+    }
+  }
+
+  /**
+   * Toggle the "Users only" filter: hides the satellite/FIRMS-derived
+   * Bayesian layers so the map shows just the fires reported by app users
+   * (report markers + clusters).
+   */
+  function toggleUsersOnly(active) {
+    STATE.bayesian.usersOnly = active;
+    const btn = document.getElementById("users-only-toggle");
+    if (btn) btn.classList.toggle("active", active);
+
+    _applyGridLayerVisibility();
+
+    // Wind labels: remove now, and renderGridWindLabels skips re-adding
+    // them while the filter is active.
+    if (active && STATE.map) {
+      for (const m of STATE.bayesian.windLabels) {
+        STATE.map.removeLayer(m);
+      }
+      STATE.bayesian.windLabels = [];
+    }
+  }
+
+  /**
    * Activate/deactivate the Bayesian grid overlay.
    */
   function toggleBayesian(active) {
@@ -1838,12 +1916,7 @@
     if (btn) btn.classList.toggle("active", active);
 
     if (active) {
-      if (STATE.bayesian.heatmapLayer) {
-        STATE.map.addLayer(STATE.bayesian.heatmapLayer);
-      }
-      if (STATE.bayesian.metaLayer && STATE.map) {
-        STATE.map.addLayer(STATE.bayesian.metaLayer);
-      }
+      _applyGridLayerVisibility();
       fetchBayesianState();
 
       // Start polling Bayesian state every 5 seconds
@@ -2391,6 +2464,7 @@
     return [
       document.querySelector(".admin-link"),
       document.getElementById("bayesian-toggle"),
+      document.getElementById("users-only-toggle"),
       document.getElementById("status-badge"),
     ];
   }
@@ -2551,6 +2625,13 @@
     }
 
     // --- Users-only filter ---
+    const usersOnlyToggle = document.getElementById("users-only-toggle");
+    if (usersOnlyToggle) {
+      usersOnlyToggle.addEventListener("click", () => {
+        toggleUsersOnly(!STATE.bayesian.usersOnly);
+      });
+    }
+
     // --- Bayesian Layer Controls ---
     const heatmapToggle = document.getElementById("bayesian-heatmap-toggle");
     if (heatmapToggle) {
@@ -2584,7 +2665,6 @@
       });
     }
 
-    // --- Satellite Controls ---
     // FIRMS fetch button
     const firmsFetchBtn = document.getElementById("firms-fetch-btn");
     if (firmsFetchBtn) {
@@ -2600,6 +2680,8 @@
     }
 
     // FIRMS Live is the default — sync/start the poller on boot.
+    syncFirmsPollerDefault();
+
     // --- Road Risk Toggle ---
     const roadRiskToggle = document.getElementById("roadrisk-toggle");
     if (roadRiskToggle) {
