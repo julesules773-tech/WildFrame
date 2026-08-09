@@ -2557,11 +2557,29 @@
   // -----------------------------------------------------------------------
   // Init
   // -----------------------------------------------------------------------
+  // Show the Admin button only when this browser already proved the admin
+  // key (the server sets an HttpOnly cookie after /admin?key=...).
+  // Fail-closed: the link starts hidden (class in the HTML) and is only
+  // revealed here, so a fetch failure keeps it hidden for everyone.
+  async function _syncAdminVisibility() {
+    try {
+      const res = await fetch("/api/admin/status");
+      const st = await res.json();
+      const link = document.querySelector(".admin-link");
+      if (link) link.classList.toggle("admin-link--hidden", !(st && st.authed));
+    } catch (err) {
+      console.warn("Admin status check failed — keeping Admin button hidden:", err);
+    }
+  }
+
   async function init() {
     STATE.sessionId = getSessionId();
     els.inputSession.value = STATE.sessionId;
 
     _setupTopBarMenu();
+
+    // Show the Admin button only if this browser holds the admin cookie.
+    _syncAdminVisibility();
 
     setStatus("Acquiring GPS…", "pending");
 

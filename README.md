@@ -77,7 +77,7 @@ take precedence** — `load_dotenv()` never overrides an existing env var.
 | `WILDFRAME_DATABASE_URL` | `postgresql:///wildframe` | Postgres/PostGIS connection string |
 | `NASA_FIRMS_API_KEY` | — | NASA FIRMS hotspot ingestion — free key at <https://firms.modaps.eosdis.nasa.gov/api/map_key/>. `FIRMS_API_KEY` is accepted as an alias. |
 | `ROBOFLOW_API_KEY` | — | optional AI fire/smoke photo scanning — free account at <https://app.roboflow.com/> |
-| `WILDFRAME_ADMIN_SECRET` | `wildframe-admin` | shared secret for the admin dashboard (`/admin.html`, sent as the `X-Admin-Secret` header). **Change it in production!** |
+| `WILDFRAME_ADMIN_SECRET` | `wildframe-admin` | shared secret for the admin dashboard. `/admin` returns 404 publicly; visit `/admin?key=<secret>` once to set the login cookie (HttpOnly, 12h), then every admin API still requires the `X-Admin-Secret` header. **Change it in production!** |
 | `WILDFRAME_S3_BUCKET` | — | S3 bucket for uploaded photos. **When set, accepted photos are stored in S3** (required on PaaS with ephemeral disk); when unset, photos stay on local disk (`uploads/`). |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | — | AWS credentials for S3 (boto3 default credential chain — an IAM role also works) |
 | `AWS_REGION` | `us-east-1` | Region of the S3 bucket |

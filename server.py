@@ -9,6 +9,7 @@ Flask server that:
   - Reports clusters via REST API for the Leaflet frontend
 """
 
+import hashlib
 import hmac
 import json
 import logging
@@ -79,7 +80,7 @@ def _job_defer(task_name: str, **kwargs):
                 _job_app_opened = True
     return _job_app.configure_task(name=task_name).defer(**kwargs)
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, redirect
 from werkzeug.utils import secure_filename
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -844,9 +845,61 @@ def _require_admin():
     return True
 
 
+# Cookie proving this browser already validated the admin key. HttpOnly so
+# page JS can't read it; the X-Admin-Secret header check remains the real
+# gate on every admin data endpoint.
+ADMIN_COOKIE = "wf_admin_ok"
+ADMIN_COOKIE_MAX_AGE = 12 * 3600  # 12 hours
+
+
+def _admin_cookie_value() -> str:
+    """Signed cookie value — an HMAC of the admin secret. A plain static
+    value (e.g. "1") would be forgeable: any visitor could set
+    ``document.cookie = "wf_admin_ok=1"`` from the same-origin map page and
+    the /admin gate would open for them. Signing keeps the gate honest
+    without putting the secret itself in the cookie."""
+    return hmac.new(ADMIN_SECRET.encode(), b"wf-admin-page", hashlib.sha256).hexdigest()
+
+
 @app.route("/admin")
 def admin_page():
-    return send_from_directory(str(STATIC_DIR), "admin.html")
+    """Serve the admin dashboard only to browsers that proved the secret.
+
+    The page itself is a login shell — every admin data endpoint still
+    requires the X-Admin-Secret header — but gating the page keeps the
+    admin surface undiscoverable on a public deployment:
+
+      * /admin            -> 404 unless the signed wf_admin_ok cookie is present
+      * /admin?key=<sec>  -> constant-time-compares the key, sets the
+                             HttpOnly cookie, redirects to /admin (so the
+                             key leaves the address bar)
+
+    The key only ever appears in the operator's own request (it is logged
+    once by the server for that single redirect request).
+    """
+    if request.cookies.get(ADMIN_COOKIE) == _admin_cookie_value():
+        return send_from_directory(str(STATIC_DIR), "admin.html")
+
+    key = request.args.get("key", "")
+    if key and hmac.compare_digest(key, ADMIN_SECRET):
+        resp = redirect("/admin", code=302)
+        resp.set_cookie(
+            ADMIN_COOKIE, _admin_cookie_value(),
+            max_age=ADMIN_COOKIE_MAX_AGE, httponly=True, samesite="Lax",
+            secure=request.is_secure,
+        )
+        return resp
+
+    return jsonify({"error": "Not found"}), 404
+
+
+@app.route("/api/admin/status", methods=["GET"])
+def admin_status():
+    """Public: does this browser hold the admin cookie? The frontend calls
+    this on boot to decide whether to show the Admin button. Deliberately
+    not secret-gated — it only reveals whether the visitor already proved
+    the key (button stays hidden otherwise, fail-closed)."""
+    return jsonify({"authed": request.cookies.get(ADMIN_COOKIE) == _admin_cookie_value()})
 
 
 @app.route("/api/admin/pending", methods=["GET"])

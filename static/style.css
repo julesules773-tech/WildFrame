@@ -159,6 +159,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .admin-link:active { transform: scale(0.97); }
 .admin-link-icon { font-size: 14px; line-height: 1; }
 /* Hidden until the browser holds the admin cookie (set via /admin?key=...).
+   Fail-closed: the button stays hidden unless /api/admin/status confirms. */
+.admin-link--hidden { display: none !important; }
 
 /* Seed data button */
 .seed-btn {
@@ -566,6 +568,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
 }
 
+/* Users-only filter button in top bar */
 .users-only-btn {
   display: flex; align-items: center; gap: 6px;
   background: rgba(34, 197, 94, 0.10); border: 1px solid rgba(34, 197, 94, 0.25);
