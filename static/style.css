@@ -40,7 +40,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-icon { font-size: 24px; }
-.brand-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #f97316, #ef4444); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.brand-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #7c7c72, #eee9e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .top-actions { display: flex; align-items: center; gap: 12px; }
 
 /* ---------- Live / Demo Mode Switch ---------- */
