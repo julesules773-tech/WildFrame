@@ -12,6 +12,7 @@
 # Database: Neon (managed Postgres WITH PostGIS) — see DEPLOY.md.
 
 app = "wildframe"
+primary_region = "iad"   # near the Neon DB (us-east-1) to minimize API→DB latency
 
 # Each gunicorn worker imports numpy (bayesian_filter) + psycopg pool;
 # 256 MB default is too tight for 2 workers — use 512 MB.
