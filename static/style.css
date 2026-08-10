@@ -403,6 +403,12 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   transition: transform 0.2s ease; border: 2px solid rgba(255,255,255,0.2);
 }
 .cluster-marker:hover { transform: scale(1.1); }
+
+/* Low-zoom fire dots are clickable (beta users expected buttons) — give
+   them a pointer cursor and a soft hover glow so the affordance is clear. */
+.fire-meta-dot { cursor: pointer; }
+.fire-meta-dot:hover { filter: brightness(1.45) drop-shadow(0 0 6px rgba(255, 120, 40, 0.9)); }
+.fire-meta-dot:active { filter: brightness(1.7) drop-shadow(0 0 10px rgba(255, 120, 40, 1)); }
 .cluster-marker.level-1 { width: 24px; height: 24px; font-size: 9px; background: #eab308; box-shadow: 0 0 16px rgba(234, 179, 8, 0.4); }
 .cluster-marker.level-2 { width: 32px; height: 32px; font-size: 11px; background: #f97316; box-shadow: 0 0 20px rgba(249, 115, 22, 0.5); }
 .cluster-marker.level-3 { width: 42px; height: 42px; font-size: 13px; background: #ef4444; box-shadow: 0 0 28px rgba(239, 68, 68, 0.6); }

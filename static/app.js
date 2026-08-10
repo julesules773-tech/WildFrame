@@ -1801,14 +1801,94 @@
     for (const d of capped) {
       const p = d.max_p || 0;
       if (p < threshold) continue;
-      L.circleMarker([d.lat, d.lon], {
+      // Clickable: beta users expected the dots to be buttons — they now
+      // are. Clicking zooms into the fire and opens a summary popup.
+      const dot = L.circleMarker([d.lat, d.lon], {
         radius: 3 + Math.min(15, p * 130),
         color: "#ffffff",
         weight: 1,
         fillColor: _metaDotColor(p),
         fillOpacity: 0.85,
-      }).addTo(STATE.bayesian.metaLayer);
+        className: "fire-meta-dot",
+        // Don't bubble the click to the map — the map's closePopupOnClick
+        // would close the just-opened popup before the user sees it.
+        bubblingMouseEvents: false,
+      });
+      dot.on("click", () => openFireDotPopup(d));
+      dot.addTo(STATE.bayesian.metaLayer);
     }
+  }
+
+  /**
+   * Approximate great-circle distance in kilometres (Haversine).
+   */
+  function _latLonKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /**
+   * Open a summary popup for a low-zoom fire dot and zoom the map into it.
+   *
+   * The meta payload only carries grid metadata (peak probability, wind),
+   * so the popup enriches it with what the client already knows: reports
+   * near the fire (count + source types) corroborate whether this is a
+   * citizen/agency-reported fire or a purely satellite (FIRMS) detection.
+   *
+   * The popup is a STANDALONE map popup (not bound to the dot) because
+   * zooming to full detail immediately clears the meta-dot layer — a bound
+   * popup would be destroyed with it.
+   */
+  function openFireDotPopup(d) {
+    if (!STATE.map) return;
+
+    const p = Math.min(1, Math.max(0, d.max_p || 0));
+    const pct = Math.round(p * 100);
+    const color = _metaDotColor(p);
+
+    // Reports within ~3 km (matches the FIRMS corroboration radius) tell us
+    // the fire's sources and how many people reported it. Only CONFIRMED
+    // reports corroborate a fire — pending ones are still in review.
+    const nearby = (STATE.reports || []).filter((r) =>
+      r.status === "confirmed" && _latLonKm(d.lat, d.lon, r.lat, r.lon) <= 3
+    );
+    const sources = [...new Set(nearby.map((r) => (r.source_type || "citizen")))];
+
+    const windSpeed = d.wind_speed != null ? d.wind_speed : 3.0;
+    const windDir = d.wind_dir_deg != null ? d.wind_dir_deg : 270.0;
+
+    const html = `
+      <div class="popup-title">🔥 Active Fire</div>
+      <div style="margin-top:4px"><span class="popup-label">Probability:</span>
+        <span style="color:${color};font-weight:700">${pct}%</span></div>
+      <div><span class="popup-label">Source:</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
+      <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
+      <div><span class="popup-label">Wind:</span> ${windSpeed.toFixed(1)} m/s ${_windDirLabel(windDir)}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
+      <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">🔍 Zooming in…</div>
+    `;
+
+    // autoPan: false — we're already flying to the fire; auto-panning on
+    // open would fight the flyTo animation.
+    L.popup({ maxWidth: 280, autoPan: false })
+      .setLatLng([d.lat, d.lon])
+      .setContent(html)
+      .openOn(STATE.map);
+
+    // Fly in so the full heatmap + reports render (above the meta-dot LOD).
+    const targetZoom = Math.max(STATE.map.getZoom(), 10);
+    STATE.map.flyTo([d.lat, d.lon], targetZoom, { duration: 0.8 });
+
+    // The map only re-fetches grid state on its 5s poll; nudge it so the
+    // full-detail heatmap appears as soon as the flyTo lands.
+    setTimeout(() => {
+      if (STATE.bayesian.active) fetchBayesianState();
+    }, 900);
   }
 
   function _metaDotColor(p) {
