@@ -840,6 +840,12 @@ def contact_page():
     return send_from_directory(str(STATIC_DIR), "contact.html")
 
 
+@app.route("/privacy")
+def privacy_page():
+    """Public privacy policy page."""
+    return send_from_directory(str(STATIC_DIR), "privacy.html")
+
+
 # ---------------------------------------------------------------------------
 # Admin Helpers & Routes
 # ---------------------------------------------------------------------------

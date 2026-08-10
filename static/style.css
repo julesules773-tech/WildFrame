@@ -165,18 +165,18 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
    Fail-closed: the button stays hidden unless /api/admin/status confirms. */
 .admin-link--hidden { display: none !important; }
 
-/* Contact / partnerships link (public — always visible) */
-.contact-link {
+/* Contact / partnerships + privacy links (public — always visible) */
+.contact-link, .privacy-link {
   display: flex; align-items: center; gap: 6px;
   background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.22);
   color: #7dd3fc; border-radius: 8px; padding: 6px 10px;
   font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
   transition: var(--transition); white-space: nowrap;
 }
-.contact-link:hover { background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.4); color: #bae6fd; }
-.contact-link:active { transform: scale(0.97); }
+.contact-link:hover, .privacy-link:hover { background: rgba(56, 189, 248, 0.18); border-color: rgba(56, 189, 248, 0.4); color: #bae6fd; }
+.contact-link:active, .privacy-link:active { transform: scale(0.97); }
 .contact-link-icon { font-size: 14px; line-height: 1; }
-#top-menu .contact-link {
+#top-menu .contact-link, #top-menu .privacy-link {
   width: 100%;
   justify-content: flex-start;
   font-size: 13px;

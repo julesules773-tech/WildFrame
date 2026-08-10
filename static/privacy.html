@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyrae — Privacy Policy</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/contact.css" />
+</head>
+<body class="contact-page privacy-page">
+
+  <!-- ======== Header ======== -->
+  <header class="contact-header">
+    <div class="contact-brand">
+      <span class="brand-icon">🔥</span>
+      <span class="contact-brand-text">Pyrae</span>
+      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+    </div>
+    <a href="/" class="contact-back" title="Back to the live map">
+      <span class="contact-back-icon">←</span>
+      <span>Back to map</span>
+    </a>
+  </header>
+
+  <main class="contact-main">
+
+    <!-- ======== Hero ======== -->
+    <section class="hero">
+      <p class="hero-eyebrow">PRIVACY POLICY</p>
+      <h1 class="hero-title">Privacy <span class="hero-accent">Policy</span></h1>
+      <p class="hero-sub">
+        Last updated: <strong>[Date]</strong>. This policy explains what
+        Pyrae collects, why we collect it, and how it is stored, shared, and
+        protected.
+      </p>
+    </section>
+
+    <!-- ======== What we collect ======== -->
+    <section class="section">
+      <h2 class="section-title">1. What we collect</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">📸</div>
+          <h3>Photos</h3>
+          <p>Images you upload when reporting a possible fire. Photos are used to verify and screen reports, and confirmed reports may appear publicly on the map.</p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">📍</div>
+          <h3>Location</h3>
+          <p>GPS coordinates of your report (from your device or the photo's metadata). We use them to place the fire on the map and model its spread.</p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🕒</div>
+          <h3>Time &amp; device data</h3>
+          <p>When the photo was taken, your device's reported heading (if available), and an anonymous session identifier used to group your uploads.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== How we use it ======== -->
+    <section class="section">
+      <h2 class="section-title">2. How we use your data</h2>
+      <ul class="audience-list">
+        <li><b>Fire detection &amp; mapping</b> — to place reports on the live map and confirm incidents.</li>
+        <li><b>AI screening</b> — photos are analysed by a computer-vision model to detect visible fire and smoke.</li>
+        <li><b>Satellite corroboration</b> — report locations are cross-checked against NASA FIRMS satellite hotspot data.</li>
+        <li><b>Risk modelling</b> — locations and timestamps feed our Bayesian spread and road-risk estimates.</li>
+      </ul>
+    </section>
+
+    <!-- ======== Storage & retention ======== -->
+    <section class="section">
+      <h2 class="section-title">3. Where data is stored &amp; how long</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">☁️</div>
+          <h3>Storage</h3>
+          <p>Photos are stored in Amazon S3 (us-east-1). Reports and map data are stored in a managed PostgreSQL database (Neon, us-east-1).</p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">⏳</div>
+          <h3>Retention</h3>
+          <p>Reports remain visible on the public map for 48 hours. Records are kept longer for safety, moderation, and verification purposes; rejected reports and their photos are deleted.</p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🔐</div>
+          <h3>Access</h3>
+          <p>All traffic is served over HTTPS. Moderator actions (accept/reject) are protected by an access-controlled admin interface.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== Sharing ======== -->
+    <section class="section">
+      <h2 class="section-title">4. Sharing</h2>
+      <ul class="audience-list">
+        <li><b>Public map</b> — confirmed incidents (including the photo and location) are shown publicly to help others.</li>
+        <li><b>Service providers</b> — we share limited data with the processors that power the service: Roboflow (AI photo analysis), NASA FIRMS (satellite data), and Open-Meteo (weather).</li>
+        <li><b>No sale</b> — we do not sell your personal data.</li>
+        <li><b>Legal</b> — we may disclose data where required by law or to protect safety.</li>
+      </ul>
+    </section>
+
+    <!-- ======== Contact ======== -->
+    <section class="section contact-section">
+      <h2 class="section-title">5. Your choices &amp; contact</h2>
+      <p class="contact-lead">
+        You can request deletion of a report, ask questions about this
+        policy, or reach our data protection contact:
+      </p>
+      <div class="contact-actions">
+        <a class="contact-btn contact-btn--primary"
+           href="mailto:contact@pyrae.example?subject=Privacy%20request">
+          ✉️ &nbsp;Email us
+        </a>
+        <a class="contact-btn contact-btn--secondary" href="/">
+          🔥 &nbsp;Explore the live map
+        </a>
+      </div>
+      <div class="contact-details">
+        <div class="contact-detail">
+          <span class="contact-detail-label">Email</span>
+          <span class="contact-detail-value">contact@pyrae.example</span>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-detail-label">Entity</span>
+          <span class="contact-detail-value">[Your legal entity / name]</span>
+        </div>
+        <div class="contact-detail">
+          <span class="contact-detail-label">Effective date</span>
+          <span class="contact-detail-value">[Date]</span>
+        </div>
+      </div>
+      <p class="contact-lead" style="margin-top: 20px; font-size: 13px; opacity: 0.75;">
+        <!-- TODO: review with legal counsel before public launch. Placeholders to fill: [Date], [Your legal entity / name], and the contact email above. -->
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="contact-footer">
+    <span class="contact-footer-brand">🔥 Pyrae</span>
+  </footer>
+
+</body>
+</html>
