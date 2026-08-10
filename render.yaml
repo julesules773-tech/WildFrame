@@ -1,0 +1,63 @@
+# Render Blueprint — WildFrame
+# Deploys two always-on services from this repo:
+#   - web:     gunicorn serving the Flask API + static map UI
+#   - worker:  Procrastinate job worker (FIRMS fetch, grid advance, weather,
+#              satellite passes — must be running or the map goes stale)
+#
+# Database: use NEON (managed Postgres WITH PostGIS) — Render's own managed
+# Postgres does not support the PostGIS extension this app requires.
+# See DEPLOY.md for the full walkthrough.
+
+services:
+  # ── Web (public API + UI) ─────────────────────────────────────────────
+  - type: web
+    name: wildframe
+    runtime: python
+    plan: starter          # always-on instance (free instances sleep = dead map)
+    pythonVersion: 3.12.0
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120 --access-logfile -
+    healthCheckPath: /healthz
+    envVars:
+      - key: WILDFRAME_DATABASE_URL        # Neon connection string, e.g. postgresql://user:pw@ep-...us-east-1.aws.neon.tech/wildframe?sslmode=require
+        sync: false
+      - key: NASA_FIRMS_API_KEY
+        sync: false
+      - key: ROBOFLOW_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: WILDFRAME_S3_BUCKET
+        sync: false
+      - key: WILDFRAME_ADMIN_SECRET
+        sync: false
+      - key: WILDFRAME_AGENCY_API_KEY
+        sync: false
+
+  # ── Worker (periodic jobs) ────────────────────────────────────────────
+  - type: worker
+    name: wildframe-worker
+    runtime: python
+    plan: starter          # always-on — runs the minute-by-minute jobs
+    pythonVersion: 3.12.0
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    envVars:
+      - key: WILDFRAME_DATABASE_URL
+        sync: false
+      - key: NASA_FIRMS_API_KEY
+        sync: false
+      - key: ROBOFLOW_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: WILDFRAME_S3_BUCKET
+        sync: false
+      - key: WILDFRAME_ADMIN_SECRET
+        sync: false
+      - key: WILDFRAME_AGENCY_API_KEY
+        sync: false
