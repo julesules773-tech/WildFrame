@@ -67,7 +67,12 @@ def _get_pool() -> ConnectionPool:
             min_size=1,
             max_size=10,
             open=False,
-            kwargs={"row_factory": dict_row},
+            kwargs={
+                "row_factory": dict_row,
+                # Fail fast on dead DB so PaaS health checks (e.g. Fly's
+                # 3 s probe) get a 503 instead of a ~10 s hang.
+                "connect_timeout": 5,
+            },
         )
         _pool.open()
         _pool.wait(timeout=10.0)

@@ -1,21 +1,24 @@
-# Deployment — Render (web + worker) + Neon (PostGIS database)
+# Deployment — Fly.io (web + worker) + Neon (PostGIS database)
 
 WildFrame is an **always-on Flask + Postgres/PostGIS + background-worker** app,
 so it cannot run on serverless hosts (Vercel, etc.). This guide deploys it on
-**Render** (two persistent services: `web` + `worker`) with a **Neon** Postgres
-database that has the **PostGIS** extension (Render's own managed Postgres does
-*not* support PostGIS, which is why we use Neon).
+**Fly.io** as two process groups in one Docker image:
+- **web** — gunicorn (`server:app`), public HTTP
+- **worker** — Procrastinate job worker (`python worker.py`), always-on
 
-Estimated time: ~25 minutes. Cost: ~$14–26/mo (two Render starter instances +
-Neon free tier).
+The database is **Neon** (managed Postgres with the **PostGIS** extension).
+
+Estimated time: ~30 minutes. Cost: Fly free allowance then ~$3–6/mo per
+machine (web + worker), plus Neon's free tier.
 
 ---
 
 ## 0. Prerequisites
 
-- This repo pushed to GitHub (Render deploys from git).
-- Your existing `.env` values handy (S3 keys, NASA FIRMS key, Roboflow key,
-  admin secret, agency key) — you'll paste them into Render once.
+- Docker installed (Fly builds your image locally with `fly deploy`).
+- `flyctl` installed: `brew install flyctl`, then `fly auth login`.
+- Your existing `.env` values handy (S3 keys, NASA FIRMS, Roboflow, admin
+  secret, agency key) — you'll set them as Fly secrets.
 
 ## 1. Create the database on Neon
 
@@ -24,15 +27,14 @@ Neon free tier).
    ```sql
    CREATE EXTENSION IF NOT EXISTS postgis;
    ```
-3. Copy the **connection string** from *Dashboard → Connection Details* (use
-   the `psql`/driver string, **not** the pooled one) and append
-   `?sslmode=require`:
+3. Copy the **connection string** (*Dashboard → Connection Details*, the
+   non-pooled driver string) and append `?sslmode=require`:
    ```
    postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.tech/wildframe?sslmode=require
    ```
-4. **Important:** open *Project settings → Compute* and set **Auto-suspend to 0
-   (never)**. Otherwise Neon scales the DB to zero after 5 min idle and the
-   worker's per-minute jobs will hit cold starts.
+4. **Important:** *Project settings → Compute* → set **Auto-suspend to 0
+   (never)**. Otherwise Neon scales to zero after 5 min idle and the worker's
+   per-minute jobs hit cold starts.
 
 ## 2. Create the schema (run once, from your machine)
 
@@ -43,71 +45,85 @@ WILDFRAME_DATABASE_URL='postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.te
 ```
 
 This creates the WildFrame tables (reports, clusters, bayesian_grids,
-osm_road_cache, …) **and** the Procrastinate job-queue tables. It's idempotent —
+osm_road_cache, …) **and** the Procrastinate job-queue tables. Idempotent —
 safe to re-run.
 
-> ℹ️ `migrate.py` prints the PostGIS hint — you already ran
-> `CREATE EXTENSION postgis` in step 1, so ignore it.
+## 3. Create the Fly app
 
-## 3. Deploy to Render
+```bash
+cd /Users/julianuhres/WildFrame
+fly apps create wildframe     # pick a unique name and update `app` in fly.toml if taken
+```
 
-1. Sign up at <https://render.com> → **New → Blueprint** → connect the GitHub repo.
-2. Render detects `render.yaml` and creates two services:
-   - **wildframe** (web) — `gunicorn server:app`
-   - **wildframe-worker** (worker) — `python worker.py`
-3. Render will prompt for the `sync: false` env vars. Paste the **same values in
-   both services** (Render's "Environment Groups" are the easiest way):
+## 4. Set secrets
 
-   | Key | Value |
-   |---|---|
-   | `WILDFRAME_DATABASE_URL` | Neon string from step 1 |
-   | `NASA_FIRMS_API_KEY` | from your `.env` |
-   | `ROBOFLOW_API_KEY` | from your `.env` |
-   | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | from your `.env` |
-   | `WILDFRAME_S3_BUCKET` | `photo-hold-542489917871-us-east-1-an` |
-   | `WILDFRAME_ADMIN_SECRET` | from your `.env` |
-   | `WILDFRAME_AGENCY_API_KEY` | from your `.env` |
+```bash
+fly secrets set \
+  WILDFRAME_DATABASE_URL='postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.tech/wildframe?sslmode=require' \
+  NASA_FIRMS_API_KEY='your-key' \
+  ROBOFLOW_API_KEY='your-key' \
+  AWS_ACCESS_KEY_ID='your-key' \
+  AWS_SECRET_ACCESS_KEY='your-secret' \
+  WILDFRAME_ADMIN_SECRET='your-secret' \
+  WILDFRAME_AGENCY_API_KEY='your-secret'
+```
 
-4. Hit **Apply**. Both services build and start.
+(`WILDFRAME_S3_BUCKET` is already set in `fly.toml` — it's not a credential.)
 
-## 4. Verify
+## 5. Deploy
 
-- Open the web service URL → `GET /healthz` should return `200`.
-- The map should load, FIRMS fires should appear, and within a minute the worker
-  logs should show `firms.fetch` / `grids.advance` / weather sweep activity.
+```bash
+fly deploy
+```
+
+Fly builds the image (a few minutes the first time), then starts **two
+machines** — one `web`, one `worker`. `fly deploy` again after every push.
+
+## 6. Verify
+
+- `fly open` → the map should load; `https://<app>.fly.dev/healthz` → `200`.
+- `fly logs` → the **worker** log should show `firms.fetch`, `grids.advance`,
+  and weather sweep activity within a minute (that's the proof the worker is
+  alive and the DB is reachable).
 - Upload a test photo → it should be scanned (Roboflow) and stored in S3
-  (uploads go to S3 automatically because `WILDFRAME_S3_BUCKET` is set — no
-  persistent disk needed on Render).
-- Test the agency ingest endpoint with your key:
+  (no persistent disk needed — `WILDFRAME_S3_BUCKET` routes uploads to S3).
+- Test the agency ingest endpoint:
   ```bash
-  curl -s -X POST https://<your-app>.onrender.com/api/agencies/ingest \
+  curl -s -X POST https://<app>.fly.dev/api/agencies/ingest \
     -H "Content-Type: application/json" -H "X-Agency-Key: <your key>" \
     -d '{"agency":"gov-test","incident_id":"deploy-check","action":"create","lat":51.1,"lon":18.9,"sent_at":"2026-08-10T12:00:00Z"}'
   ```
 
-## 5. Operational notes
+## 7. Operational notes
 
-- **Both services must stay up.** The worker is what fetches FIRMS hotspots,
-  advances the fire grid, and refreshes wind every minute. Render's *free*
-  instances sleep after inactivity — that's why this blueprint uses `starter`.
-- **Secrets:** `.env` is gitignored and never deployed; all secrets live in
-  Render's dashboard.
-- **Photos:** stored in S3 via boto3 (lazy-imported — no heavy deps).
-- **Open-Meteo:** the free tier is non-commercial; for a public beta, switch to
+- **Both processes must run.** The worker drives FIRMS fetches, grid advance,
+  and wind refresh every minute. Fly machines don't sleep, so a starter
+  `shared-cpu-1x` machine per process is enough.
+- **The worker is the CPU-heavy one** (grid advance over ~780 grids). If it
+  gets slow: `fly scale memory 1024` (or split sizing per process later).
+- **Scaling:** `fly scale count 2 -p web` to add web machines; `fly scale show`
+  to inspect.
+- **Secrets:** never in the repo — `fly secrets set` encrypts them per-app.
+- **Photos:** S3 via boto3 (lazy-imported — no heavy deps in the image).
+- **Open-Meteo:** the free tier is non-commercial; for a public beta switch to
   the paid Standard plan ($29/mo) — it also lifts the ~9,500 calls/day cap.
+- **Logs:** `fly logs` (worker + web); the gunicorn access log goes to stdout
+  (`--access-logfile -`).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Web starts, then 500s on map data | DB not migrated — re-run step 2, or the Neon `sslmode=require` is missing from the URL |
-| No fires appearing | Worker not running or `NASA_FIRMS_API_KEY` empty — check worker logs |
-| Grid shows default wind 3.0/270° | Open-Meteo budget exhausted or DB auto-suspend — check `[weather]` log lines |
-| `psycopg` SSL error | Ensure the connection string ends in `?sslmode=require` |
+| Web starts, 500s on map data | DB not migrated — re-run step 2, or the Neon `sslmode=require` is missing from the secret |
+| No fires / no grid advance | Worker not running — `fly logs`; check `NASA_FIRMS_API_KEY` secret |
+| Wind stuck at 3.0/270° | Open-Meteo budget exhausted or Neon auto-suspend — check `[weather]` log lines |
+| `psycopg` SSL error | Connection string must end in `?sslmode=require` |
+| Port clash / no HTTP | `internal_port` in fly.toml must match gunicorn's `--bind` port (8080) |
 
-## Switching hosts (alternatives)
+## Alternatives
 
-- **Fly.io** — same Neon DB; write a `Dockerfile` + `fly.toml` with two
-  `processes:` (web: `gunicorn server:app`; worker: `python worker.py`).
-- **Hetzner VPS** — install Postgres + `postgis` via apt, systemd units for
-  gunicorn + worker, nginx + TLS. Cheapest at scale, most manual.
+- **Render** — a complete blueprint (`render.yaml`, web + worker, health
+  check) is preserved in git history: `git show 92894b5:render.yaml > render.yaml`.
+  Same Neon DB; two always-on `starter` instances (~$14–26/mo).
+- **Hetzner VPS** — cheapest at scale (~€4–8/mo for everything), most manual:
+  apt Postgres + `postgis`, systemd units for gunicorn + worker, nginx + TLS.

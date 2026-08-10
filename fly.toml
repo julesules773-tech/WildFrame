@@ -1,0 +1,59 @@
+# fly.toml — WildFrame on Fly.io
+#
+# One image (see Dockerfile), two process groups:
+#   web    = gunicorn — public HTTP API + map UI
+#   worker = Procrastinate job worker (FIRMS fetch, grid advance, weather
+#            sweep, satellite passes — must run or the map goes stale)
+#
+# Secrets are NOT stored here. Set them once with:
+#   fly secrets set WILDFRAME_DATABASE_URL='...' NASA_FIRMS_API_KEY='...' ...
+# (full list in DEPLOY.md)
+#
+# Database: Neon (managed Postgres WITH PostGIS) — see DEPLOY.md.
+
+app = "wildframe"
+
+# Each gunicorn worker imports numpy (bayesian_filter) + psycopg pool;
+# 256 MB default is too tight for 2 workers — use 512 MB.
+[vm]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[processes]
+  web = "gunicorn server:app --workers 2 --bind 0.0.0.0:8080 --timeout 120 --access-logfile -"
+  worker = "python worker.py"
+
+[env]
+  # Non-secret config only. The S3 bucket name is not a credential — the
+  # access keys themselves are set via `fly secrets set`.
+  WILDFRAME_S3_BUCKET = "photo-hold-542489917871-us-east-1-an"
+
+[[services]]
+  processes = ["web"]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+    type = "connections"
+
+  [[services.http_checks]]
+    interval = "10s"
+    timeout = "3s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/healthz"
+    protocol = "http"
