@@ -1,0 +1,22 @@
+# Python virtualenv — never upload (1.5 GB)
+.venv/
+
+# Runtime / dev artifacts
+uploads/
+data/
+sample_test_images/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.log
+fire_smoke_output.jpg
+output.txt
+sweep.json
+
+# Scratch files
+testtorch.py
+
+# Secrets & OS noise
+.env
+.aws/
+.DS_Store

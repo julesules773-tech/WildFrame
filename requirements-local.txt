@@ -1,0 +1,10 @@
+# ── Dev-only: local Roboflow inference server ──────────────────────────────
+# Used only by fire_vision.py's LOCAL inference path (fire_vision._scan_via_local).
+# inference-sdk drags in torch / opencv / onnx / transformers / polars / pandas
+# (~1 GB) — deliberately NOT in requirements.txt so production deploys stay lean.
+#
+# Install only on dev machines that run the local inference server:
+#     pip install -r requirements-local.txt
+#
+# The production path (hosted Roboflow API) needs none of this — it uses stdlib urllib.
+inference-sdk
