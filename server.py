@@ -2935,24 +2935,39 @@ def _fetch_nasa_firms_pass(
     new_grids = 0
     total_hotspots = len(all_hotspots)
 
-    # Assign every cluster to the grid tracking its fire, then inject all of
-    # that grid's hotspots in ONE row-locked transaction per grid (instead of
-    # one transaction per cluster) — same evidence, a fraction of the DB
-    # round trips when a global fetch yields ~30k candidate fires.
+    # --- Assign every cluster to a grid and inject evidence, in bulk ---
+    # The sequential path (find_or_create_grid + mutate_grid per cluster/
+    # grid) costs one DB transaction + advisory lock + PostGIS nearest query
+    # per cluster (~25 ms each → 10–40 minutes on a global fetch of
+    # ~10k-100k clusters). The bulk path below does the whole pass in a
+    # handful of transactions via in-memory spatial matching:
+    #   db.bulk_find_or_create_grids — one centroid query + one bulk INSERT
+    #   db.bulk_mutate_grids        — chunked id=ANY() loads + one UPDATE batch
+    # New grids start with the default wind and get real Open-Meteo values
+    # on the next grids.advance wind sweep (wind_updated_at = 0 sorts first).
+    grid_ids = db.bulk_find_or_create_grids(mode, clusters)
+
+    # Merge clusters that map to the same grid (two FIRMS clusters can sit
+    # within GRID_MATCH_RADIUS_M of the same existing grid) so each grid
+    # receives ALL its hotspots in ONE mutation — identical to the old
+    # sequential merge behaviour, and avoids bulk_mutate_grids overwriting
+    # a grid's evidence when the same id appears in two jobs.
     hotspots_by_grid: dict[str, list] = {}
-    for c in clusters:
-        grid_id, _grid = _find_or_create_grid_for_cluster(c, demo=False)
+    for grid_id, c in zip(grid_ids, clusters):
         hotspots_by_grid.setdefault(grid_id, []).extend(c["hotspots"])
 
+    jobs = []
     for grid_id, hotspots in hotspots_by_grid.items():
         def _inject(grid: BayesianFireGrid, entry: dict, _hs=hotspots) -> int:
             for hs in _hs:
                 grid.update(Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude))
             return len(_hs)
 
-        n = db.mutate_grid(mode, grid_id, _inject) or 0
-        total_injected += n
-        grids_hit += 1
+        jobs.append((grid_id, _inject))
+
+    results = db.bulk_mutate_grids(mode, jobs)
+    total_injected = sum(results.values())
+    grids_hit = len(results)
 
     post_count = db.count_grids(mode)
     new_grids = max(0, post_count - pre_count)
