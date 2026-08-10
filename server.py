@@ -834,6 +834,12 @@ def index():
     return send_from_directory(str(STATIC_DIR), "index.html")
 
 
+@app.route("/contact")
+def contact_page():
+    """Public contact / partnerships page for investors and agencies."""
+    return send_from_directory(str(STATIC_DIR), "contact.html")
+
+
 # ---------------------------------------------------------------------------
 # Admin Helpers & Routes
 # ---------------------------------------------------------------------------

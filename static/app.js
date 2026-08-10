@@ -2558,6 +2558,7 @@
   function _mobileMenuItems() {
     return [
       document.querySelector(".admin-link"),
+      document.querySelector(".contact-link"),
       document.getElementById("bayesian-toggle"),
       document.getElementById("users-only-toggle"),
       document.getElementById("status-badge"),
@@ -2687,8 +2688,10 @@
     // Init map
     initMap();
 
-    // Init Bayesian heatmap layer (hidden by default)
+    // Init Bayesian heatmap layer and turn the Fire Grid on by default —
+    // the overlay + panel + 5s polling start immediately, no click needed.
     initBayesianLayer();
+    toggleBayesian(true);
 
     // Setup upload UI
     setupUpload();
