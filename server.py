@@ -3734,6 +3734,10 @@ if __name__ == "__main__":
     print("🔥 WildFrame — Wildfire Detection Prototype")
     print(f"   Listening on http://localhost:4141")
     print(f"   Cluster radius: {CLUSTER_RADIUS_M}m | Time window: {CLUSTER_TIME_WINDOW_MINUTES}min")
-    # debug=True keeps the useful traceback pages for development.
+    # debug=True keeps the useful traceback pages for development, but it
+    # also enables the Werkzeug debugger console — an RCE risk if the port
+    # is ever exposed. Production runs gunicorn; this dev entry point stays
+    # debug-off unless WILDFRAME_DEBUG=1 is explicitly set.
+    debug = os.environ.get("WILDFRAME_DEBUG", "0") == "1"
     # use_reloader=False prevents the reloader from crashing on file edits.
-    app.run(host="0.0.0.0", port=4141, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=4141, debug=debug, use_reloader=False)
