@@ -1,0 +1,18 @@
+# WildFrame web — gunicorn behind nginx (127.0.0.1:8000)
+# TLS terminates at nginx (Let's Encrypt via Cloudflare, Full strict).
+[Unit]
+Description=WildFrame web (gunicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/wildframe
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/wildframe/.venv/bin/gunicorn server:app --workers 2 --bind 127.0.0.1:8000 --timeout 120 --access-logfile -
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

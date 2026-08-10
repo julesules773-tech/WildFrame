@@ -1,108 +1,97 @@
-# Custom Domain — pyrae.co
+# Custom Domain — pyrae.co (AWS Lightsail)
 
 Documentation of how `pyrae.co` and `www.pyrae.co` are wired to the WildFrame
-app on Fly.io. Written 2026-08-10, after the initial setup.
+app on AWS Lightsail. Updated 2026-08-10 (migrated from Fly.io after the Fly
+trial ended and shut the app down).
 
 ## Current architecture
 
 ```
-Browser ──► https://pyrae.co ────────► Fly.io edge (wildframe.fly.dev)
-             (DNS-only, goes direct)      │
-                                         ▼
-                                     web machines
-                                        (gunicorn)
-
-Browser ──► https://www.pyrae.co ──► Cloudflare edge (proxied) ──► Fly.io origin
-             (orange cloud)                │
-                                           ▼
-                                       wildframe.fly.dev
+Browser ─► https://pyrae.co ────► Cloudflare edge (proxied) ──► Lightsail VM
+Browser ─► https://www.pyrae.co ─► Cloudflare edge (proxied) ──► 3.222.128.25
+                                                                      │
+                                                         nginx :443 (TLS)
+                                                                      │
+                                                     gunicorn :8000 (web)
+                                                     worker.py  (jobs)
 ```
 
 - **Registrar:** GoDaddy (owns the `.co` registration)
 - **DNS:** Cloudflare (nameservers `jean.ns.cloudflare.com` + `ignat.ns.cloudflare.com`)
-- **Hosting:** Fly.io app `wildframe` (2 web machines + 1 worker + 1 standby),
-  primary region `iad`
-- **Origin:** `wildframe.fly.dev` (the app's fly.dev URL, always works)
-- **Database:** Neon (PostGIS) — reachable from the app via `WILDFRAME_DATABASE_URL`
+- **Hosting:** AWS Lightsail instance `wildframe-prod`
+  (`micro_3_0`, 1 GB / 2 vCPU / 40 GB, Ubuntu 24.04, us-east-1a)
+- **Static IP:** `3.222.128.25` (attached to the instance — free while
+  attached; **never release it** without attaching a replacement first)
+- **Origin:** nginx on the VM terminates TLS; gunicorn on 127.0.0.1:8000
+- **Database:** Neon (PostGIS) — `WILDFRAME_DATABASE_URL` in the VM `.env`
+- **Photos:** AWS S3 (`photo-hold-542489917871-us-east-1-an`)
 
 ## DNS records (Cloudflare)
 
 | Type | Name | Target | Proxy status |
 |---|---|---|---|
-| CNAME | `@` | `wildframe.fly.dev` | DNS only (grey) |
-| CNAME | `www` | `wildframe.fly.dev` | Proxied (orange) |
+| A | `@` | `3.222.128.25` | Proxied (orange) |
+| A | `www` | `3.222.128.25` | Proxied (orange) |
 
-Notes:
-- The apex record is DNS-only because it works fine direct-to-Fly (Fly serves
-  its own Let's Encrypt cert for `pyrae.co`). It can be set to **proxied
-  (orange)** for consistency — the origin handshake still works because
-  Cloudflare uses the CNAME target's SNI.
-- Do **not** use plain `A` records pointing at Fly's shared IPv4
-  (`66.241.125.28`) with proxying enabled — Cloudflare then connects to the
-  origin with SNI `pyrae.co`, which Fly's edge won't answer (see pitfalls).
+Both are proxied so the origin IP stays hidden behind Cloudflare's edge, and
+Cloudflare's Universal SSL covers both hostnames at the edge.
 
 ## Certificates
 
-- **Fly (origin):** Let's Encrypt certs for `pyrae.co` + `www.pyrae.co`,
-  managed automatically (`fly certs add`). Renewal is automatic.
-- **Cloudflare (edge):** Universal SSL covers `pyrae.co` + `www.pyrae.co`
-  automatically.
-- **Cloudflare SSL/TLS mode:** **Full (strict)** — Cloudflare validates the
-  origin cert for `wildframe.fly.dev`.
+- **Origin (VM):** Let's Encrypt cert for `pyrae.co` + `www.pyrae.co`,
+  issued by `deploy/aws/tls.sh` (certbot, webroot). Renewal is automatic via
+  certbot's systemd timer. Certs live in `/etc/letsencrypt/live/pyrae.co/`.
+- **Cloudflare (edge):** Universal SSL.
+- **SSL/TLS mode:** **Full (strict)** — Cloudflare requires a valid origin
+  cert; an invalid/missing one shows **525**.
 
-## How it was set up (if it ever needs rebuilding)
+## How to rebuild (if it ever needs redoing)
 
-1. **GoDaddy** → Domain → Nameservers → set Cloudflare's two nameservers.
-2. **Cloudflare** → Add site `pyrae.co` (Free plan) → delete imported
-   `A`/`AAAA` records for `@` and `www` → add the two CNAME rows above.
-3. **Fly** → `fly certs add pyrae.co` and `fly certs add www.pyrae.co`
-   (from the repo dir; runs against the linked app).
-4. **Cloudflare** → SSL/TLS → **Full (strict)**.
+1. **GoDaddy** → Domain → Nameservers → Cloudflare's two nameservers.
+2. **Cloudflare** → Add site `pyrae.co` → add the two A records above
+   (proxied).
+3. **Lightsail** → create instance + static IP via
+   `deploy/aws/create_instance.py` (see `DEPLOY.md` §3).
+4. **VM** → rsync code + `.env` (with the **Neon** DB URL), run
+   `deploy/aws/bootstrap.sh` (services + stage-1 nginx).
+5. **TLS** → once DNS points at the VM, run `deploy/aws/tls.sh`
+   (certbot + full nginx config).
+6. **Cloudflare** → SSL/TLS → **Full (strict)**.
 
 ## Verification commands
 
 ```bash
-# DNS points at Cloudflare nameservers?
-dig +short NS pyrae.co                       # expect *.ns.cloudflare.com
-
-# Records served (use a clean resolver to dodge cache):
-dig @8.8.8.8 +short pyrae.co A
-dig @8.8.8.8 +short www.pyrae.co A
-
-# Certificates on Fly:
-fly certs list                                # expect Issued
-fly certs check pyrae.co                      # live validation status
-
-# End-to-end HTTPS:
+dig +short NS pyrae.co                     # expect *.ns.cloudflare.com
+dig @1.1.1.1 +short pyrae.co A             # Cloudflare edge IPs (proxied)
+ssh -i ~/.ssh/wildframe-prod-key.pem ubuntu@3.222.128.25 \
+  'sudo certbot certificates'              # origin cert status
 curl -s -o /dev/null -w '%{http_code}\n' https://pyrae.co/        # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://www.pyrae.co/    # 200
-curl -s https://pyrae.co/healthz              # {"db":"ok","status":"ok"}
+curl -s https://pyrae.co/healthz           # {"db":"ok","status":"ok"}
 ```
 
 ## Pitfalls learned (important!)
 
-1. **Fly edge propagation can take ~2 hours.** After `fly certs add`, `fly
-   certs list` may show `Issued` while `fly certs check` says `Not verified`
-   and HTTPS fails with a TLS reset (`SSL_ERROR_SYSCALL` / `EOF in violation
-   of protocol`). This is normal — the cert reaches the edge nodes eventually.
-   Re-adding certs or redeploying does **not** speed it up.
-2. **`fly certs list` vs `fly certs check` disagree** right after issuance —
-   `list` flips to `Issued` first; trust the HTTPS test, not the status text.
-3. **Don't proxy `A` records to the shared IPv4.** Cloudflare proxied
-   `A 66.241.125.28` → origin TLS with SNI `pyrae.co` → **HTTP 525**. Use
-   `CNAME → wildframe.fly.dev` so the origin handshake uses SNI
-   `wildframe.fly.dev` (which Fly always serves).
-4. **Trial org limits:** Fly trial orgs (no credit card) can't allocate a
-   dedicated IPv4 (`fly ips allocate-v4` → *"disabled for trial
-   organizations"*). Custom-domain certs DO work on trial orgs — it just
-   looks broken until edge propagation finishes.
-5. **`force_https = true` does not block Let's Encrypt** — Fly's edge answers
-   ACME challenges before applying the redirect.
-6. **DNS caching** can make it look like nothing changed: query
-   `dig @8.8.8.8` / `@1.1.1.1` directly to bypass a stale local resolver.
+1. **A missing `www` record fails the whole cert.** Certbot requests one cert
+   for both hostnames — if `www` has no DNS record it fails with
+   `NXDOMAIN looking up A for www.pyrae.co` and **no cert is issued at all**.
+   Add the record, wait for propagation, rerun `tls.sh`.
+2. **DNS cache skew.** The local resolver can serve a stale answer for a
+   deleted record (looks fine, isn't). Always check with
+   `dig @1.1.1.1` / `@8.8.8.8`.
+3. **525 in Full (strict) = origin cert problem.** Cloudflare only serves the
+   site once the origin presents a valid cert for the hostname. During the
+   gap between DNS flip and `tls.sh` the site 525s — that's expected.
+4. **nginx `http2` directive.** Ubuntu 24.04 ships nginx 1.24, which rejects
+   `http2 on;` — use `listen 443 ssl http2;` (already correct in `tls.sh`).
+5. **The `micro_ipv6_3_0` Lightsail bundle can't attach a static IP.** Use
+   `micro_3_0` ($7/mo) for a stable DNS target.
+6. **VM `.env` must point at Neon, not localhost.** The local dev `.env` has a
+   local DB URL; copying it to the VM breaks the app (worker `PoolTimeout`,
+   `/healthz` 500). `bootstrap.sh` refuses to run on a localhost URL.
 
 ## Related files
 
-- `fly.toml` — Fly app config (processes, port 8080, health check, `iad`)
-- `Dockerfile` / `.dockerignore` — container build
-- `DEPLOY.md` — full Fly + Neon deployment walkthrough
+- `deploy/aws/` — `create_instance.py`, `bootstrap.sh`, `tls.sh`, systemd units
+- `DEPLOY.md` — full Lightsail + Neon deployment walkthrough
+- `fly.toml` / `Dockerfile` — preserved from the previous Fly.io era (unused)

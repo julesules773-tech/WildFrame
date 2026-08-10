@@ -1,129 +1,139 @@
-# Deployment — Fly.io (web + worker) + Neon (PostGIS database)
+# Deployment — AWS Lightsail (web + worker) + Neon (PostGIS database)
 
 WildFrame is an **always-on Flask + Postgres/PostGIS + background-worker** app,
 so it cannot run on serverless hosts (Vercel, etc.). This guide deploys it on
-**Fly.io** as two process groups in one Docker image:
-- **web** — gunicorn (`server:app`), public HTTP
-- **worker** — Procrastinate job worker (`python worker.py`), always-on
+**AWS Lightsail** as a single 1 GB Ubuntu VM running two systemd services:
 
-The database is **Neon** (managed Postgres with the **PostGIS** extension).
+- **wildframe-web** — gunicorn (`server:app`) on 127.0.0.1:8000, fronted by
+  nginx (TLS)
+- **wildframe-worker** — Procrastinate job worker (`python worker.py`) with
+  `Restart=always` (the Fly outage root cause was a worker that stopped and
+  never came back — systemd makes that impossible)
 
-Estimated time: ~30 minutes. Cost: Fly free allowance then ~$3–6/mo per
-machine (web + worker), plus Neon's free tier.
+Everything else is external: **Neon** (managed Postgres + PostGIS),
+**AWS S3** (photo storage), **Cloudflare** (DNS + edge TLS, Full strict).
+
+Estimated time: ~45–60 min first time. Cost: **$7/mo** Lightsail 1 GB
+(`micro_3_0`) + Neon free tier + S3 (pennies) + Cloudflare Free.
+
+> Historical note: Fly.io (`fly.toml`, `Dockerfile`) and Render (`render.yaml`
+> in git history) configs are preserved but no longer used. The current
+> deployment is the Lightsail VM described here.
 
 ---
 
 ## 0. Prerequisites
 
-- Docker installed (Fly builds your image locally with `fly deploy`).
-- `flyctl` installed: `brew install flyctl`, then `fly auth login`.
-- Your existing `.env` values handy (S3 keys, NASA FIRMS, Roboflow, admin
-  secret, agency key) — you'll set them as Fly secrets.
+- AWS account; an IAM user with Lightsail permissions
+  (`AmazonLightsailFullAccess` or `AdministratorAccess`), creds in `.env`
+- boto3 (already in `requirements.txt`)
+- Neon project with PostGIS (see §1)
+- Cloudflare zone for `pyrae.co` on Cloudflare nameservers
+  (see `CUSTOM_DOMAIN.md`)
 
 ## 1. Create the database on Neon
 
-1. Sign up at <https://neon.tech> → **Create project** (any region; `wildframe` DB).
-2. Open the **SQL Editor** and run:
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS postgis;
-   ```
-3. Copy the **connection string** (*Dashboard → Connection Details*, the
-   non-pooled driver string) and append `?sslmode=require`:
-   ```
-   postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.tech/wildframe?sslmode=require
-   ```
-4. **Important:** *Project settings → Compute* → set **Auto-suspend to 0
-   (never)**. Otherwise Neon scales to zero after 5 min idle and the worker's
-   per-minute jobs hit cold starts.
+1. Sign up at <https://neon.tech> → **Create project** (any region).
+2. In the SQL Editor: `CREATE EXTENSION IF NOT EXISTS postgis;`
+3. Copy the connection string and append `?sslmode=require`.
+4. *Project settings → Compute* → set **Auto-suspend to 0 (never)** — the
+   worker's per-minute jobs must not hit cold starts.
 
-## 2. Create the schema (run once, from your machine)
+## 2. Create the schema (once, from your machine)
 
 ```bash
-cd /Users/julianuhres/WildFrame
 WILDFRAME_DATABASE_URL='postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.tech/wildframe?sslmode=require' \
   .venv/bin/python migrate.py
 ```
+Idempotent — safe to re-run.
 
-This creates the WildFrame tables (reports, clusters, bayesian_grids,
-osm_road_cache, …) **and** the Procrastinate job-queue tables. Idempotent —
-safe to re-run.
-
-## 3. Create the Fly app
+## 3. Create the Lightsail instance
 
 ```bash
-cd /Users/julianuhres/WildFrame
-fly apps create wildframe     # pick a unique name and update `app` in fly.toml if taken
+.venv/bin/python deploy/aws/create_instance.py
 ```
+This creates the 1 GB Ubuntu 24.04 instance, an SSH key
+(`~/.ssh/wildframe-prod-key.pem`), a static IP, and opens ports 22/80/443.
+Print the resulting static IP (e.g. `3.222.128.25`).
 
-## 4. Set secrets
+> ⚠️ Use the `micro_3_0` bundle — the cheaper `micro_ipv6_3_0` **cannot
+> attach a static IP** (the IP must be stable for DNS).
+
+## 4. Push code + secrets to the VM
 
 ```bash
-fly secrets set \
-  WILDFRAME_DATABASE_URL='postgresql://USER:PASSWORD@ep-XXXX.us-east-1.aws.neon.tech/wildframe?sslmode=require' \
-  NASA_FIRMS_API_KEY='your-key' \
-  ROBOFLOW_API_KEY='your-key' \
-  AWS_ACCESS_KEY_ID='your-key' \
-  AWS_SECRET_ACCESS_KEY='your-secret' \
-  WILDFRAME_ADMIN_SECRET='your-secret' \
-  WILDFRAME_AGENCY_API_KEY='your-secret'
+IP=<static-ip>; KEY=~/.ssh/wildframe-prod-key.pem
+rsync -az -e "ssh -i $KEY" \
+  --exclude .venv --exclude node_modules --exclude .git \
+  --exclude __pycache__ --exclude '*.pyc' --exclude uploads \
+  --exclude sample_test_images --exclude .aws \
+  ./ ubuntu@$IP:/home/ubuntu/wildframe/
 ```
 
-(`WILDFRAME_S3_BUCKET` is already set in `fly.toml` — it's not a credential.)
+**`.env` handling (critical):** copy `.env` to the VM, then make sure
+`WILDFRAME_DATABASE_URL` is the **Neon** URL — the local dev `.env` points at
+a local Postgres, and bootstrapping with it silently breaks the app
+(worker `PoolTimeout`, `/healthz` 500). `bootstrap.sh` now refuses to run if
+the URL targets localhost. Keep `.env` out of git; it lives on the VM.
 
-## 5. Deploy
+## 5. Bootstrap the VM
 
 ```bash
-fly deploy
+ssh -i $KEY ubuntu@$IP 'bash /home/ubuntu/wildframe/deploy/aws/bootstrap.sh'
 ```
+Installs nginx/certbot, adds a 2 GB swap, builds the venv + requirements,
+starts **wildframe-web** and **wildframe-worker** (systemd, enabled on boot),
+and puts nginx in stage-1 (port 80 only, ACME challenge ready).
 
-Fly builds the image (a few minutes the first time), then starts **two
-machines** — one `web`, one `worker`. `fly deploy` again after every push.
+## 6. Point Cloudflare at the VM
 
-## 6. Verify
+In **Cloudflare → pyrae.co → DNS → Records**, for BOTH `@` and `www`:
+delete the old record, add **A → <static-ip>** with **Proxied (orange)**.
+Keep SSL/TLS mode **Full (strict)**. The site 525s until step 7 issues the
+origin cert — that's expected.
 
-- `fly open` → the map should load; `https://<app>.fly.dev/healthz` → `200`.
-- `fly logs` → the **worker** log should show `firms.fetch`, `grids.advance`,
-  and weather sweep activity within a minute (that's the proof the worker is
-  alive and the DB is reachable).
-- Upload a test photo → it should be scanned (Roboflow) and stored in S3
-  (no persistent disk needed — `WILDFRAME_S3_BUCKET` routes uploads to S3).
-- Test the agency ingest endpoint:
-  ```bash
-  curl -s -X POST https://<app>.fly.dev/api/agencies/ingest \
-    -H "Content-Type: application/json" -H "X-Agency-Key: <your key>" \
-    -d '{"agency":"gov-test","incident_id":"deploy-check","action":"create","lat":51.1,"lon":18.9,"sent_at":"2026-08-10T12:00:00Z"}'
-  ```
+## 7. TLS (Let's Encrypt, through Cloudflare)
 
-## 7. Operational notes
+```bash
+ssh -i $KEY ubuntu@$IP 'bash /home/ubuntu/wildframe/deploy/aws/tls.sh'
+```
+Runs certbot (HTTP-01 via the ACME webroot, one cert for `pyrae.co` +
+`www.pyrae.co`), installs the full nginx config (80→443 redirect + 443 proxy
+to gunicorn, 20 MB upload cap), and enables certbot's auto-renewal timer.
 
-- **Both processes must run.** The worker drives FIRMS fetches, grid advance,
-  and wind refresh every minute. Fly machines don't sleep, so a starter
-  `shared-cpu-1x` machine per process is enough.
-- **The worker is the CPU-heavy one** (grid advance over ~780 grids). If it
-  gets slow: `fly scale memory 1024` (or split sizing per process later).
-- **Scaling:** `fly scale count 2 -p web` to add web machines; `fly scale show`
-  to inspect.
-- **Secrets:** never in the repo — `fly secrets set` encrypts them per-app.
-- **Photos:** S3 via boto3 (lazy-imported — no heavy deps in the image).
-- **Open-Meteo:** the free tier is non-commercial; for a public beta switch to
-  the paid Standard plan ($29/mo) — it also lifts the ~9,500 calls/day cap.
-- **Logs:** `fly logs` (worker + web); the gunicorn access log goes to stdout
-  (`--access-logfile -`).
+## 8. Verify
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://pyrae.co/          # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://www.pyrae.co/      # 200
+curl -s https://pyrae.co/healthz          # {"db":"ok","status":"ok"}
+```
+- Upload a photo → scanned (Roboflow) + stored in **S3**
+  (`WILDFRAME_S3_BUCKET` is set in the VM `.env`).
+- Within a minute, `journalctl -u wildframe-worker` should show
+  `firms.fetch`, `grids.advance`, and weather jobs.
+
+## Operational notes
+
+- **Both services must run.** `systemctl status wildframe-web
+  wildframe-worker`; both are `Restart=always` and enabled on boot.
+- **Memory:** 1 GB fits gunicorn (2 workers) + the worker; a 2 GB swap file
+  is the safety net. `free -m` to watch.
+- **Cert renewal:** certbot's systemd timer renews automatically
+  (`systemctl list-timers certbot.timer`).
+- **Deploys:** rsync the repo again (step 4), then
+  `ssh ... 'sudo systemctl restart wildframe-web wildframe-worker'`.
+- **Photos:** S3 via boto3 — no persistent disk needed.
+- **Open-Meteo:** free tier is non-commercial; for a public beta consider the
+  paid Standard plan (~$29/mo) if the ~9,500 calls/day cap is hit.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Web starts, 500s on map data | DB not migrated — re-run step 2, or the Neon `sslmode=require` is missing from the secret |
-| No fires / no grid advance | Worker not running — `fly logs`; check `NASA_FIRMS_API_KEY` secret |
-| Wind stuck at 3.0/270° | Open-Meteo budget exhausted or Neon auto-suspend — check `[weather]` log lines |
-| `psycopg` SSL error | Connection string must end in `?sslmode=require` |
-| Port clash / no HTTP | `internal_port` in fly.toml must match gunicorn's `--bind` port (8080) |
-
-## Alternatives
-
-- **Render** — a complete blueprint (`render.yaml`, web + worker, health
-  check) is preserved in git history: `git show 92894b5:render.yaml > render.yaml`.
-  Same Neon DB; two always-on `starter` instances (~$14–26/mo).
-- **Hetzner VPS** — cheapest at scale (~€4–8/mo for everything), most manual:
-  apt Postgres + `postgis`, systemd units for gunicorn + worker, nginx + TLS.
+| `/healthz` 500 / worker `PoolTimeout` | VM `.env` has a local DB URL — set the Neon URL (bootstrap refuses to proceed) |
+| 525 after DNS flip | Origin cert not issued yet — run `tls.sh` once DNS propagates |
+| certbot: `NXDOMAIN looking up A for www.pyrae.co` | The `www` A record is missing/not propagated — add it, query `dig @1.1.1.1`, rerun `tls.sh` |
+| nginx: `unknown directive "http2"` | Ubuntu 24.04 ships nginx 1.24 — `tls.sh` already uses `listen 443 ssl http2;` |
+| Site 525 later, out of nowhere | Origin down or cert expired — `ssh` in, `systemctl status`, `certbot certificates` |
+| Wind stuck at 3.0/270° | Open-Meteo budget exhausted — check `[weather]` lines in the worker journal |

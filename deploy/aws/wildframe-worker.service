@@ -1,0 +1,19 @@
+# WildFrame worker — Procrastinate job worker (FIRMS fetch, grid advance,
+# weather sweep). Must run 24/7 or the map goes stale; Restart=always keeps
+# it alive even if it crashes mid-job (the Fly outage root cause).
+[Unit]
+Description=WildFrame job worker (Procrastinate)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/wildframe
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/wildframe/.venv/bin/python worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
