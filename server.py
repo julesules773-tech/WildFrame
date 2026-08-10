@@ -1323,6 +1323,75 @@ def _parse_bbox_param(raw: Optional[str]) -> Optional[tuple[float, float, float,
     return (w, s, e, n)
 
 
+# How many stale-wind grids in the visible viewport one poll may hand to
+# the background wind-refresh thread. Covers the full-detail cap (120) and
+# most of the meta-dot cap (600); repeat polls cost nothing once the
+# shared per-cell weather cache is warm.
+VIEWPORT_WIND_LIMIT = 600
+
+# How many stale grids ONE refresh thread refreshes before it exits. The
+# map polls every few seconds, so instead of one thread crawling through
+# hundreds of sequential live fetches (tens of minutes for a cold region),
+# each poll's thread refreshes a bounded slice — the most probable fires
+# first — and the next poll (after the guard clears) continues with the
+# rest. Keeps visible progress fast and the budget spend per poll bounded.
+VIEWPORT_WIND_SLICE = 100
+
+# Per-process guard: the map polls every few seconds; without this, a user
+# staring at a cold region would pile up one refresh thread per poll, each
+# re-scanning the same rows. Only one viewport thread runs per web worker
+# at a time (different gunicorn workers still parallelize, and the shared
+# per-cell cache + daily budget bound total API usage).
+_VIEWPORT_WIND_LOCK = threading.Lock()
+_VIEWPORT_WIND_ACTIVE = False
+
+
+def _spawn_viewport_wind_refresh(mode: str, bbox: Optional[tuple[float, float, float, float]]) -> None:
+    """Refresh real wind for the most probable fires in ``bbox`` in the
+    background, so the visible map shows real wind within a poll cycle.
+
+    The worker's global sweep (grids.advance) walks grids in
+    ``wind_updated_at`` order and can take hours to reach a region the
+    user just panned to — and it shares the daily weather budget with
+    everything else. Instead of waiting on it, every /api/bayesian/state
+    poll hands a bounded slice of the stale grids in the CURRENT viewport
+    to a short-lived daemon thread that fetches + persists their wind.
+    The shared ~28 km cell cache (weather.py) makes repeat polls free, the
+    per-poll slice keeps progress visible fast, and the daily budget caps
+    total API usage regardless of how many users poll.
+
+    Demo grids keep the deterministic defaults by design, so this only
+    runs for production.
+    """
+    global _VIEWPORT_WIND_ACTIVE
+    if mode != "production" or not bbox:
+        return
+    with _VIEWPORT_WIND_LOCK:
+        if _VIEWPORT_WIND_ACTIVE:
+            return  # previous poll's thread is still working
+        _VIEWPORT_WIND_ACTIVE = True
+
+    def _run() -> None:
+        global _VIEWPORT_WIND_ACTIVE
+        try:
+            rows = db.list_grid_meta(mode, bbox=bbox, limit=VIEWPORT_WIND_LIMIT)
+            cutoff = time.time() - weather.CACHE_TTL_S
+            stale = [r for r in rows if (r.get("wind_updated_at") or 0) < cutoff]
+            for row in stale[:VIEWPORT_WIND_SLICE]:
+                speed, dir_, fetched = weather.get_wind_full(
+                    row["centroid_lat"], row["centroid_lon"],
+                )
+                if fetched > 0:
+                    db.update_grid_wind(mode, row["id"], speed, dir_)
+        except Exception as exc:
+            logger.warning("[weather] viewport wind refresh failed: %s", exc)
+        finally:
+            with _VIEWPORT_WIND_LOCK:
+                _VIEWPORT_WIND_ACTIVE = False
+
+    threading.Thread(target=_run, daemon=True, name="viewport-wind").start()
+
+
 def _round_export_state(state: dict) -> dict:
     """Round cell lat/lon/p to trim the JSON payload (a few decimals are
     invisible at map zoom levels but cut the state blob by ~30%)."""
@@ -1501,6 +1570,10 @@ def bayesian_get_state():
             detail=detail,
             include_contour=include_contour,
         )
+        # Lazy on-demand wind: refresh the visible viewport in the
+        # background so wherever the user looks, fires get real wind on the
+        # next poll — regardless of where the worker's global sweep is.
+        _spawn_viewport_wind_refresh("demo" if demo else "production", bbox)
         data["mode"] = "demo" if demo else "production"
         return jsonify(data)
     except Exception as e:

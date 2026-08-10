@@ -526,7 +526,7 @@ def list_grid_meta(
         params.extend([w, s, e, n])
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
-        "max_p, updated_at "
+        "max_p, updated_at, wind_updated_at "
         "FROM bayesian_grids WHERE " + " AND ".join(clauses) +
         " ORDER BY max_p DESC"
     )

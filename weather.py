@@ -10,8 +10,10 @@ and the advance job all used 270, and nothing ever wrote a real value.
 Since the spread ellipse, the smoke-drift upwind shift and the road-risk
 model all read wind, every fire on the map "blew west".
 
-This module fetches real 10 m wind from the free Open-Meteo API (no API
-key, ~10 000 requests/day free tier, allowed for commercial use):
+This module fetches real 10 m wind from the Open-Meteo API (no API key
+needed; the free tier allows ~10 000 requests/day but is non-commercial
+only — a paid plan is the compliant choice for commercial deployments,
+see open-meteo.com/pricing):
 
     https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms
 
@@ -28,18 +30,25 @@ Caching & budget
 - Coordinates are bucketed into ~0.25° (~28 km) cells and cached for 30
   minutes, both in-process and in the shared ``kv_store`` (so the web
   process and the worker share one cache).
-- A hard per-day request budget (default 6000) is enforced via a
-  kv_store counter so the free tier is never blown, no matter how many
-  grids exist.
+- A hard per-day request budget (default 9500, under the 10k free tier)
+  is enforced via a kv_store counter so the free tier is never blown, no
+  matter how many grids exist.
 - Any failure (API down, timeout, budget exhausted, DB down) degrades to
   the old neutral defaults — weather must NEVER block report ingestion
   or grid creation.
+- Failed fetches refund their budget slot (a timeout storm must not eat
+  the daily quota), and after a few consecutive failures a short backoff
+  pauses live fetches instead of hammering a dead endpoint.
+- Concurrent callers wanting the same ~28 km cell serialize on one
+  in-flight lock, so the map's on-demand viewport refresh can't fire
+  duplicate requests for the same cell.
 """
 
 import logging
 import os
 import threading
 import time
+from typing import Optional
 
 import requests
 
@@ -62,13 +71,31 @@ TIMEOUT_S = 3.0
 CELL_DEG = 0.25
 CACHE_TTL_S = 30 * 60
 
-# Hard daily request budget (free tier ~10k/day; leave headroom for
-# retries). Overridable via env for deployments on a paid plan.
-DAILY_BUDGET = int(os.environ.get("WILDFRAME_WEATHER_DAILY_BUDGET", "6000"))
+# Hard daily request budget (free tier ~10k/day; leave headroom for the
+# shared counter racing slightly over across processes). Overridable via
+# env for deployments on a paid plan.
+DAILY_BUDGET = int(os.environ.get("WILDFRAME_WEATHER_DAILY_BUDGET", "9500"))
 
 # In-process cache: cell_key -> (expires_epoch, wind_speed, wind_dir_deg).
 _mem_cache: dict[str, tuple[float, float, float]] = {}
 _mem_lock = threading.Lock()
+
+# --- Failure backoff ---------------------------------------------------
+# After a few consecutive failures (API down, timeout storm), pause live
+# fetches for a short window instead of hammering a dead endpoint and
+# burning the daily budget on requests that return nothing.
+FAIL_BACKOFF_THRESHOLD = 3   # consecutive failures before pausing
+FAIL_BACKOFF_WINDOW_S = 60.0 # pause window after the FIRST failure
+_fail_lock = threading.Lock()
+_fail_count = 0
+_fail_since = 0.0
+
+# --- Per-cell in-flight dedup ------------------------------------------
+# The web process (map viewport refresh) and the worker (global sweep) can
+# ask for the same ~28 km cell at the same moment. Serializing per cell
+# means one live fetch populates the shared cache instead of N duplicates.
+_inflight_lock = threading.Lock()
+_inflight: dict[str, threading.Lock] = {}
 
 
 def _cell_key(lat: float, lon: float) -> str:
@@ -100,6 +127,77 @@ def _spend_budget() -> bool:
         return True
 
 
+def _refund_budget() -> None:
+    """Best-effort refund of a budget slot after a failed live fetch, so a
+    timeout storm doesn't silently consume the daily quota on requests that
+    returned nothing."""
+    try:
+        n = db.kv_get(_budget_key(), 0) or 0
+        if int(n) > 0:
+            db.kv_set(_budget_key(), int(n) - 1)
+    except Exception:
+        pass
+
+
+def _note_failure() -> None:
+    global _fail_count, _fail_since
+    with _fail_lock:
+        if _fail_count == 0:
+            _fail_since = time.time()
+        _fail_count += 1
+
+
+def _note_success() -> None:
+    global _fail_count, _fail_since
+    with _fail_lock:
+        _fail_count = 0
+        _fail_since = 0.0
+
+
+def _should_backoff() -> bool:
+    """True if recent consecutive failures pause live fetches for the
+    backoff window. Resets the window once it has elapsed (the next call
+    after the pause tries the API again)."""
+    global _fail_count, _fail_since
+    with _fail_lock:
+        if _fail_count == 0:
+            return False
+        if time.time() - _fail_since >= FAIL_BACKOFF_WINDOW_S:
+            _fail_count = 0
+            _fail_since = 0.0
+            return False
+        return _fail_count >= FAIL_BACKOFF_THRESHOLD
+
+
+def _cell_lock(cell: str) -> threading.Lock:
+    """Return the (shared, per-cell) lock serializing live fetches."""
+    with _inflight_lock:
+        lk = _inflight.get(cell)
+        if lk is None:
+            lk = threading.Lock()
+            _inflight[cell] = lk
+        return lk
+
+
+def _cache_get(cell: str, now: float) -> Optional[tuple[float, float, float]]:
+    """Return ``(speed, dir, fetched_epoch)`` from the in-memory or shared
+    cache, or None on a miss. Callers treat a hit as "fresh" (fetched=now)."""
+    with _mem_lock:
+        hit = _mem_cache.get(cell)
+        if hit and hit[0] > now:
+            return hit[1], hit[2], now
+    try:
+        shared = db.kv_get(_kv_key(cell))
+        if shared and (shared.get("at") or 0) > now - CACHE_TTL_S:
+            speed, dir_ = float(shared["speed"]), float(shared["dir"])
+            with _mem_lock:
+                _mem_cache[cell] = (now + CACHE_TTL_S, speed, dir_)
+            return speed, dir_, now
+    except Exception:
+        pass
+    return None
+
+
 def get_wind_full(lat: float, lon: float) -> tuple[float, float, float]:
     """Return ``(wind_speed_mps, wind_dir_deg, fetched_epoch)``.
 
@@ -114,56 +212,56 @@ def get_wind_full(lat: float, lon: float) -> tuple[float, float, float]:
     cell = _cell_key(lat, lon)
     now = time.time()
 
-    # 1) In-process cache
-    with _mem_lock:
-        hit = _mem_cache.get(cell)
-        if hit and hit[0] > now:
-            return hit[1], hit[2], now
+    # 1) Caches (fast path — in-memory, then shared kv_store)
+    cached = _cache_get(cell, now)
+    if cached is not None:
+        return cached
 
-    # 2) Shared kv_store cache (web + worker processes)
-    try:
-        shared = db.kv_get(_kv_key(cell))
-        if shared and (shared.get("at") or 0) > now - CACHE_TTL_S:
-            speed, dir_ = float(shared["speed"]), float(shared["dir"])
-            with _mem_lock:
-                _mem_cache[cell] = (now + CACHE_TTL_S, speed, dir_)
-            return speed, dir_, now
-    except Exception:
-        pass
+    # 2) Live fetch — serialized per cell. Re-check the caches once the
+    #    lock is held: another caller may have fetched while we waited.
+    with _cell_lock(cell):
+        cached = _cache_get(cell, time.time())
+        if cached is not None:
+            return cached
 
-    # 3) Live fetch (budgeted)
-    if not _spend_budget():
-        logger.warning("[weather] daily budget exhausted — using default wind")
-        return DEFAULT_WIND_SPEED_MPS, DEFAULT_WIND_DIR_DEG, 0.0
+        if _should_backoff():
+            return DEFAULT_WIND_SPEED_MPS, DEFAULT_WIND_DIR_DEG, 0.0
 
-    try:
-        resp = requests.get(
-            API_BASE,
-            params={
-                "latitude": round(lat, 4),
-                "longitude": round(lon, 4),
-                "current": "wind_speed_10m,wind_direction_10m",
-                "wind_speed_unit": "ms",
-            },
-            timeout=TIMEOUT_S,
-        )
-        resp.raise_for_status()
-        cur = (resp.json() or {}).get("current") or {}
-        speed = float(cur["wind_speed_10m"])
-        from_dir = float(cur["wind_direction_10m"])
-        # Open-Meteo: direction wind comes FROM → flip to spread direction.
-        dir_ = (from_dir + 180.0) % 360.0
-    except Exception as exc:
-        logger.warning("[weather] fetch failed for (%.3f, %.3f): %s", lat, lon, exc)
-        return DEFAULT_WIND_SPEED_MPS, DEFAULT_WIND_DIR_DEG, 0.0
+        if not _spend_budget():
+            logger.warning("[weather] daily budget exhausted — using default wind")
+            return DEFAULT_WIND_SPEED_MPS, DEFAULT_WIND_DIR_DEG, 0.0
 
-    try:
-        db.kv_set(_kv_key(cell), {"at": now, "speed": speed, "dir": dir_})
-    except Exception:
-        pass
-    with _mem_lock:
-        _mem_cache[cell] = (now + CACHE_TTL_S, speed, dir_)
-    return speed, dir_, now
+        try:
+            resp = requests.get(
+                API_BASE,
+                params={
+                    "latitude": round(lat, 4),
+                    "longitude": round(lon, 4),
+                    "current": "wind_speed_10m,wind_direction_10m",
+                    "wind_speed_unit": "ms",
+                },
+                timeout=TIMEOUT_S,
+            )
+            resp.raise_for_status()
+            cur = (resp.json() or {}).get("current") or {}
+            speed = float(cur["wind_speed_10m"])
+            from_dir = float(cur["wind_direction_10m"])
+            # Open-Meteo: direction wind comes FROM → flip to spread direction.
+            dir_ = (from_dir + 180.0) % 360.0
+        except Exception as exc:
+            logger.warning("[weather] fetch failed for (%.3f, %.3f): %s", lat, lon, exc)
+            _note_failure()
+            _refund_budget()
+            return DEFAULT_WIND_SPEED_MPS, DEFAULT_WIND_DIR_DEG, 0.0
+
+        _note_success()
+        try:
+            db.kv_set(_kv_key(cell), {"at": time.time(), "speed": speed, "dir": dir_})
+        except Exception:
+            pass
+        with _mem_lock:
+            _mem_cache[cell] = (time.time() + CACHE_TTL_S, speed, dir_)
+        return speed, dir_, time.time()
 
 
 def refresh_grids_wind(
