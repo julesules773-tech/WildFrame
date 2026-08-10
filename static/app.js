@@ -1933,7 +1933,7 @@
         html: `
           <div class="grid-wind-badge">
             <span class="wind-label-speed">${spdStr}</span>
-            <span class="wind-label-arrow" style="transform:rotate(${windDir}deg)">→</span>
+            <span class="wind-label-arrow" style="transform:rotate(${windDir - 90}deg)">→</span>
             <span class="wind-label-dir">${dirLabel}</span>
           </div>
         `,
@@ -3019,7 +3019,7 @@
       const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
       const idx = Math.round(((dirDeg + 360) % 360) / 45) % 8;
       const dirLabel = dirs[idx];
-      windEl.innerHTML = `${data.wind_speed.toFixed(1)} m/s <span class="wind-arrow" style="transform:rotate(${dirDeg}deg)">→</span> ${dirLabel}`;
+      windEl.innerHTML = `${data.wind_speed.toFixed(1)} m/s <span class="wind-arrow" style="transform:rotate(${dirDeg - 90}deg)">→</span> ${dirLabel}`;
     }
 
     // Hotspot count
