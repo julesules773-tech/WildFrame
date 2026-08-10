@@ -634,7 +634,7 @@
     // Confirmed reports show as small dots inside their cluster.
     // Pending/rejected reports show as larger dots.
     reports.forEach((r) => {
-      let color, radius, opacity, fillOpacity, weight;
+      let color, radius, opacity, fillOpacity, weight, isPending = false;
 
       if (r.status === "confirmed") {
         // Show as a small dot in the cluster color
@@ -663,6 +663,7 @@
         opacity = 0.9;
         fillOpacity = 0.8;
         weight = 1.5;
+        isPending = true;
       }
 
       const marker = L.circleMarker([r.lat, r.lon], {
@@ -726,6 +727,20 @@
       `, { maxWidth: 280 });
 
       STATE.markers.reports.push(marker);
+
+      // Pending reports pulse — they await a moderator's approval, so the
+      // ring draws attention without cluttering confirmed fires.
+      if (isPending) {
+        const pulse = L.circleMarker([r.lat, r.lon], {
+          radius: 7,
+          color: "#eab308",
+          weight: 2,
+          fill: false,
+          opacity: 0.8,
+          className: "report-pulse-ring",
+        }).addTo(STATE.map);
+        STATE.markers.reports.push(pulse);
+      }
     });
 
     // --- Cluster markers: convex hull (high zoom) or dot (low zoom) ---
@@ -1298,7 +1313,7 @@
         fetchRoadRisk();
       }
     } catch (err) {
-      console.warn("Bayesian state fetch error:", err);
+      console.warn("Fire grid state fetch error:", err);
     }
   }
 

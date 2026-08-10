@@ -26,6 +26,9 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* ---------- Map ---------- */
 #map { position: fixed; inset: 0; z-index: 0; }
+/* Push the Leaflet zoom + locate controls below the fixed top bar (which spans
+   the full width at top:16px + ~60px tall). 80px matches the stats panel. */
+#map .leaflet-top.leaflet-left { top: 80px; }
 #map .leaflet-control-zoom { border: none; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
 #map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); transition: var(--transition); }
 #map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
@@ -219,7 +222,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* ---------- Cluster Legend ---------- */
 #cluster-legend {
-  position: fixed; bottom: 100px; left: 16px; z-index: 1001;
+  position: fixed; bottom: 24px; left: 16px; z-index: 1001;  /* aligned with the Report button (bottom: 24px) */
   background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 12px 16px; box-shadow: var(--shadow); min-width: 120px;
@@ -373,7 +376,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 
 /* ---------- Toast Notifications ---------- */
-#toast-container { position: fixed; top: 80px; left: 16px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
+#toast-container { position: fixed; top: 80px; left: 64px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }  /* left:64px clears the zoom/locate column at top-left */
 .toast {
   display: flex; align-items: center; gap: 10px;
   background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -459,7 +462,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .live-tri-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
 .live-tri-value { font-size: 12px; color: var(--text-primary); font-weight: 500; text-align: right; }
 
-/* ---------- Bayesian Panel ---------- */
+/* ---------- Fire Grid Panel ---------- */
 #bayesian-panel {
   position: fixed; bottom: 100px; right: 24px; z-index: 1001;
   width: 260px;
@@ -832,6 +835,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 @media (max-width: 600px) {
   #stats-panel { top: 76px; right: 10px; padding: 6px 10px; }
+  #map .leaflet-top.leaflet-left { top: 76px; }
   .stat-item { padding: 2px 8px; }
   .stat-value { font-size: 15px; }
   .stat-label { font-size: 9px; }
@@ -841,4 +845,68 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   #top-bar .top-actions { gap: 8px; }
   .brand-text { font-size: 17px; }
   .top-menu-btn { display: flex; }
+}
+
+/* ---------- Pre-launch map & controls refresh ---------- */
+
+/* Locate control (leaflet-locatecontrol) — match the dark zoom control */
+#map .leaflet-control-locate a {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: var(--transition);
+}
+#map .leaflet-control-locate a:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent);
+}
+/* The plugin ships a black glyph — swap in a light one, amber while the
+   control is actively locating or following. */
+#map .leaflet-control-locate a .leaflet-control-locate-location-arrow {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23f0f4f8' d='M445 4 29 195c-48 23-32 93 19 93h176v176c0 51 70 67 93 19L508 67c16-38-25-79-63-63z'/%3E%3C/svg%3E") !important;
+}
+#map .leaflet-control-locate.active a .leaflet-control-locate-location-arrow,
+#map .leaflet-control-locate.following a .leaflet-control-locate-location-arrow {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23f97316' d='M445 4 29 195c-48 23-32 93 19 93h176v176c0 51 70 67 93 19L508 67c16-38-25-79-63-63z'/%3E%3C/svg%3E") !important;
+}
+
+/* Attribution — quiet chip on the dark tiles */
+.leaflet-control-attribution {
+  background: rgba(11, 14, 20, 0.7) !important;
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+}
+.leaflet-control-attribution a { color: #60a5fa !important; }
+.leaflet-control-attribution a:hover { color: #93c5fd !important; }
+
+/* Pending reports pulse until a moderator approves them */
+@keyframes report-pulse {
+  0%   { opacity: 0.9; transform: scale(1); }
+  70%  { opacity: 0;   transform: scale(2.4); }
+  100% { opacity: 0;   transform: scale(2.4); }
+}
+.report-pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: report-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Focus visibility for map controls and panel widgets */
+.leaflet-control a:focus-visible,
+.bayesian-panel button:focus-visible,
+.bayesian-panel input:focus-visible,
+#upload-card button:focus-visible,
+#upload-card input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Firefox range thumb (WebKit thumb already styled) */
+.bayesian-slider-label input[type="range"]::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff; cursor: pointer;
 }
