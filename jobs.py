@@ -32,6 +32,7 @@ import time
 
 import cap_adapter
 import db
+import weather
 
 logging.basicConfig(
     level=logging.INFO,
@@ -173,7 +174,17 @@ def advance_grids_job(**kwargs):
         n = db.advance_grids("production", limit=1000, min_age_s=60.0)
         if n:
             logger.info("[grids-advance] Checkpointed %d production grid(s).", n)
-        return {"advanced": n}
+        # Keep long-lived fires on real, current wind: refresh a bounded
+        # slice of grids whose wind is stale. Self-budgeting + ~28 km cell
+        # caching inside weather.py keep this far under the API free tier.
+        try:
+            refreshed = weather.refresh_grids_wind(
+                "production", limit=200, max_age_s=30 * 60,
+            )
+        except Exception as exc:
+            logger.error("[grids-advance] Wind refresh error: %s", exc)
+            refreshed = 0
+        return {"advanced": n, "wind_refreshed": refreshed}
     except Exception as exc:
         logger.error("[grids-advance] Error: %s", exc)
         return {"error": str(exc)}

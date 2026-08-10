@@ -142,11 +142,16 @@ CREATE TABLE IF NOT EXISTS bayesian_grids (
     -- is a true "is this fire still being detected?" signal. Grids whose
     -- last evidence is older than the expiry window are purged.
     last_evidence_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+    -- Epoch (unix) time when this grid's wind was last refreshed from the
+    -- weather API. 0 = never (created before weather existed, or the fetch
+    -- fell back to defaults) — the periodic wind-refresh job picks those up.
+    wind_updated_at   DOUBLE PRECISION NOT NULL DEFAULT 0,
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Existing databases: add the column idempotently (CREATE IF NOT EXISTS
 -- above won't touch an existing table).
 ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS last_evidence_at DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS wind_updated_at DOUBLE PRECISION NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_grids_mode_geom ON bayesian_grids USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_grids_mode_maxp ON bayesian_grids (mode, max_p DESC);
 CREATE INDEX IF NOT EXISTS idx_grids_mode_evidence ON bayesian_grids (mode, last_evidence_at);
@@ -632,6 +637,7 @@ def _nearest_grid(
     return conn.execute(
         """
         SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, max_p,
+               wind_updated_at,
                ST_Distance(
                    geom::geography,
                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
@@ -650,6 +656,7 @@ def find_or_create_grid(
     cluster: dict,
     wind_speed: float = 3.0,
     wind_dir_deg: float = 270.0,
+    wind_updated_at: float = 0.0,
 ) -> tuple[str, dict]:
     """
     Return the grid tracking this cluster's fire, creating one if needed.
@@ -696,6 +703,7 @@ def find_or_create_grid(
                     "centroid_lon": clon,
                     "wind_speed": nearest["wind_speed"],
                     "wind_dir_deg": nearest["wind_dir_deg"],
+                    "wind_updated_at": nearest["wind_updated_at"],
                     "max_p": nearest["max_p"],
                 }
 
@@ -721,10 +729,10 @@ def find_or_create_grid(
                 INSERT INTO bayesian_grids
                     (id, mode, centroid_lat, centroid_lon, geom,
                      wind_speed, wind_dir_deg, state, max_p,
-                     last_evidence_at)
+                     last_evidence_at, wind_updated_at)
                 VALUES (%s, %s, %s, %s,
                         ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                        %s, %s, %s, %s, %s)
+                        %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     grid_id, mode, clat, clon, clon, clat,
@@ -732,6 +740,7 @@ def find_or_create_grid(
                     Jsonb(grid.to_dict()),
                     float(grid.get_statistics()["max_p"]),
                     float(grid.last_updated.max()),  # 0 — fresh grid, no evidence yet
+                    wind_updated_at,
                 ),
             )
             return grid_id, {
@@ -740,8 +749,49 @@ def find_or_create_grid(
                 "centroid_lon": clon,
                 "wind_speed": wind_speed,
                 "wind_dir_deg": wind_dir_deg,
+                "wind_updated_at": wind_updated_at,
                 "max_p": float(grid.get_statistics()["max_p"]),
             }
+
+
+def list_grids_needing_wind(
+    mode: str,
+    limit: int = 200,
+    max_age_s: float = 1800.0,
+) -> list[dict]:
+    """Return the oldest-refreshed grids whose wind is stale (or was never
+    set — ``wind_updated_at = 0`` covers grids created before weather
+    existed). The periodic wind-refresh job feeds these centroids to the
+    weather API and calls :func:`update_grid_wind`."""
+    cutoff = time.time() - max_age_s
+    with _conn() as conn:
+        return conn.execute(
+            "SELECT id, centroid_lat, centroid_lon FROM bayesian_grids "
+            "WHERE mode = %s AND wind_updated_at < %s "
+            "ORDER BY wind_updated_at ASC LIMIT %s",
+            (mode, cutoff, limit),
+        ).fetchall()
+
+
+def update_grid_wind(
+    mode: str,
+    grid_id: str,
+    wind_speed: float,
+    wind_dir_deg: float,
+) -> bool:
+    """Persist a freshly-fetched wind value on a grid and stamp
+    ``wind_updated_at`` so the refresh job doesn't immediately re-fetch.
+    Returns True if the grid was updated."""
+    with _conn() as conn:
+        with conn.transaction():
+            cur = conn.execute(
+                "UPDATE bayesian_grids "
+                "SET wind_speed = %s, wind_dir_deg = %s, wind_updated_at = %s, "
+                "    updated_at = now() "
+                "WHERE id = %s AND mode = %s",
+                (wind_speed, wind_dir_deg, time.time(), grid_id, mode),
+            )
+            return cur.rowcount > 0
 
 
 def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -786,10 +836,10 @@ _BULK_GRID_INSERT_SQL = """
 INSERT INTO bayesian_grids
     (id, mode, centroid_lat, centroid_lon, geom,
      wind_speed, wind_dir_deg, state, max_p,
-     last_evidence_at)
+     last_evidence_at, wind_updated_at)
 VALUES (%s, %s, %s, %s,
         ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-        %s, %s, %s, %s, %s)
+        %s, %s, %s, %s, %s, %s)
 """
 
 _BULK_GRID_CENTROID_SQL = """
@@ -805,6 +855,7 @@ def bulk_find_or_create_grids(
     clusters: list[dict],
     wind_speed: float = 3.0,
     wind_dir_deg: float = 270.0,
+    wind_updated_at: float = 0.0,
 ) -> list[str]:
     """Return one grid_id per cluster (in order), creating grids in bulk.
 
@@ -933,6 +984,7 @@ def bulk_find_or_create_grids(
                         Jsonb(grid.to_dict()),
                         float(grid.get_statistics()["max_p"]),
                         float(grid.last_updated.max()),  # 0 — fresh grid
+                        wind_updated_at,
                     ))
                 with conn.cursor() as cur:
                     cur.executemany(_BULK_GRID_INSERT_SQL, rows)

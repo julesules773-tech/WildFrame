@@ -48,6 +48,7 @@ from fire_vision import scan_photo
 import nasa_firms
 import db
 import photo_storage
+import weather
 
 # The Procrastinate job app (jobs.py) is used to enqueue on-demand jobs
 # (e.g. a manual FIRMS fetch) from the web process. The worker opens its
@@ -1162,9 +1163,29 @@ _live_demo: Optional[dict] = None
 def _find_or_create_grid_for_cluster(cluster: dict, demo: bool = False) -> tuple[str, BayesianFireGrid]:
     """Return (grid_id, grid) tracking this cluster's fire, creating one if
     needed. Creation is serialized in Postgres (advisory lock on a location
-    bucket), so concurrent workers can't create duplicate grids."""
+    bucket), so concurrent workers can't create duplicate grids.
+
+    New grids (and any grid that never received real weather — e.g. ones
+    created before weather.py existed, whose ``wind_updated_at`` is 0) get
+    real wind from Open-Meteo at their centroid; matched grids keep their
+    stored wind, which the worker's periodic refresh keeps current."""
     mode = "demo" if demo else "production"
     grid_id, entry = db.find_or_create_grid(mode, cluster)
+
+    # Only fetch weather for PRODUCTION fires (demo/seed grids keep the
+    # deterministic defaults) and only when the grid has no fresh wind yet
+    # (brand-new, or pre-weather and never refreshed). fetch succeeded?
+    if not demo and (entry.get("wind_updated_at") or 0) <= 0:
+        speed, dir_deg, fetched_at = weather.get_wind_full(
+            cluster["centroid_lat"], cluster["centroid_lon"],
+        )
+        if fetched_at > 0 and db.update_grid_wind(mode, grid_id, speed, dir_deg):
+            entry["wind_speed"] = speed
+            entry["wind_dir_deg"] = dir_deg
+            print(f"[weather] {grid_id} wind from Open-Meteo: {speed:.1f} m/s "
+                  f"toward {dir_deg:.0f}° ({cluster['centroid_lat']:.3f}, "
+                  f"{cluster['centroid_lon']:.3f})")
+
     return grid_id, entry["grid"]
 
 
