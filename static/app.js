@@ -1464,9 +1464,9 @@
       // so new FIRMS grids would be created server-side but never rendered.
       if (result.injected > 0 && !STATE.bayesian.active) {
         toggleBayesian(true);
-        // Mobile: keep the heatmap on but don't re-open the control card
-        // over the map on every fetch.
-        if (MOBILE_MENU_QUERY.matches) setBayesianPanelVisible(false);
+        // Keep the heatmap on but respect the saved card preference (mobile
+        // defaults to collapsed so the map stays visible).
+        applyBayesianPanelLayout();
       }
 
       // Refresh the heatmap with the new evidence
@@ -2014,6 +2014,7 @@
 
     if (panel) panel.classList.toggle("hidden", !active);
     if (btn) btn.classList.toggle("active", active);
+    _syncBayesianPill();  // never leave an orphan pill when the grid is off
 
     if (active) {
       _applyGridLayerVisibility();
@@ -2069,10 +2070,46 @@
    * polling untouched. Used on mobile, where the fixed card would otherwise
    * cover most of the map (the Fire Grid menu button reopens it).
    */
+  // User's explicit collapse choice, persisted across visits. When unset,
+  // the viewport decides: mobile defaults collapsed, desktop expanded.
+  const PANEL_COLLAPSE_KEY = "wf.bayesian.panelCollapsed";
+
+  function _panelCollapsedPref() {
+    try { return localStorage.getItem(PANEL_COLLAPSE_KEY); } catch (err) { return null; }
+  }
+
+  // The reopen pill shows only while the grid is on and the card is hidden.
+  // Kept in one place so every path (toggle, collapse, boot) agrees on it.
+  function _syncBayesianPill() {
+    const pill = document.getElementById("bayesian-panel-pill");
+    if (pill) {
+      pill.classList.toggle("hidden", !STATE.bayesian.active || STATE.bayesian.panelOpen);
+    }
+  }
+
   function setBayesianPanelVisible(show) {
     STATE.bayesian.panelOpen = !!show;
     const panel = document.getElementById("bayesian-panel");
     if (panel) panel.classList.toggle("hidden", !show);
+    _syncBayesianPill();
+  }
+
+  // Collapse/expand with persistence (header ▾ button, reopen pill, and the
+  // mobile Fire Grid menu button when the grid is already active).
+  function setBayesianPanelCollapsed(collapsed) {
+    setBayesianPanelVisible(!collapsed);
+    try { localStorage.setItem(PANEL_COLLAPSE_KEY, collapsed ? "1" : "0"); }
+    catch (err) { /* private mode — in-memory only */ }
+  }
+
+  // Apply the correct panel state for the current viewport + saved preference.
+  // Kept separate from toggleBayesian so turning the grid on/off never fights
+  // the collapse preference.
+  function applyBayesianPanelLayout() {
+    if (!STATE.bayesian.active) return;
+    const pref = _panelCollapsedPref();
+    const collapsed = pref === null ? MOBILE_MENU_QUERY.matches : pref === "1";
+    setBayesianPanelVisible(!collapsed);
   }
 
   // -----------------------------------------------------------------------
@@ -2663,14 +2700,16 @@
     if (MOBILE_MENU_QUERY.addEventListener) {
       MOBILE_MENU_QUERY.addEventListener("change", (e) => {
         _layoutTopBar();
-        // Crossing to mobile collapses the card (grid stays on); back to
-        // desktop reopens it if the grid is active.
-        if (STATE.bayesian.active) setBayesianPanelVisible(!e.matches);
+        // Only auto-collapse/expand when the user hasn't explicitly chosen
+        // (the header ▾ button / reopen pill persist their preference).
+        if (_panelCollapsedPref() === null && STATE.bayesian.active) {
+          setBayesianPanelVisible(!e.matches);
+        }
       });
     } else if (MOBILE_MENU_QUERY.addListener) {
       MOBILE_MENU_QUERY.addListener(() => {
         _layoutTopBar();
-        if (STATE.bayesian.active) {
+        if (_panelCollapsedPref() === null && STATE.bayesian.active) {
           setBayesianPanelVisible(!MOBILE_MENU_QUERY.matches);
         }
       });
@@ -2719,9 +2758,10 @@
     // the overlay + panel + 5s polling start immediately, no click needed.
     initBayesianLayer();
     toggleBayesian(true);
-    // Mobile: keep the heatmap rendering but collapse the control card so it
-    // doesn't cover the map; the Fire Grid menu button reopens it.
-    if (MOBILE_MENU_QUERY.matches) setBayesianPanelVisible(false);
+    // Default: mobile collapses the control card (heatmap stays on), desktop
+    // keeps it open — unless the user has chosen otherwise; that choice
+    // persists across visits.
+    applyBayesianPanelLayout();
 
     // Setup upload UI
     setupUpload();
@@ -2769,11 +2809,21 @@
         // Mobile: once the grid is on, the button toggles just the control
         // card so the map stays visible. Desktop keeps the full on/off.
         if (MOBILE_MENU_QUERY.matches && STATE.bayesian.active) {
-          setBayesianPanelVisible(!STATE.bayesian.panelOpen);
+          setBayesianPanelCollapsed(STATE.bayesian.panelOpen);
         } else {
           toggleBayesian(!STATE.bayesian.active);
         }
       });
+    }
+
+    // --- Bayesian Collapse (header ▾ button + reopen pill) ---
+    const bayesianCollapseBtn = document.getElementById("bayesian-collapse-btn");
+    if (bayesianCollapseBtn) {
+      bayesianCollapseBtn.addEventListener("click", () => setBayesianPanelCollapsed(true));
+    }
+    const bayesianPanelPill = document.getElementById("bayesian-panel-pill");
+    if (bayesianPanelPill) {
+      bayesianPanelPill.addEventListener("click", () => setBayesianPanelCollapsed(false));
     }
 
     // --- Users-only filter ---

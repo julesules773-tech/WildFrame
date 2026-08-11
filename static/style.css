@@ -525,6 +525,32 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 @keyframes bayesian-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 6px #22d3ee; } 50% { opacity: 0.4; box-shadow: 0 0 14px #22d3ee; } }
 .bayesian-title { font-size: 13px; font-weight: 600; color: #22d3ee; flex: 1; }
 
+/* Collapse button in the panel header */
+.bayesian-collapse-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 13px; line-height: 1;
+  padding: 4px 6px; border-radius: 4px; flex-shrink: 0;
+  transition: var(--transition);
+}
+.bayesian-collapse-btn:hover { color: #22d3ee; background: rgba(34, 211, 238, 0.12); }
+.bayesian-collapse-btn:active { transform: scale(0.9); }
+
+/* Reopen pill shown when the card is collapsed (heatmap stays on) */
+.bayesian-panel-pill {
+  position: fixed; bottom: 100px; right: 24px; z-index: 1001;
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg-card); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 999px;
+  padding: 9px 14px; box-shadow: 0 8px 32px rgba(34, 211, 238, 0.12);
+  color: #22d3ee; font-size: 12px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: var(--transition);
+}
+.bayesian-panel-pill:hover { border-color: #22d3ee; box-shadow: 0 8px 32px rgba(34, 211, 238, 0.22); }
+.bayesian-panel-pill:active { transform: scale(0.97); }
+.bayesian-panel-pill .bayesian-pulse { width: 7px; height: 7px; }
+.bayesian-panel-pill .bayesian-pill-chevron { font-size: 10px; opacity: 0.7; }
+.bayesian-panel-pill.hidden { display: none; }
+
 /* Legend gradient bar — ABSOLUTE color scale (see _lavaColor in app.js).
    Stops at 30% / 60% / 85% are the fixed ramp thresholds 0.3 / 0.6 / 0.85
    (yellow→orange, orange→red, red→crimson); colors are the ramp's exact
@@ -899,6 +925,12 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     max-height: 55vh;
     overflow-y: auto;
   }
+  /* Reopen pill matches the card's mobile positioning */
+  #bayesian-panel-pill {
+    right: 12px;
+    bottom: 84px;
+    max-width: calc(100vw - 48px);
+  }
 }
 
 /* ---------- Pre-launch map & controls refresh ---------- */
@@ -952,6 +984,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .leaflet-control a:focus-visible,
 .bayesian-panel button:focus-visible,
 .bayesian-panel input:focus-visible,
+.bayesian-panel-pill:focus-visible,
 #upload-card button:focus-visible,
 #upload-card input:focus-visible {
   outline: 2px solid var(--accent);
