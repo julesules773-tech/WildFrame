@@ -1,0 +1,18 @@
+{
+  "model": "mobilenetv3-small-firetuned",
+  "min_prob": 0.23,
+  "trained_at": "2026-08-11T21:57:13Z",
+  "dataset": {
+    "fire": 755,
+    "non_fire": 244
+  },
+  "train": {
+    "fire": 642,
+    "non_fire": 208
+  },
+  "val": {
+    "fire": 113,
+    "non_fire": 36
+  },
+  "canaries": 31
+}

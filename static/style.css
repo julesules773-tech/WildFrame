@@ -24,6 +24,18 @@
 }
 html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: var(--bg-dark); color: var(--text-primary); }
 
+/* ---------- Fire gate notice (client-side pre-flight check) ---------- */
+.fire-gate-notice {
+  margin: 12px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* ---------- Map ---------- */
 #map { position: fixed; inset: 0; z-index: 0; }
 /* Push the Leaflet zoom + locate controls below the fixed top bar (which spans

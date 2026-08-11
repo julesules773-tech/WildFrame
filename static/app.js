@@ -86,6 +86,7 @@
     previewPlaceholder: $("#preview-placeholder"),
     previewImage: $("#preview-image"),
     photoInput: $("#photo-input"),
+    fireGateNotice: $("#fire-gate-notice"),
 
     form: $("#upload-form"),
     inputLat: $("#input-lat"),
@@ -2152,6 +2153,100 @@
   // Photo upload
   // -----------------------------------------------------------------------
   function setupUpload() {
+    // -------------------------------------------------------------------
+    // Client-side fire gate (MobileNetV3 via TF.js) — instant UX feedback
+    // only. It NEVER blocks or discards: a low-probability photo gets a
+    // soft-reject notice with a submit-anyway path. The server-side scan
+    // and auto-approval stay authoritative.
+    // -------------------------------------------------------------------
+    const FIRE_GATE = { ready: false, model: null, minProb: 0.4, loading: false };
+
+    async function _loadFireGate() {
+      if (FIRE_GATE.loading || FIRE_GATE.ready) return;
+      FIRE_GATE.loading = true;
+      try {
+        const cfg = await fetch("/model/gate/config.json").then((r) => r.json());
+        FIRE_GATE.minProb = cfg.min_prob ?? 0.4;
+        if (!window.tf) throw new Error("TF.js runtime not loaded");
+        // Graph model format: MobileNetV3 contains TFOpLambda ops that the
+        // layers format can't deserialize ('Unknown layer: TFOpLambda').
+        FIRE_GATE.model = await window.tf.loadGraphModel("/model/gate/model.json");
+        FIRE_GATE.ready = true;
+        console.info(`[fire-gate] ready (min_prob=${FIRE_GATE.minProb})`);
+      } catch (err) {
+        // The gate is a progressive enhancement — the app works without it.
+        console.warn("[fire-gate] unavailable, proceeding without gate:", err.message);
+      } finally {
+        FIRE_GATE.loading = false;
+      }
+    }
+
+    // Open an image for the gate. createImageBitmap is fastest, but Safari
+    // can reject HEIC via ImageBitmap — fall back to <img> + object URL so
+    // iPhone photos still get gated.
+    async function _openGateImage(file) {
+      try {
+        const bmp = await createImageBitmap(file);
+        return { src: bmp, width: bmp.width, height: bmp.height, close: () => bmp.close() };
+      } catch (err) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        try {
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+          return { src: img, width: img.naturalWidth, height: img.naturalHeight, close: () => URL.revokeObjectURL(url) };
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          throw e;
+        }
+      }
+    }
+
+    async function _gatePhoto(file) {
+      _setGateNotice("", false);
+      if (!FIRE_GATE.ready || !file || !file.type.startsWith("image/")) return;
+      let opened = null;
+      try {
+        opened = await _openGateImage(file);
+        const size = 224;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        // cover-crop to a square — must mirror train_gate.py exactly
+        const scale = Math.max(size / opened.width, size / opened.height);
+        const w = size / scale;
+        const h = size / scale;
+        ctx.drawImage(opened.src, (opened.width - w) / 2, (opened.height - h) / 2, w, h, 0, 0, size, size);
+        const pixels = window.tf.browser.fromPixels(canvas);
+        // Feed raw [0, 255] — MobileNetV3 embeds its own Rescaling first
+        // layer, so normalizing here too would crush the inputs (squashed
+        // outputs ~0.3-0.6). Must match training exactly.
+        const batched = pixels.expandDims(0).toFloat();
+        const out = FIRE_GATE.model.predict(batched);
+        // Graph models can return {name: tensor}; unwrap to the tensor.
+        const tensor = out && out.data ? out : Object.values(out)[0];
+        const fireProb = (await tensor.data())[0];
+        window.tf.dispose([pixels, batched, tensor]);
+        if (fireProb < FIRE_GATE.minProb) {
+          _setGateNotice(
+            "We didn't detect fire or smoke in this photo. You can still submit it — " +
+            "distant smoke or early-stage fires are easy to miss.",
+            true
+          );
+        }
+      } catch (err) {
+        console.warn("[fire-gate] inference failed, skipping gate:", err);
+      } finally {
+        if (opened) opened.close();
+      }
+    }
+
+    function _setGateNotice(text, show) {
+      if (!els.fireGateNotice) return;
+      els.fireGateNotice.textContent = text;
+      els.fireGateNotice.classList.toggle("hidden", !show);
+    }
+
     // ---- Trigger card open/close ----
     els.uploadTrigger.addEventListener("click", () => {
       els.uploadCard.classList.toggle("hidden");
@@ -2185,6 +2280,9 @@
 
       // Set captured_at to now
       els.inputCapturedAt.value = new Date().toISOString();
+
+      // Client-side pre-flight check (never blocks the upload)
+      _gatePhoto(file);
     });
 
     // ---- Form submit ----
@@ -2266,6 +2364,7 @@
     els.previewImage.classList.add("hidden");
     els.previewImage.src = "";
     els.submitBtn.disabled = true;
+    _setGateNotice("", false);
     els.progressBar.classList.remove("active");
     els.progressBar.classList.add("hidden");
     // Clear manual coordinate fields
@@ -2946,6 +3045,9 @@
 
     // Show the Admin button only if this browser holds the admin cookie.
     _syncAdminVisibility();
+
+    // Preload the fire gate in the background (progressive enhancement)
+    _loadFireGate();
 
     setStatus("Acquiring GPS…", "pending");
 
