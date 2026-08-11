@@ -29,6 +29,7 @@
     },
     bayesian: {
       active: false,
+      panelOpen: true,   // control card visible (boot collapses it on mobile)
       heatmapLayer: null,
       cells: [],
       contour: [],
@@ -1463,6 +1464,9 @@
       // so new FIRMS grids would be created server-side but never rendered.
       if (result.injected > 0 && !STATE.bayesian.active) {
         toggleBayesian(true);
+        // Mobile: keep the heatmap on but don't re-open the control card
+        // over the map on every fetch.
+        if (MOBILE_MENU_QUERY.matches) setBayesianPanelVisible(false);
       }
 
       // Refresh the heatmap with the new evidence
@@ -2003,6 +2007,7 @@
    */
   function toggleBayesian(active) {
     STATE.bayesian.active = active;
+    STATE.bayesian.panelOpen = active;  // turning the grid on shows the card
 
     const panel = document.getElementById("bayesian-panel");
     const btn = document.getElementById("bayesian-toggle");
@@ -2057,6 +2062,17 @@
         toggleSatellitePoller(false);
       }
     }
+  }
+
+  /**
+   * Show/hide only the Fire Grid control card, leaving the heatmap layer and
+   * polling untouched. Used on mobile, where the fixed card would otherwise
+   * cover most of the map (the Fire Grid menu button reopens it).
+   */
+  function setBayesianPanelVisible(show) {
+    STATE.bayesian.panelOpen = !!show;
+    const panel = document.getElementById("bayesian-panel");
+    if (panel) panel.classList.toggle("hidden", !show);
   }
 
   // -----------------------------------------------------------------------
@@ -2645,9 +2661,19 @@
 
     // Re-layout whenever the viewport crosses the mobile breakpoint.
     if (MOBILE_MENU_QUERY.addEventListener) {
-      MOBILE_MENU_QUERY.addEventListener("change", _layoutTopBar);
+      MOBILE_MENU_QUERY.addEventListener("change", (e) => {
+        _layoutTopBar();
+        // Crossing to mobile collapses the card (grid stays on); back to
+        // desktop reopens it if the grid is active.
+        if (STATE.bayesian.active) setBayesianPanelVisible(!e.matches);
+      });
     } else if (MOBILE_MENU_QUERY.addListener) {
-      MOBILE_MENU_QUERY.addListener(_layoutTopBar);
+      MOBILE_MENU_QUERY.addListener(() => {
+        _layoutTopBar();
+        if (STATE.bayesian.active) {
+          setBayesianPanelVisible(!MOBILE_MENU_QUERY.matches);
+        }
+      });
     }
   }
 
@@ -2693,6 +2719,9 @@
     // the overlay + panel + 5s polling start immediately, no click needed.
     initBayesianLayer();
     toggleBayesian(true);
+    // Mobile: keep the heatmap rendering but collapse the control card so it
+    // doesn't cover the map; the Fire Grid menu button reopens it.
+    if (MOBILE_MENU_QUERY.matches) setBayesianPanelVisible(false);
 
     // Setup upload UI
     setupUpload();
@@ -2737,7 +2766,13 @@
     const bayesianToggle = document.getElementById("bayesian-toggle");
     if (bayesianToggle) {
       bayesianToggle.addEventListener("click", () => {
-        toggleBayesian(!STATE.bayesian.active);
+        // Mobile: once the grid is on, the button toggles just the control
+        // card so the map stays visible. Desktop keeps the full on/off.
+        if (MOBILE_MENU_QUERY.matches && STATE.bayesian.active) {
+          setBayesianPanelVisible(!STATE.bayesian.panelOpen);
+        } else {
+          toggleBayesian(!STATE.bayesian.active);
+        }
       });
     }
 

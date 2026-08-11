@@ -889,6 +889,16 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   #top-bar .top-actions { gap: 8px; }
   .brand-text { font-size: 17px; }
   .top-menu-btn { display: flex; }
+  /* Fire Grid card: collapsed by default on mobile (JS boot) so the map
+     stays visible; when opened via the Fire Grid menu button, fit it to
+     the screen instead of the desktop 260px card. */
+  #bayesian-panel {
+    width: min(240px, calc(100vw - 48px));
+    right: 12px;
+    bottom: 84px;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
 }
 
 /* ---------- Pre-launch map & controls refresh ---------- */
