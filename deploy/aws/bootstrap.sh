@@ -4,16 +4,21 @@
 # and deploy/aws/). Run:  bash /home/ubuntu/wildframe/deploy/aws/bootstrap.sh
 set -euo pipefail
 
-echo "==> sanity: production DB URL present on the VM"
+echo "==> sanity: DB URL present and reachable"
 if grep -qE 'localhost|127\\.0\\.0\\.1' .env; then
-  echo "ERROR: .env WILDFRAME_DATABASE_URL points at a local database." >&2
-  echo "       Set the Neon production URL (sslmode=require) before bootstrapping." >&2
-  exit 1
+  echo "   .env points at a local database — verifying local Postgres"
+  if ! pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
+    echo "   local Postgres not running — provisioning it (install + schema)"
+    bash deploy/aws/setup_local_db.sh
+  fi
+else
+  DBURL_HOST=$(grep '^WILDFRAME_DATABASE_URL=' .env | sed -E 's#^[^:]*://([^@/]*@)?([^:/?]+).*#\2#')
+  echo "   .env points at remote DB ($DBURL_HOST) — make sure it is reachable"
 fi
 
 echo "==> apt packages"
 sudo apt-get update -y
-sudo apt-get install -y nginx certbot python3-certbot-nginx python3-venv python3-pip
+sudo apt-get install -y nginx certbot python3-certbot-nginx python3-venv python3-pip postgresql postgis
 
 echo "==> 2G swap (insurance on the 1 GB instance)"
 if [ ! -f /swapfile ]; then

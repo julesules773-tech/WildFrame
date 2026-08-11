@@ -3,8 +3,8 @@
 # it alive even if it crashes mid-job (the Fly outage root cause).
 [Unit]
 Description=WildFrame job worker (Procrastinate)
-After=network-online.target
-Wants=network-online.target
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
 
 [Service]
 User=ubuntu

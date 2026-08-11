@@ -1,4 +1,4 @@
-# Deployment — AWS Lightsail (web + worker) + Neon (PostGIS database)
+# Deployment — AWS Lightsail (web + worker) + local Postgres (PostGIS)
 
 WildFrame is an **always-on Flask + Postgres/PostGIS + background-worker** app,
 so it cannot run on serverless hosts (Vercel, etc.). This guide deploys it on
@@ -10,11 +10,19 @@ so it cannot run on serverless hosts (Vercel, etc.). This guide deploys it on
   `Restart=always` (the Fly outage root cause was a worker that stopped and
   never came back — systemd makes that impossible)
 
-Everything else is external: **Neon** (managed Postgres + PostGIS),
-**AWS S3** (photo storage), **Cloudflare** (DNS + edge TLS, Full strict).
+Everything else is external: **local PostgreSQL+PostGIS on the VM itself**
+(since 2026-08-11; see §1a), **AWS S3** (photo storage), **Cloudflare** (DNS +
+edge TLS, Full strict).
 
 Estimated time: ~45–60 min first time. Cost: **$7/mo** Lightsail 1 GB
-(`micro_3_0`) + Neon free tier + S3 (pennies) + Cloudflare Free.
+(`micro_3_0`) + S3 (pennies) + Cloudflare Free.
+
+> **Why local Postgres?** Neon's free tier has a 5 GB/month data-transfer
+> (egress) quota; the map's polling payloads blew through it and Neon
+> **suspended the entire DB** (site down, all jobs failing). A Postgres on
+> the same VM talks to the app over localhost — zero metered egress — so
+> that outage class cannot recur. Nightly `pg_dump` → S3 covers durability
+> (`deploy/aws/backup_db.py`, cron).
 
 > Historical note: Fly.io (`fly.toml`, `Dockerfile`) and Render (`render.yaml`
 > in git history) configs are preserved but no longer used. The current
@@ -131,7 +139,8 @@ curl -s https://pyrae.co/healthz          # {"db":"ok","status":"ok"}
 
 | Symptom | Fix |
 |---|---|
-| `/healthz` 500 / worker `PoolTimeout` | VM `.env` has a local DB URL — set the Neon URL (bootstrap refuses to proceed) |
+| `/healthz` 500 / worker `PoolTimeout` | DB down — with local Postgres: `systemctl status postgresql`, `pg_isready`, then `bash deploy/aws/setup_local_db.sh` |
+| Neon-style `exceeded the data transfer quota` | Only possible on remote managed DBs — local Postgres has no egress cap. If a remote DB is ever used again, add gzip + ETag/304 to cut payloads |
 | 525 after DNS flip | Origin cert not issued yet — run `tls.sh` once DNS propagates |
 | certbot: `NXDOMAIN looking up A for www.pyrae.co` | The `www` A record is missing/not propagated — add it, query `dig @1.1.1.1`, rerun `tls.sh` |
 | nginx: `unknown directive "http2"` | Ubuntu 24.04 ships nginx 1.24 — `tls.sh` already uses `listen 443 ssl http2;` |

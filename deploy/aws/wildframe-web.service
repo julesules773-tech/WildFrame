@@ -2,8 +2,8 @@
 # TLS terminates at nginx (Let's Encrypt via Cloudflare, Full strict).
 [Unit]
 Description=WildFrame web (gunicorn)
-After=network-online.target
-Wants=network-online.target
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
 
 [Service]
 User=ubuntu
