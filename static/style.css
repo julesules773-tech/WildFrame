@@ -46,6 +46,53 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .brand-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #7c7c72, #eee9e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .top-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ---------- Search box (top bar) ---------- */
+.search-box { position: relative; flex: 1 1 220px; max-width: 380px; margin: 0 18px; }
+.search-box-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; opacity: 0.6; pointer-events: none;
+}
+#search-input {
+  width: 100%; height: 38px;
+  background: rgba(148, 163, 184, 0.08); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text-primary);
+  font-size: 13px; padding: 0 12px 0 34px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+  appearance: none; -webkit-appearance: none;
+}
+#search-input::placeholder { color: var(--text-muted); }
+#search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(243, 166, 55, 0.15);
+}
+#search-input::-webkit-search-cancel-button { cursor: pointer; filter: invert(0.55); }
+
+.search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 1003;
+  display: none; max-height: 320px; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.search-results.open { display: block; }
+.search-result {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  padding: 10px 12px; background: transparent; border: none; border-radius: 8px;
+  color: var(--text-primary); font-size: 13px; text-align: left; cursor: pointer;
+  transition: background var(--transition);
+}
+.search-result:hover, .search-result.active { background: var(--bg-card-hover); }
+.search-result-icon { font-size: 14px; line-height: 18px; flex-shrink: 0; }
+.search-result-name { font-weight: 600; }
+.search-result-sub {
+  color: var(--text-muted); font-size: 11.5px; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.search-result-empty, .search-result-error {
+  padding: 12px; color: var(--text-muted); font-size: 12.5px; text-align: center;
+}
+
 /* ---------- Live / Demo Mode Switch ---------- */
 .mode-switch {
   display: flex; align-items: center; gap: 2px;
@@ -904,15 +951,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 
 @media (max-width: 600px) {
-  #stats-panel { top: 76px; right: 10px; padding: 6px 10px; }
-  #map .leaflet-top.leaflet-left { top: 76px; }
+  /* The search box wraps to its own full-width row under the brand/actions,
+     making the bar ~112px tall — nudge stats + zoom/locate controls down so
+     the taller bar never covers them. */
+  #stats-panel { top: 112px; right: 10px; padding: 6px 10px; }
+  #map .leaflet-top.leaflet-left { top: 112px; }
   .stat-item { padding: 2px 8px; }
   .stat-value { font-size: 15px; }
   .stat-label { font-size: 9px; }
   .upload-card { width: calc(100vw - 40px); right: 0; }
   #cluster-legend { display: none; }
-  #top-bar { left: 10px; right: 10px; padding: 10px 12px; }
+  #top-bar { left: 10px; right: 10px; padding: 10px 12px; flex-wrap: wrap; row-gap: 8px; }
   #top-bar .top-actions { gap: 8px; }
+  /* Search spans the full width on its own row (kept out of the ⋯ menu) */
+  .search-box { order: 3; flex: 1 1 100%; max-width: none; margin: 2px 0 0; }
   .brand-text { font-size: 17px; }
   .top-menu-btn { display: flex; }
   /* Fire Grid card: collapsed by default on mobile (JS boot) so the map

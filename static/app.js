@@ -2717,6 +2717,188 @@
   }
 
   // -----------------------------------------------------------------------
+  // Search (top-bar geocoding → Nominatim via /api/geocode)
+  // -----------------------------------------------------------------------
+
+  function _escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  let _searchTimer = null;
+  let _searchSeq = 0; // stale-response guard (only the latest query renders)
+  let _searchActiveIdx = -1;
+  let _lastResults = [];
+
+  function _searchResultIcon(res) {
+    const cls = res.class || "";
+    if (cls === "highway") return "🛣️";
+    if (cls === "building") return "🏢";
+    if (cls === "amenity" || cls === "shop" || cls === "tourism") return "⭐";
+    if (cls === "boundary" || cls === "place" || cls === "city" || cls === "town" || cls === "village" || cls === "hamlet") return "📍";
+    return "🔍";
+  }
+
+  function _searchZoom(res) {
+    const t = (res.type || "") + "|" + (res.class || "");
+    if (t.includes("building")) return 17;
+    if (t.includes("road") || t.includes("highway") || t.includes("street")) return 16;
+    if (t.includes("city") || t.includes("town") || t.includes("village") || t.includes("hamlet")) return 12;
+    if (t.includes("county") || t.includes("state") || t.includes("region")) return 10;
+    if (t.includes("country")) return 6;
+    return 13;
+  }
+
+  function _renderSearchResults(results) {
+    const box = document.getElementById("search-results");
+    if (!box) return;
+    box.innerHTML = "";
+    _lastResults = results || [];
+    _searchActiveIdx = -1;
+
+    if (!_lastResults.length) {
+      const row = document.createElement("div");
+      row.className = "search-result-empty";
+      row.textContent = "No places found";
+      box.appendChild(row);
+      box.classList.add("open");
+      return;
+    }
+
+    _lastResults.forEach((res, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "search-result";
+      btn.dataset.index = String(i);
+
+      const icon = document.createElement("span");
+      icon.className = "search-result-icon";
+      icon.textContent = _searchResultIcon(res);
+
+      const text = document.createElement("span");
+      const name = document.createElement("div");
+      name.className = "search-result-name";
+      name.textContent = res.name || res.label;
+      const sub = document.createElement("div");
+      sub.className = "search-result-sub";
+      // The label's leading name is already shown bold — render the rest.
+      sub.textContent = (res.label || "").split(",").slice(1).join(",").trim();
+      text.appendChild(name);
+      text.appendChild(sub);
+
+      btn.appendChild(icon);
+      btn.appendChild(text);
+      box.appendChild(btn);
+    });
+    box.classList.add("open");
+  }
+
+  function _closeSearchResults() {
+    const box = document.getElementById("search-results");
+    if (box) box.classList.remove("open");
+    const input = document.getElementById("search-input");
+    if (input) input.setAttribute("aria-expanded", "false");
+    _searchActiveIdx = -1;
+  }
+
+  function _selectSearchResult(res) {
+    if (!STATE.map || !res) return;
+    STATE.map.flyTo([res.lat, res.lon], _searchZoom(res), { duration: 0.8 });
+
+    const html =
+      `<div style="font-size:13px;font-weight:600;margin-bottom:2px">${_escapeHtml(res.name || res.label)}</div>` +
+      `<div style="font-size:11px;color:var(--text-muted)">📍 ${res.lat.toFixed(4)}, ${res.lon.toFixed(4)}</div>`;
+    L.popup({ maxWidth: 280 })
+      .setLatLng([res.lat, res.lon])
+      .setContent(html)
+      .openOn(STATE.map);
+
+    _closeSearchResults();
+    const input = document.getElementById("search-input");
+    if (input) input.blur();
+  }
+
+  function _runSearch() {
+    const input = document.getElementById("search-input");
+    const q = (input.value || "").trim();
+    if (q.length < 2) {
+      _closeSearchResults();
+      return;
+    }
+    const seq = ++_searchSeq;
+    fetch(`/api/geocode?q=${encodeURIComponent(q)}&limit=5`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("geocode " + r.status))))
+      .then((data) => {
+        if (seq !== _searchSeq) return; // stale
+        const box = document.getElementById("search-results");
+        if (!box) return;
+        if (data.degraded) {
+          box.innerHTML = '<div class="search-result-error">Search temporarily unavailable</div>';
+          box.classList.add("open");
+          return;
+        }
+        _renderSearchResults(data.results || []);
+        const input2 = document.getElementById("search-input");
+        if (input2) input2.setAttribute("aria-expanded", "true");
+      })
+      .catch(() => {
+        if (seq !== _searchSeq) return;
+        const box = document.getElementById("search-results");
+        if (box) {
+          box.innerHTML = '<div class="search-result-error">Search unavailable — try again later</div>';
+          box.classList.add("open");
+        }
+      });
+  }
+
+  function _setupSearch() {
+    const input = document.getElementById("search-input");
+    const box = document.getElementById("search-results");
+    if (!input || !box) return;
+
+    input.addEventListener("input", () => {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(_runSearch, 280);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      const items = box.querySelectorAll(".search-result");
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!items.length) return;
+        const dir = e.key === "ArrowDown" ? 1 : -1;
+        _searchActiveIdx = (_searchActiveIdx + dir + items.length) % items.length;
+        items.forEach((el, i) => el.classList.toggle("active", i === _searchActiveIdx));
+        items[_searchActiveIdx].scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        const idx = _searchActiveIdx >= 0 ? _searchActiveIdx : 0;
+        if (_lastResults[idx]) {
+          e.preventDefault();
+          _selectSearchResult(_lastResults[idx]);
+        }
+      } else if (e.key === "Escape") {
+        _closeSearchResults();
+        input.blur();
+      }
+    });
+
+    box.addEventListener("click", (e) => {
+      const btn = e.target.closest(".search-result");
+      if (btn) _selectSearchResult(_lastResults[Number(btn.dataset.index)]);
+    });
+
+    // Close the dropdown when clicking anywhere outside the search box.
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("#search-box")) return;
+      _closeSearchResults();
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Init
   // -----------------------------------------------------------------------
   // Show the Admin button only when this browser already proved the admin
@@ -2739,6 +2921,7 @@
     els.inputSession.value = STATE.sessionId;
 
     _setupTopBarMenu();
+    _setupSearch();
 
     // Show the Admin button only if this browser holds the admin cookie.
     _syncAdminVisibility();

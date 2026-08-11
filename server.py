@@ -2418,6 +2418,108 @@ def bayesian_predict():
     return jsonify({"status": "ok", "message": message})
 
 
+# ---------------------------------------------------------------------------
+# Geocoding — search box (city / address lookup)
+# ---------------------------------------------------------------------------
+
+_GEOCODE_LOCK = threading.Lock()
+_GEOCODE_LAST_TS = 0.0
+_GEOCODE_MIN_INTERVAL_S = 1.2  # Nominatim usage policy: max 1 request/second
+_GEOCODE_UA = "WildFrame-Pyrae/1.0 (https://pyrae.co)"
+
+
+@app.route("/api/geocode", methods=["GET"])
+def api_geocode():
+    """Search for a place (city, address, …) via OpenStreetMap Nominatim.
+
+    Proxied server-side so we can (a) send a proper identifying User-Agent
+    as Nominatim's usage policy requires, (b) throttle to <=1 req/s, and
+    (c) cache normalized queries in Postgres for 30 days, so the vast
+    majority of searches never touch Nominatim at all.
+
+    Query params: ``q`` (>= 2 chars), ``limit`` (default 5, max 8).
+
+    Returns ``{"results": [...]}`` where each result has ``lat``, ``lon``,
+    ``label``, ``name``, ``type``, ``class`` and ``importance``. If the
+    upstream geocoder is unreachable we return ``{"results": [],
+    "degraded": true}`` so the UI can show a quiet "unavailable" row
+    instead of an error page.
+    """
+    q = (request.args.get("q") or "").strip()
+    if len(q) < 2:
+        return jsonify({"results": [], "error": "query_too_short"}), 400
+    try:
+        limit = max(1, min(int(request.args.get("limit", 5)), 8))
+    except (TypeError, ValueError):
+        limit = 5
+
+    key = " ".join(q.lower().split())
+
+    # Cache is best-effort: if Postgres is down we still want to serve
+    # results straight from Nominatim rather than 500.
+    try:
+        cached = db.geocode_get(key)
+    except Exception:
+        cached = None
+    if cached is not None:
+        return jsonify({"results": cached})
+
+    import urllib.request
+    import urllib.error
+    import urllib.parse
+
+    global _GEOCODE_LAST_TS
+    with _GEOCODE_LOCK:
+        wait = _GEOCODE_MIN_INTERVAL_S - (time.time() - _GEOCODE_LAST_TS)
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            url = (
+                "https://nominatim.openstreetmap.org/search?"
+                + urllib.parse.urlencode(
+                    {
+                        "q": q,
+                        "format": "jsonv2",
+                        "limit": limit,
+                        "accept-language": "en",
+                    }
+                )
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": _GEOCODE_UA})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, ValueError):
+            # Geocoder unavailable — degrade gracefully.
+            return jsonify({"results": [], "degraded": True})
+        finally:
+            _GEOCODE_LAST_TS = time.time()
+
+    results = []
+    for r in raw:
+        try:
+            lat = float(r["lat"])
+            lon = float(r["lon"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        results.append(
+            {
+                "lat": lat,
+                "lon": lon,
+                "label": r.get("display_name", ""),
+                "name": r.get("name", ""),
+                "type": r.get("addresstype") or r.get("type") or "place",
+                "class": r.get("class") or r.get("addresstype") or "place",
+                "importance": r.get("importance") or 0.0,
+            }
+        )
+
+    try:
+        db.geocode_set(key, results)
+    except Exception:
+        pass  # caching is best-effort
+    return jsonify({"results": results})
+
+
 @app.route("/api/bayesian/update", methods=["POST"])
 def bayesian_update():
     """

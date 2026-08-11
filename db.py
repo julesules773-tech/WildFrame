@@ -167,6 +167,12 @@ CREATE TABLE IF NOT EXISTS osm_road_cache (
     stored_at  DOUBLE PRECISION
 );
 
+CREATE TABLE IF NOT EXISTS geocode_cache (
+    query_key  TEXT PRIMARY KEY,
+    results    JSONB NOT NULL,
+    stored_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS kv_store (
     key    TEXT PRIMARY KEY,
     value  JSONB
@@ -1387,6 +1393,46 @@ def osm_count() -> int:
         return conn.execute(
             "SELECT count(*) AS n FROM osm_road_cache"
         ).fetchone()["n"]
+
+
+# ---------------------------------------------------------------------------
+# Geocode cache — search-box results keyed by normalized query
+# ---------------------------------------------------------------------------
+
+GEOCODE_TTL_S = 30 * 24 * 3600  # 30 days
+
+
+def geocode_get(query_key: str, ttl_s: float = GEOCODE_TTL_S) -> Optional[list]:
+    """Return cached geocode results for a normalized query key, or None if
+    missing or expired (expired rows are treated as a miss and overwritten
+    on the next successful fetch)."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT results, stored_at FROM geocode_cache WHERE query_key = %s",
+            (query_key,),
+        ).fetchone()
+    if not row:
+        return None
+    age = (datetime.now(timezone.utc) - row["stored_at"]).total_seconds()
+    if age > ttl_s:
+        return None
+    return row["results"]
+
+
+def geocode_set(query_key: str, results: list) -> None:
+    """Cache geocode results under a normalized query key (upsert)."""
+    with _conn() as conn:
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO geocode_cache (query_key, results, stored_at)
+                VALUES (%s, %s, now())
+                ON CONFLICT (query_key) DO UPDATE SET
+                    results = EXCLUDED.results,
+                    stored_at = now()
+                """,
+                (query_key, Jsonb(results)),
+            )
 
 
 # ---------------------------------------------------------------------------
