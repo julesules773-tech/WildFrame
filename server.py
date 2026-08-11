@@ -1466,8 +1466,11 @@ def _grid_to_json(
                 "lat": round(row["centroid_lat"], 5),
                 "lon": round(row["centroid_lon"], 5),
                 "max_p": round(row["max_p"], 4),
-                "wind_speed": round(row["wind_speed"], 1),
-                "wind_dir_deg": round(row["wind_dir_deg"], 0),
+                # No real weather yet (wind_updated_at = 0 means the grid was
+                # never refreshed from Open-Meteo) → null, never the fake
+                # 3.0 m/s West default. The UI shows "N/A" for null.
+                "wind_speed": round(row["wind_speed"], 1) if (row.get("wind_updated_at") or 0) > 0 else None,
+                "wind_dir_deg": round(row["wind_dir_deg"], 0) if (row.get("wind_updated_at") or 0) > 0 else None,
             }
             for row in items
         ]
@@ -1518,12 +1521,14 @@ def _grid_to_json(
                 wind_dir_deg=entry.get("wind_dir_deg", 270.0),
             )
 
+        # Null (not a fake 3.0/270) until the grid has real weather.
+        has_wind = (entry.get("wind_updated_at") or 0) > 0
         out = {
             "id": grid_id,
             "state": _round_export_state(grid.export_state(threshold=threshold)),
             "statistics": grid.get_statistics(),
-            "wind_speed": round(entry.get("wind_speed", 3.0), 1),
-            "wind_dir_deg": round(entry.get("wind_dir_deg", 270.0), 0),
+            "wind_speed": round(entry["wind_speed"], 1) if has_wind else None,
+            "wind_dir_deg": round(entry["wind_dir_deg"], 0) if has_wind else None,
         }
         if include_contour:
             out["contour"] = _round_contour(grid.export_contour(level=contour_level))

@@ -509,6 +509,7 @@ def _entry_from_row(row: dict) -> dict:
         "centroid_lon": row["centroid_lon"],
         "wind_speed": row["wind_speed"],
         "wind_dir_deg": row["wind_dir_deg"],
+        "wind_updated_at": row["wind_updated_at"],
         "max_p": row["max_p"],
     }
 

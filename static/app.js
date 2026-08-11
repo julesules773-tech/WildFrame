@@ -1863,8 +1863,11 @@
     );
     const sources = [...new Set(nearby.map((r) => (r.source_type || "citizen")))];
 
-    const windSpeed = d.wind_speed != null ? d.wind_speed : 3.0;
-    const windDir = d.wind_dir_deg != null ? d.wind_dir_deg : 270.0;
+    // No real weather for this fire yet (backend sends null) → honest N/A,
+    // never the old fake "3.0 m/s West".
+    const windRow = d.wind_speed != null && d.wind_dir_deg != null
+      ? `<div><span class="popup-label">Wind:</span> ${d.wind_speed.toFixed(1)} m/s ${_windDirLabel(d.wind_dir_deg)}</div>`
+      : `<div><span class="popup-label">Wind:</span> <span style="color:var(--text-muted)">N/A</span></div>`;
 
     const html = `
       <div class="popup-title">🔥 Active Fire</div>
@@ -1872,7 +1875,7 @@
         <span style="color:${color};font-weight:700">${pct}%</span></div>
       <div><span class="popup-label">Source:</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
       <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
-      <div><span class="popup-label">Wind:</span> ${windSpeed.toFixed(1)} m/s ${_windDirLabel(windDir)}</div>
+      ${windRow}
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
       <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">🔍 Zooming in…</div>
     `;
@@ -1920,9 +1923,10 @@
       const g = grids[i];
       const region = regions[i];
 
-      // Wind data from the backend (now included in grid response)
-      const windSpd = g.wind_speed != null ? g.wind_speed : 3.0;
-      const windDir = g.wind_dir_deg != null ? g.wind_dir_deg : 270.0;
+      // No real weather for this grid yet → no badge (never fake a value).
+      if (g.wind_speed == null || g.wind_dir_deg == null) continue;
+      const windSpd = g.wind_speed;
+      const windDir = g.wind_dir_deg;
 
       // Position badge at the grid's reference origin (center of that fire's grid)
       const refLat = region.refLat;
@@ -3302,7 +3306,7 @@
 
     // Wind: speed + direction arrow
     const windEl = id("historic-wind");
-    if (windEl && data.wind_speed !== undefined) {
+    if (windEl && data.wind_speed != null) {
       const dirDeg = data.wind_dir_deg || 0;
       // Map compass direction to arrow symbol
       const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
