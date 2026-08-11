@@ -951,20 +951,20 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 
 @media (max-width: 600px) {
-  /* The search box wraps to its own full-width row under the brand/actions,
-     making the bar ~112px tall — nudge stats + zoom/locate controls down so
-     the taller bar never covers them. */
-  #stats-panel { top: 112px; right: 10px; padding: 6px 10px; }
-  #map .leaflet-top.leaflet-left { top: 112px; }
+  #stats-panel { top: 76px; right: 10px; padding: 6px 10px; }
+  #map .leaflet-top.leaflet-left { top: 76px; }
   .stat-item { padding: 2px 8px; }
   .stat-value { font-size: 15px; }
   .stat-label { font-size: 9px; }
   .upload-card { width: calc(100vw - 40px); right: 0; }
   #cluster-legend { display: none; }
-  #top-bar { left: 10px; right: 10px; padding: 10px 12px; flex-wrap: wrap; row-gap: 8px; }
+  #top-bar { left: 10px; right: 10px; padding: 10px 12px; }
   #top-bar .top-actions { gap: 8px; }
-  /* Search spans the full width on its own row (kept out of the ⋯ menu) */
-  .search-box { order: 3; flex: 1 1 100%; max-width: none; margin: 2px 0 0; }
+  /* Search lives at the top of the ⋯ overflow menu on mobile; results flow
+     inline (not absolutely positioned) so the menu scrolls naturally and the
+     dropdown can never be clipped by the menu's max-height. */
+  #top-menu .search-box { width: 100%; max-width: none; margin: 0 0 4px; }
+  #top-menu .search-results { position: static; z-index: auto; }
   .brand-text { font-size: 17px; }
   .top-menu-btn { display: flex; }
   /* Fire Grid card: collapsed by default on mobile (JS boot) so the map

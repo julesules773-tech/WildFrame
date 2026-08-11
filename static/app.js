@@ -2635,6 +2635,7 @@
   function _layoutTopBar() {
     const menu = els.topMenu;
     const actions = document.querySelector(".top-actions");
+    const searchBox = document.getElementById("search-box");
     if (!menu || !actions) return;
 
     const mobile = MOBILE_MENU_QUERY.matches;
@@ -2643,6 +2644,17 @@
       if (mobile && el.parentNode !== menu) menu.appendChild(el);
       else if (!mobile && el.parentNode !== actions) actions.appendChild(el);
     });
+
+    // Search: desktop keeps its slot between the brand and the actions; on
+    // mobile it lives at the top of the ⋯ overflow menu so the top bar stays
+    // a single row.
+    if (searchBox) {
+      if (mobile) {
+        if (searchBox.parentNode !== menu) menu.prepend(searchBox);
+      } else if (searchBox.parentNode === menu) {
+        actions.parentNode.insertBefore(searchBox, actions);
+      }
+    }
 
     // Never leave a stray open menu when switching back to desktop.
     if (!mobile && menu.classList.contains("open")) {
@@ -2657,6 +2669,9 @@
       els.topMenuBtn.classList.toggle("active", open);
       els.topMenuBtn.setAttribute("aria-expanded", String(open));
     }
+    // The search dropdown lives inside the menu on mobile — never leave it
+    // open behind a closed menu.
+    if (!open) _closeSearchResults();
   }
 
   function _closeTopMenu() {
@@ -2665,6 +2680,7 @@
       els.topMenuBtn.classList.remove("active");
       els.topMenuBtn.setAttribute("aria-expanded", "false");
     }
+    _closeSearchResults();
   }
 
   function _setupTopBarMenu() {
@@ -2798,6 +2814,7 @@
   }
 
   function _closeSearchResults() {
+    _searchSeq++; // discard any in-flight geocode response (stale-guard)
     const box = document.getElementById("search-results");
     if (box) box.classList.remove("open");
     const input = document.getElementById("search-input");
