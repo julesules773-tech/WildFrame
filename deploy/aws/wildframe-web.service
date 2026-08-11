@@ -10,7 +10,10 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/wildframe
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/ubuntu/wildframe/.venv/bin/gunicorn server:app --workers 2 --bind 127.0.0.1:8000 --timeout 120 --access-logfile -
+# 1 worker on the 1 GB instance: 2 workers double the web memory footprint
+# and helped trigger the swap-thrash OOM freeze. Beta traffic queues fine in
+# nginx; bump back to --workers 2 if you resize the instance.
+ExecStart=/home/ubuntu/wildframe/.venv/bin/gunicorn server:app --workers 1 --bind 127.0.0.1:8000 --timeout 120 --access-logfile -
 Restart=always
 RestartSec=5
 
