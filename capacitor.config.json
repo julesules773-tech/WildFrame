@@ -1,0 +1,9 @@
+{
+  "appId": "co.pyrae.wildframe",
+  "appName": "Pyrae",
+  "webDir": "static",
+  "server": {
+    "url": "https://pyrae.co",
+    "cleartext": false
+  }
+}

@@ -1,5 +1,10 @@
 {
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "localtunnel": "^2.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
   }
 }
