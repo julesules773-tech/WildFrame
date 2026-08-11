@@ -538,7 +538,14 @@ def list_grid_meta(
         params.extend([w, s, e, n])
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
-        "max_p, updated_at, wind_updated_at "
+        "max_p, updated_at, wind_updated_at, "
+        # last_predict_time lives inside the state JSONB; expose it here so
+        # the export-cache key can be computed WITHOUT loading/deserializing
+        # the full numpy state (the state endpoint checks its cache first).
+        # Mirror BayesianFireGrid.from_dict's fallback (0.0) so the
+        # cache-first key always matches the miss-path key for legacy grids
+        # whose state predates the last_predict_time key.
+        "COALESCE((state->>'last_predict_time')::float, 0.0) AS last_predict_time "
         "FROM bayesian_grids WHERE " + " AND ".join(clauses) +
         " ORDER BY max_p DESC"
     )
@@ -557,6 +564,22 @@ def get_grid_entry(mode: str, grid_id: str) -> Optional[dict]:
             (grid_id, mode),
         ).fetchone()
     return _entry_from_row(row) if row else None
+
+
+def get_grid_entries_batch(mode: str, grid_ids: list[str]) -> dict[str, dict]:
+    """Load many grids in ONE query, returned as entry dicts keyed by id.
+
+    Replaces the per-grid ``get_grid_entry`` N+1 pattern in the state
+    export / road-risk paths (121 queries for 120 grids → 1). Returns an
+    empty dict for an empty input; missing ids are simply absent."""
+    if not grid_ids:
+        return {}
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM bayesian_grids WHERE mode = %s AND id = ANY(%s)",
+            (mode, grid_ids),
+        ).fetchall()
+    return {r["id"]: _entry_from_row(r) for r in rows}
 
 
 def mutate_grid(

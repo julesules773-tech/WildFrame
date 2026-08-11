@@ -1483,22 +1483,25 @@ def _grid_to_json(
 
     now_ts = time.time()
     grids_out = []
+
+    # Cache-first pass: the key only needs the meta row (updated_at + the
+    # last_predict_time we now expose from the state JSONB in SQL), so a
+    # repeated poll of the same viewport hits the export cache WITHOUT
+    # loading/deserializing any numpy state. Only the grids that missed the
+    # cache are batch-loaded below (one query, not one per grid).
+    missing = []
     for row in items:
         grid_id = row["id"]
         # Full microsecond precision (TIMESTAMPTZ) so two writes to one grid
         # within the same second still invalidate the cache.
         updated_epoch = row["updated_at"].timestamp() if row.get("updated_at") else 0.0
 
-        entry = db.get_grid_entry(mode, grid_id)
-        if entry is None:
-            continue
-        grid = entry["grid"]
-
         # In-memory extrapolation bucket: the export is keyed by how much
         # wall-clock time has passed since the last persisted predict, so
         # fires keep advancing in ~15s steps between worker checkpoints
         # while the cache absorbs every poll within a bucket.
-        elapsed = max(0.0, now_ts - grid.last_predict_time) if grid.last_predict_time > 0 else 0.0
+        lpt = row.get("last_predict_time") or 0.0
+        elapsed = max(0.0, now_ts - lpt) if lpt > 0 else 0.0
         bucket = int(elapsed / _EXPORT_DT_BUCKET_S)
 
         key = (
@@ -1509,32 +1512,44 @@ def _grid_to_json(
         if cached is not None:
             grids_out.append(cached)
             continue
+        missing.append((row, key))
 
-        # Fallback extrapolation (never persisted — the worker owns
-        # persistence via grids.advance). Raised gate (~10s) keeps steady
-        # state cheap; dt capped at 10 minutes so fires can't run away
-        # between checkpoints.
-        if grid.last_predict_time > 0 and elapsed > _PREDICT_GATE_S:
-            grid.predict(
-                dt=min(elapsed, 600.0),
-                wind_speed=entry.get("wind_speed", 3.0),
-                wind_dir_deg=entry.get("wind_dir_deg", 270.0),
-            )
+    # Batch-load only the grids that missed the cache (one query total).
+    if missing:
+        entries = db.get_grid_entries_batch(mode, [row["id"] for row, _ in missing])
+        for row, key in missing:
+            entry = entries.get(row["id"])
+            if entry is None:
+                continue  # grid deleted between queries
+            grid = entry["grid"]
+            lpt = grid.last_predict_time
+            elapsed = max(0.0, now_ts - lpt) if lpt > 0 else 0.0
 
-        # Null (not a fake 3.0/270) until the grid has real weather.
-        has_wind = (entry.get("wind_updated_at") or 0) > 0
-        out = {
-            "id": grid_id,
-            "state": _round_export_state(grid.export_state(threshold=threshold)),
-            "statistics": grid.get_statistics(),
-            "wind_speed": round(entry["wind_speed"], 1) if has_wind else None,
-            "wind_dir_deg": round(entry["wind_dir_deg"], 0) if has_wind else None,
-        }
-        if include_contour:
-            out["contour"] = _round_contour(grid.export_contour(level=contour_level))
+            # Fallback extrapolation (never persisted — the worker owns
+            # persistence via grids.advance). Raised gate (~10s) keeps steady
+            # state cheap; dt capped at 10 minutes so fires can't run away
+            # between checkpoints.
+            if lpt > 0 and elapsed > _PREDICT_GATE_S:
+                grid.predict(
+                    dt=min(elapsed, 600.0),
+                    wind_speed=entry.get("wind_speed", 3.0),
+                    wind_dir_deg=entry.get("wind_dir_deg", 270.0),
+                )
 
-        _export_cache_set(key, out)
-        grids_out.append(out)
+            # Null (not a fake 3.0/270) until the grid has real weather.
+            has_wind = (entry.get("wind_updated_at") or 0) > 0
+            out = {
+                "id": row["id"],
+                "state": _round_export_state(grid.export_state(threshold=threshold)),
+                "statistics": grid.get_statistics(),
+                "wind_speed": round(entry["wind_speed"], 1) if has_wind else None,
+                "wind_dir_deg": round(entry["wind_dir_deg"], 0) if has_wind else None,
+            }
+            if include_contour:
+                out["contour"] = _round_contour(grid.export_contour(level=contour_level))
+
+            _export_cache_set(key, out)
+            grids_out.append(out)
 
     return {
         "grids": grids_out,
@@ -2043,12 +2058,15 @@ def bayesian_road_risk():
     if db.count_grids(mode) == 0:
         return jsonify({"error": "No active fire grids. Seed some data first or enable the Bayesian overlay."}), 400
 
-    # Restrict to fires in the current viewport at the SQL level (PostGIS).
+    # Restrict to fires in the current viewport at the SQL level (PostGIS),
+    # loaded in ONE batch query (the per-grid N+1 used to cost N round trips).
+    _meta_rows = db.list_grid_meta(mode, bbox=bbox)
+    _viewport_entries = db.get_grid_entries_batch(mode, [r["id"] for r in _meta_rows])
     viewport_items = [
-        (row["id"], db.get_grid_entry(mode, row["id"]))
-        for row in db.list_grid_meta(mode, bbox=bbox)
+        (r["id"], _viewport_entries[r["id"]])
+        for r in _meta_rows
+        if r["id"] in _viewport_entries
     ]
-    viewport_items = [(k, v) for k, v in viewport_items if v is not None]
     if target_grid != "all":
         viewport_items = [(k, v) for k, v in viewport_items if k == target_grid]
     if not viewport_items:
