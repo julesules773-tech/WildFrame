@@ -2152,16 +2152,17 @@
   // -----------------------------------------------------------------------
   // Photo upload
   // -----------------------------------------------------------------------
-  function setupUpload() {
-    // -------------------------------------------------------------------
-    // Client-side fire gate (MobileNetV3 via TF.js) — instant UX feedback
-    // only. It NEVER blocks or discards: a low-probability photo gets a
-    // soft-reject notice with a submit-anyway path. The server-side scan
-    // and auto-approval stay authoritative.
-    // -------------------------------------------------------------------
-    const FIRE_GATE = { ready: false, model: null, minProb: 0.4, loading: false };
+  // -----------------------------------------------------------------------
+  // Client-side fire gate (MobileNetV3 via TF.js) — instant UX feedback
+  // only. It NEVER blocks or discards: a low-probability photo gets a
+  // soft-reject notice with a submit-anyway path. The server-side scan
+  // and auto-approval stay authoritative.
+  // Hoisted to IIFE scope: setupUpload, resetForm and the submit flow all
+  // touch this state, so it must not stay trapped inside setupUpload.
+  // -----------------------------------------------------------------------
+  const FIRE_GATE = { ready: false, model: null, minProb: 0.4, loading: false, warned: false, lastProb: null, pending: null };
 
-    async function _loadFireGate() {
+  async function _loadFireGate() {
       if (FIRE_GATE.loading || FIRE_GATE.ready) return;
       FIRE_GATE.loading = true;
       try {
@@ -2201,9 +2202,18 @@
       }
     }
 
-    async function _gatePhoto(file) {
-      _setGateNotice("", false);
-      if (!FIRE_GATE.ready || !file || !file.type.startsWith("image/")) return;
+  function _gatePhoto(file) {
+    // The notice is only shown at SUBMIT time — never while the photo is
+    // being picked. Reset per-photo state here so a stale warning from a
+    // previous photo can never resurface.
+    _setGateNotice("", false);
+    FIRE_GATE.warned = false;
+    FIRE_GATE.lastProb = null;
+    if (!FIRE_GATE.ready || !file || !file.type.startsWith("image/")) return;
+    // Track the in-flight inference so the submit handler can await it —
+    // a fast submit must not silently skip the warning because the score
+    // wasn't ready yet.
+    FIRE_GATE.pending = (async () => {
       let opened = null;
       try {
         opened = await _openGateImage(file);
@@ -2227,26 +2237,23 @@
         const tensor = out && out.data ? out : Object.values(out)[0];
         const fireProb = (await tensor.data())[0];
         window.tf.dispose([pixels, batched, tensor]);
-        if (fireProb < FIRE_GATE.minProb) {
-          _setGateNotice(
-            "We didn't detect fire or smoke in this photo. You can still submit it — " +
-            "distant smoke or early-stage fires are easy to miss.",
-            true
-          );
-        }
+        FIRE_GATE.lastProb = fireProb;
       } catch (err) {
         console.warn("[fire-gate] inference failed, skipping gate:", err);
       } finally {
         if (opened) opened.close();
+        FIRE_GATE.pending = null;
       }
-    }
+    })();
+  }
 
-    function _setGateNotice(text, show) {
-      if (!els.fireGateNotice) return;
-      els.fireGateNotice.textContent = text;
-      els.fireGateNotice.classList.toggle("hidden", !show);
-    }
+  function _setGateNotice(text, show) {
+    if (!els.fireGateNotice) return;
+    els.fireGateNotice.textContent = text;
+    els.fireGateNotice.classList.toggle("hidden", !show);
+  }
 
+  function setupUpload() {
     // ---- Trigger card open/close ----
     els.uploadTrigger.addEventListener("click", () => {
       els.uploadCard.classList.toggle("hidden");
@@ -2281,7 +2288,8 @@
       // Set captured_at to now
       els.inputCapturedAt.value = new Date().toISOString();
 
-      // Client-side pre-flight check (never blocks the upload)
+      // Compute the gate score silently — the notice is shown at submit
+      // time, never on selection.
       _gatePhoto(file);
     });
 
@@ -2302,6 +2310,28 @@
         toast("GPS position not available. Enter coordinates manually above, or enable location services.", "error");
         return;
       }
+
+      // Client-side fire gate — warn at submit time, not when the photo is
+      // picked. The first submit click on a photo the model thinks is clean
+      // shows the notice; a second click proceeds. Soft-reject, never blocks.
+      // Await an in-flight inference so a fast submit can't silently skip
+      // the warning because the score wasn't ready yet.
+      if (FIRE_GATE.pending) {
+        try { await FIRE_GATE.pending; } catch (e) { /* gate degrades gracefully */ }
+      }
+      if (els.fireGateNotice && FIRE_GATE.ready && FIRE_GATE.lastProb != null &&
+          FIRE_GATE.lastProb < FIRE_GATE.minProb && !FIRE_GATE.warned) {
+        FIRE_GATE.warned = true;
+        _setGateNotice(
+          "We didn't detect fire or smoke in this photo. You can still submit it — " +
+          "distant smoke or early-stage fires are easy to miss. Click Submit again to confirm.",
+          true
+        );
+        return;
+      }
+      // Confirmed — hide the notice so the confirm copy doesn't linger
+      // while the upload runs (or if it fails for an unrelated reason).
+      _setGateNotice("", false);
 
       STATE.uploading = true;
       els.submitBtn.disabled = true;
@@ -2371,6 +2401,8 @@
     els.previewImage.src = "";
     els.submitBtn.disabled = true;
     _setGateNotice("", false);
+    FIRE_GATE.warned = false;
+    FIRE_GATE.lastProb = null;
     els.progressBar.classList.remove("active");
     els.progressBar.classList.add("hidden");
     // Clear manual coordinate fields
