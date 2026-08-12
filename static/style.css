@@ -466,6 +466,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 #photo-input { display: none; }
 #preview-image.hidden { display: none; }
 #upload-progress.hidden { display: none; }
+#fire-gate-notice.hidden { display: none; }
 @keyframes progress-indeterminate {
   0% { width: 0%; margin-left: 0; }
   50% { width: 60%; margin-left: 10%; }
