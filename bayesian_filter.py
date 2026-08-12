@@ -35,6 +35,7 @@ Usage
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterator
@@ -80,6 +81,19 @@ PROB_MIN = 1e-6                  # clamp to avoid log(0) / div-by-zero
 # Decay: halve ≈ every 3 hours without corroboration
 DECAY_HALF_LIFE_S = 10800.0  # seconds (3 hours)
 DECAY_LAMBDA = math.log(2) / DECAY_HALF_LIFE_S
+
+# Evidence shelf-life: the expected satellite revisit interval. A cell
+# whose last evidence is FRESHER than this is treated as an actively
+# burning fire — its probability holds, because the absence of a new
+# detection is just the sensor cadence, not proof the fire is out. Only
+# cells with evidence OLDER than this window fade at the base
+# DECAY_HALF_LIFE_S. Default 12 h ≈ the VIIRS revisit cadence that
+# produces our FIRMS detections (backtest_grids.py measured that the
+# old uniform 3 h half-life erased fires between passes); env-tunable
+# via WILDFRAME_EVIDENCE_SHELF_LIFE_S (seconds).
+EVIDENCE_SHELF_LIFE_S = float(
+    os.environ.get("WILDFRAME_EVIDENCE_SHELF_LIFE_S", str(12 * 3600))
+)
 
 # Wind-to-ellipse parameters (simplified Rothermel)
 # Head-to-flank ratio at 10 m/s wind
@@ -646,6 +660,7 @@ class BayesianFireGrid:
         burn_threshold: float = DEFAULT_BURN_THRESHOLD,
         moisture_factor: float = 1.0,
         decay_scale: float = 1.0,
+        at: float | None = None,
     ) -> None:
         """
         Advance the probability grid by time dt (seconds).
@@ -654,12 +669,19 @@ class BayesianFireGrid:
            to neighbouring cells using an elliptical spread kernel (scaled
            by ``moisture_factor`` from EFFIS FFMC when fuel-moisture data
            is available).
-        2. Apply exponential decay to all cells (uncorroborated probability
-           fades with half-life DECAY_HALF_LIFE_S). ``decay_scale`` > 1
-           lengthens that half-life — EFFIS DMC's "deep duff keeps the fire
-           smouldering" effect.
+        2. Apply evidence-gated exponential decay: a cell's probability
+           only fades once its last evidence has aged past the expected
+           satellite revisit window (``EVIDENCE_SHELF_LIFE_S``); while the
+           evidence is fresh the effective half-life stretches, so a fire
+           detected once per pass stays visible between passes. Stale and
+           never-observed cells decay with half-life DECAY_HALF_LIFE_S as
+           before. ``decay_scale`` > 1 lengthens the base half-life —
+           EFFIS DMC's "deep duff keeps the fire smouldering" effect.
+
+        ``at`` overrides the wall clock (used by the backtest harness to
+        replay history faithfully); production always leaves it None.
         """
-        now = datetime.now(timezone.utc).timestamp()
+        now = at if at is not None else datetime.now(timezone.utc).timestamp()
         dt_minutes = dt / 60.0
 
         # Compute the spread kernel
@@ -747,14 +769,24 @@ class BayesianFireGrid:
         # Apply delta logits
         self.logits += delta_logits
 
-        # --- Apply temporal decay (uncorroborated cells) ---
-        # Decay factor per cell: p *= exp(-lambda * dt)
-        # In log-odds: this is more complex...  Let's work in probability space.
+        # --- Apply evidence-gated temporal decay ---
+        # Per cell: the effective half-life stretches while the evidence is
+        # fresh (age < EVIDENCE_SHELF_LIFE_S) and converges to the base
+        # half-life once the evidence ages past the expected revisit
+        # window. ramp = shelf_life / age for fresh cells (tau grows as
+        # evidence gets fresher), exactly 1 for stale/never-observed
+        # cells. age is floored at 1 s so a just-stamped cell has a finite
+        # (very long) tau instead of an infinite one.
         self._compute_probs()
 
-        decay_factor = math.exp(-DECAY_LAMBDA * dt / max(1.0, decay_scale))
-        # Decay probability toward 0 for all cells
-        self.probabilities *= decay_factor
+        # Effective half-life = DECAY_HALF_LIFE_S * decay_scale * ramp, so
+        # the per-step factor is exp(-DECAY_LAMBDA * dt / (decay_scale *
+        # ramp)) — with ramp = 1 this reduces EXACTLY to the original
+        # uniform decay (DECAY_LAMBDA already embeds the base half-life).
+        age = np.maximum(now - self.last_updated, 1.0)  # s since last evidence
+        ramp = np.maximum(1.0, EVIDENCE_SHELF_LIFE_S / age)
+        denom = max(1.0, decay_scale) * ramp
+        self.probabilities *= np.exp(-DECAY_LAMBDA * dt / denom)
         # But keep at least a tiny residual
         self.probabilities = np.clip(self.probabilities, PROB_MIN, PROB_MAX)
 
@@ -773,7 +805,7 @@ class BayesianFireGrid:
     # Update step (Bayes' rule)
     # ------------------------------------------------------------------
 
-    def update(self, evidence: Evidence) -> None:
+    def update(self, evidence: Evidence, at: float | None = None) -> None:
         """
         Fuse a piece of evidence into the grid using Bayes' rule in log-odds.
 
@@ -781,6 +813,10 @@ class BayesianFireGrid:
         to exactly one cell.  For spatially-uncertain evidence, the log-LR is
         spread as a 2D Gaussian across neighbouring cells, weighted so that
         the total information content equals the original LR.
+
+        ``at`` overrides the wall clock for the per-cell ``last_updated``
+        stamp (the backtest harness replays historical detections with
+        their real acquisition times; production always leaves it None).
         """
         # Find the central cell
         ci, cj = self.latlon_to_cell(evidence.lat, evidence.lon)
@@ -822,7 +858,7 @@ class BayesianFireGrid:
         # expire_stale and reset last_evidence_at to "confirmed just now"
         # when the opposite is true.
         if evidence.log_likelihood_ratio > 0:
-            now = datetime.now(timezone.utc).timestamp()
+            now = at if at is not None else datetime.now(timezone.utc).timestamp()
             self.last_updated[ci, cj] = now
             if evidence.spatial_radius_m > self.cell_size:
                 # Update timestamps for all affected cells

@@ -217,16 +217,22 @@ def _predict_chunked(
     moisture_factor: float,
     decay_scale: float,
     chunk_s: float,
+    start_at: float,
 ) -> None:
+    """Advance by dt in <= chunk_s steps, stamping each predict with the
+    simulated time so evidence-gated decay ages correctly during replay."""
     remaining = dt
+    t = start_at
     while remaining > 0:
         step = min(remaining, chunk_s)
+        t += step
         g.predict(
             dt=step,
             wind_speed=wind_speed,
             wind_dir_deg=wind_dir_deg,
             moisture_factor=moisture_factor,
             decay_scale=decay_scale,
+            at=t,
         )
         remaining -= step
 
@@ -261,11 +267,13 @@ def rebuild(
         t = hs.acquired_at.timestamp()
         dt = t - prev
         if dt > 0:
-            _predict_chunked(sim, dt, ws, wd, mf, ds, chunk_s)
-        sim.update(Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude))
+            _predict_chunked(sim, dt, ws, wd, mf, ds, chunk_s, start_at=prev)
+        # Stamp last_updated with the real acquisition time so evidence-gated
+        # decay treats the detection as "now", not as the wall clock.
+        sim.update(Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude), at=t)
         prev = t
     if cutoff_ts > prev:
-        _predict_chunked(sim, cutoff_ts - prev, ws, wd, mf, ds, chunk_s)
+        _predict_chunked(sim, cutoff_ts - prev, ws, wd, mf, ds, chunk_s, start_at=prev)
     return sim
 
 
