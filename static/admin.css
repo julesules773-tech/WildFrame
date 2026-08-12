@@ -199,6 +199,81 @@
 }
 @keyframes sp-spin { to { transform: rotate(360deg); } }
 
+/* ---------- Live fires (active grids + EFFIS fuel moisture) ---------- */
+.fires-section {
+  flex-shrink: 0;
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: var(--radius);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.05);
+}
+.fires-header {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.fires-title {
+  font-size: 13px; font-weight: 700; color: #fbbf24;
+  letter-spacing: 0.3px;
+}
+.fires-count { font-size: 12px; color: var(--text-muted); }
+.fires-hint {
+  margin-left: auto; font-size: 11px; color: var(--text-muted);
+  opacity: 0.8;
+}
+.fires-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 320px; overflow-y: auto;
+}
+.fires-list::-webkit-scrollbar { width: 6px; }
+.fires-list::-webkit-scrollbar-track { background: transparent; }
+.fires-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.fire-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+.fire-row:hover { background: rgba(255, 255, 255, 0.05); }
+.fire-row.stale { opacity: 0.55; }
+.fire-main { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.fire-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
+.fire-prob {
+  font-size: 13px; font-weight: 700; color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  padding: 1px 8px; border-radius: 999px;
+}
+.fire-sub {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--text-muted); min-width: 0;
+}
+.fire-sub span { white-space: nowrap; }
+.fire-wind { color: var(--text-secondary); }
+.fire-moist { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+
+/* Tier-colored EFFIS badges */
+.fwi-badge {
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; letter-spacing: 0.2px;
+}
+.fwi-badge.tier-low    { background: rgba(52, 211, 153, 0.14); color: #34d399; }
+.fwi-badge.tier-mid    { background: rgba(251, 191, 36, 0.14); color: #fbbf24; }
+.fwi-badge.tier-high   { background: rgba(251, 146, 60, 0.16); color: #fb923c; }
+.fwi-badge.tier-extreme{ background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+.fwi-badge.tier-na     { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
+.mf-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14); color: #38bdf8;
+  white-space: nowrap;
+}
+
 /* ---------- Recently auto-approved strip ---------- */
 .auto-approved-section {
   flex-shrink: 0;

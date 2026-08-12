@@ -12,6 +12,7 @@
     secret: sessionStorage.getItem("wildframe_admin_secret") || "",
     reports: [],
     autoApproved: [],
+    fires: [],
     processing: new Set(),  // report IDs currently being processed
   };
 
@@ -36,6 +37,9 @@
     autoSection: $("#auto-approved-section"),
     autoList: $("#auto-approved-list"),
     autoCount: $("#auto-approved-count"),
+    firesSection: $("#fires-section"),
+    firesList: $("#fires-list"),
+    firesCount: $("#fires-count"),
     toastContainer: $("#admin-toast-container"),
   };
 
@@ -137,6 +141,7 @@
       els.pendingCount.textContent = `${STATE.reports.length} pending`;
       renderReports();
       loadAutoApproved();
+      loadFires();
     } catch (err) {
       if (err.message !== "Session expired. Please log in again.") {
         console.error("Failed to load reports:", err);
@@ -238,6 +243,133 @@
     } finally {
       STATE.processing.delete(id);
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Live fires — active Bayesian grids with EFFIS fuel-moisture context
+  // -----------------------------------------------------------------------
+  // Display-only tier thresholds (the model's math lives server-side).
+  const FWI_TIERS = {
+    ffmc: [ // fine-fuel moisture code — lower = damper
+      { max: 70, label: "Damp", cls: "tier-low" },
+      { max: 80, label: "Moderate", cls: "tier-mid" },
+      { max: 88, label: "Dry", cls: "tier-high" },
+      { max: 1e9, label: "Very dry", cls: "tier-extreme" },
+    ],
+    dmc: [ // duff moisture code
+      { max: 20, label: "Low", cls: "tier-low" },
+      { max: 40, label: "Moderate", cls: "tier-mid" },
+      { max: 60, label: "High", cls: "tier-high" },
+      { max: 1e9, label: "Very high", cls: "tier-extreme" },
+    ],
+    isi: [ // initial spread index
+      { max: 3, label: "Low", cls: "tier-low" },
+      { max: 7, label: "Moderate", cls: "tier-mid" },
+      { max: 15, label: "High", cls: "tier-high" },
+      { max: 1e9, label: "Extreme", cls: "tier-extreme" },
+    ],
+  };
+
+  function fwiTier(kind, value) {
+    const tiers = FWI_TIERS[kind];
+    for (const t of tiers) if (value <= t.max) return t;
+    return tiers[tiers.length - 1];
+  }
+
+  function fwiBadge(kind, value) {
+    const has = typeof value === "number" && isFinite(value) && value > 0;
+    const t = has ? fwiTier(kind, value) : { label: "No data", cls: "tier-na" };
+    const title = has
+      ? `${kind.toUpperCase()} ${value.toFixed(1)} — ${t.label}`
+      : `${kind.toUpperCase()} — outside EFFIS coverage or not fetched yet`;
+    return `<span class="fwi-badge ${t.cls}" title="${title}">${kind.toUpperCase()} ${has ? Math.round(value) : "—"}</span>`;
+  }
+
+  function compassDir(deg) {
+    const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    return dirs[Math.round(((deg % 360 + 360) % 360) / 22.5) % 16];
+  }
+
+  function evidenceAgeText(ageH) {
+    if (ageH == null) return "no evidence yet";
+    if (ageH < 1) return `${Math.round(ageH * 60)} min ago`;
+    return `${ageH.toFixed(1)} h ago`;
+  }
+
+  // Skip re-rendering the fires list when nothing about the fires changed
+  // (the 8s admin poll would otherwise rebuild 500 DOM rows every tick;
+  // evidence age is deliberately excluded — it only grows, and a stale
+  // "0.3 h ago" is harmless until the fire's data actually changes).
+  let _firesSig = "";
+  function firesSignature(fires) {
+    let h = 0;
+    for (const f of fires) {
+      h = (h * 31 + f.id.length + (f.max_p * 1000 | 0) + (f.ffmc * 10 | 0)
+           + (f.dmc * 10 | 0) + (f.isi * 10 | 0) + (f.wind_speed * 10 | 0)
+           + (f.wind_dir_deg | 0)) | 0;
+    }
+    return `${fires.length}:${h}`;
+  }
+
+  async function loadFires() {
+    if (!STATE.secret) return;
+    try {
+      const res = await adminFetch("/api/admin/grids");
+      const data = await res.json();
+      STATE.fires = data.grids || [];
+      renderFires();
+    } catch (err) {
+      if (err.message !== "Session expired. Please log in again.") {
+        console.error("Failed to load fires:", err);
+      }
+    }
+  }
+
+  function renderFires() {
+    if (!els.firesSection || !els.firesList) return;
+    const rows = STATE.fires;
+
+    const sig = firesSignature(rows);
+    if (sig === _firesSig && els.firesList.childElementCount > 0) return;
+    _firesSig = sig;
+
+    els.firesList.innerHTML = "";
+
+    if (rows.length === 0) {
+      els.firesSection.classList.add("hidden");
+      return;
+    }
+
+    els.firesSection.classList.remove("hidden");
+    els.firesCount.textContent = `${rows.length} active fires — EFFIS-data fires first`;
+
+    rows.forEach((f) => {
+      const windKmh = (f.wind_speed * 3.6).toFixed(1);
+      const windTxt = `${windKmh} km/h → ${compassDir(f.wind_dir_deg)} (${f.wind_dir_deg.toFixed(0)}°)`;
+      const stale = f.evidence_age_h != null && f.evidence_age_h > 24;
+      const prob = `${(Math.min(Math.max(f.max_p, 0), 1) * 100).toFixed(1)}%`;
+
+      const row = document.createElement("div");
+      row.className = "fire-row" + (stale ? " stale" : "");
+      row.innerHTML = `
+        <div class="fire-main">
+          <span class="fire-id" title="${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}">${f.id}</span>
+          <span class="fire-prob" title="Peak grid probability">${prob}</span>
+        </div>
+        <div class="fire-sub">
+          <span>${f.lat.toFixed(3)}, ${f.lon.toFixed(3)}</span>
+          <span class="fire-wind" title="Wind the spread model steers by">${windTxt}</span>
+          <span class="fire-age">evidence: ${evidenceAgeText(f.evidence_age_h)}</span>
+        </div>
+        <div class="fire-moist">
+          ${fwiBadge("FFMC", f.ffmc)}
+          ${fwiBadge("DMC", f.dmc)}
+          ${fwiBadge("ISI", f.isi)}
+          <span class="mf-badge" title="Spread-rate multiplier the model applies from FFMC (1.00 = wind-only behaviour)">×${f.moisture_factor.toFixed(2)}</span>
+        </div>
+      `;
+      els.firesList.appendChild(row);
+    });
   }
 
   // -----------------------------------------------------------------------

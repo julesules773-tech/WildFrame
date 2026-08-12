@@ -97,6 +97,9 @@ STATIC_DIR = Path("static")
 CLUSTER_RADIUS_M = 500.0          # metres — group reports within this distance
 CLUSTER_TIME_WINDOW_MINUTES = 120 # 2 hours
 ACTIVE_REPORT_HOURS = 48          # keep reports visible on map for 48h
+# Top-N active fires (by peak probability) shown in the admin dashboard's
+# live-fire overview — spot-checking data, not an archive.
+ADMIN_GRIDS_LIMIT = 500
 
 # Grid matching radius lives in db.py (shared with the persistence layer).
 GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_M
@@ -937,6 +940,49 @@ def admin_list_auto_approved():
     reports = db.list_reports("production", status="confirmed", since_hours=ACTIVE_REPORT_HOURS)
     auto = [r for r in reports if r.get("auto_approved")][:20]
     return jsonify({"reports": auto, "count": len(auto)})
+
+
+@app.route("/api/admin/grids", methods=["GET"])
+def admin_list_grids():
+    """Live-fire overview for the admin dashboard: the active production
+    Bayesian grids with their current probability, wind and EFFIS
+    fuel-moisture context (FFMC/DMC/ISI + the moisture_factor the model is
+    actually applying). Lets a human spot-check the fire-weather data
+    feeding the spread model.
+
+    Bounded to the top ``limit`` by peak probability so the 8s admin poll
+    never scans thousands of stale FIRMS grids."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    rows = db.list_grid_meta("production", limit=ADMIN_GRIDS_LIMIT)
+    # Spot-checking order: fires that HAVE EFFIS fuel-moisture data first
+    # (they're the ones the model is actively scaling by), then the rest.
+    # Within each group, most probable first.
+    rows.sort(key=lambda r: (float(r["ffmc"] or 0.0) <= 0.0, -float(r["max_p"])))
+    now = time.time()
+    grids = []
+    for r in rows:
+        ffmc = float(r["ffmc"] or 0.0)
+        moisture_factor = effis_fwi.moisture_factor(ffmc) if ffmc > 0 else 1.0
+        evidence_age_h = (
+            (now - float(r["last_evidence_at"])) / 3600.0
+            if float(r["last_evidence_at"] or 0.0) > 0
+            else None
+        )
+        grids.append({
+            "id": r["id"],
+            "lat": r["centroid_lat"],
+            "lon": r["centroid_lon"],
+            "max_p": float(r["max_p"]),
+            "wind_speed": float(r["wind_speed"]),
+            "wind_dir_deg": float(r["wind_dir_deg"]),
+            "ffmc": ffmc,
+            "dmc": float(r["dmc"] or 0.0),
+            "isi": float(r["isi"] or 0.0),
+            "moisture_factor": moisture_factor,
+            "evidence_age_h": evidence_age_h,
+        })
+    return jsonify({"grids": grids, "count": len(grids)})
 
 
 @app.route("/api/admin/accept/<report_id>", methods=["POST"])

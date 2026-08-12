@@ -555,7 +555,8 @@ def list_grid_meta(
         params.extend([w, s, e, n])
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
-        "max_p, updated_at, wind_updated_at, ffmc, dmc, isi, fwi_updated_at, "
+        "max_p, updated_at, wind_updated_at, last_evidence_at, "
+        "ffmc, dmc, isi, fwi_updated_at, "
         # last_predict_time lives inside the state JSONB; expose it here so
         # the export-cache key can be computed WITHOUT loading/deserializing
         # the full numpy state (the state endpoint checks its cache first).
