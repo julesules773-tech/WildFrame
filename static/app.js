@@ -86,6 +86,7 @@
     previewPlaceholder: $("#preview-placeholder"),
     previewImage: $("#preview-image"),
     photoInput: $("#photo-input"),
+    photoStatus: $("#photo-status"),
     fireGateNotice: $("#fire-gate-notice"),
 
     form: $("#upload-form"),
@@ -2258,6 +2259,18 @@
   }
 
   /**
+   * Photo attach status — an explicit "photo made it into the report"
+   * signal shown at the attach stage (before submit), independent of the
+   * client-side scan result.
+   */
+  function _setPhotoStatus(text, kind) {
+    if (!els.photoStatus) return;
+    els.photoStatus.textContent = text || "";
+    els.photoStatus.dataset.kind = kind || "";
+    els.photoStatus.classList.toggle("hidden", !text);
+  }
+
+  /**
    * Swap the Submit button label for the gate's confirm state ("Submit
    * anyway") and restore the original label once the user proceeds or the
    * form resets.
@@ -2298,12 +2311,21 @@
       const file = e.target.files[0];
       if (!file) return;
 
+      _setPhotoStatus("Reading photo…", "pending");
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         els.previewPlaceholder.classList.add("hidden");
         els.previewImage.classList.remove("hidden");
         els.previewImage.src = ev.target.result;
         els.submitBtn.disabled = false;
+        // Explicit confirmation that the photo made it into the report,
+        // shown regardless of what the client-side scan says.
+        _setPhotoStatus("✓ Photo uploaded — ready to submit", "ok");
+      };
+      reader.onerror = () => {
+        _setPhotoStatus("Couldn't read this photo — try another one", "error");
+        els.submitBtn.disabled = true;
       };
       reader.readAsDataURL(file);
 
@@ -2428,6 +2450,7 @@
     els.previewImage.src = "";
     els.submitBtn.disabled = true;
     _setGateNotice("", false);
+    _setPhotoStatus("", "");
     _setSubmitLabel();
     FIRE_GATE.warned = false;
     FIRE_GATE.lastProb = null;
