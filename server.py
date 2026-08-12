@@ -49,6 +49,7 @@ import nasa_firms
 import db
 import photo_storage
 import weather
+import effis_fwi
 
 # The Procrastinate job app (jobs.py) is used to enqueue on-demand jobs
 # (e.g. a manual FIRMS fetch) from the web process. The worker opens its
@@ -2095,6 +2096,11 @@ def bayesian_road_risk():
         grid = entry["grid"]
         wind_speed = entry.get("wind_speed", 3.0)
         wind_dir = entry.get("wind_dir_deg", 270.0)
+        # EFFIS fuel moisture scales the spread ellipse (0 = no data /
+        # outside coverage → neutral 1.0).
+        ffmc = float(entry.get("ffmc") or 0.0)
+        dmc = float(entry.get("dmc") or 0.0)
+        moisture_factor = effis_fwi.moisture_factor(ffmc) if ffmc > 0 else 1.0
 
         # Get contour to find where the fire edge is
         contour = grid.export_contour(level=contour_level)
@@ -2138,6 +2144,7 @@ def bayesian_road_risk():
         risk_results = compute_road_risk(
             grid, segments, wind_speed, wind_dir,
             contour_level=contour_level, contour=contour,
+            moisture_factor=moisture_factor,
         )
 
         if not risk_results:
@@ -2161,6 +2168,12 @@ def bayesian_road_risk():
                     "t_arrival_min": result.get("t_arrival_min"),
                     "nearest_distance_m": result.get("nearest_distance_m"),
                     "grid_id": key,
+                    # EFFIS fuel-moisture context (0 = unavailable) and the
+                    # resulting spread multiplier — so a "critical" road can
+                    # be traced back to WHY it's critical.
+                    "ffmc": ffmc,
+                    "dmc": dmc,
+                    "moisture_factor": moisture_factor,
                 },
             }
             # Add optional detail fields for tooltip

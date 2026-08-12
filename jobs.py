@@ -32,6 +32,7 @@ import time
 
 import cap_adapter
 import db
+import effis_fwi
 import weather
 
 logging.basicConfig(
@@ -184,7 +185,18 @@ def advance_grids_job(**kwargs):
         except Exception as exc:
             logger.error("[grids-advance] Wind refresh error: %s", exc)
             refreshed = 0
-        return {"advanced": n, "wind_refreshed": refreshed}
+        # Daily fuel-moisture / fire-weather indices from EFFIS (FFMC, DMC,
+        # ISI) — feeds the spread kernel's moisture factor + decay scale.
+        # Cached per ~55 km cell per day; grids outside EFFIS coverage are
+        # stamped once and skipped.
+        try:
+            refreshed_fwi = effis_fwi.refresh_grids_fwi(
+                "production", limit=200, max_age_s=12 * 3600,
+            )
+        except Exception as exc:
+            logger.error("[grids-advance] EFFIS refresh error: %s", exc)
+            refreshed_fwi = 0
+        return {"advanced": n, "wind_refreshed": refreshed, "fwi_refreshed": refreshed_fwi}
     except Exception as exc:
         logger.error("[grids-advance] Error: %s", exc)
         return {"error": str(exc)}

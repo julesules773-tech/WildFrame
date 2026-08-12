@@ -330,6 +330,11 @@ class SpreadKernel:
         Direction the slope faces (compass degrees).  0 = north-facing.
     base_spread_rate : float
         Base Rothermel spread rate in m/min.
+    moisture_factor : float
+        Spread-rate multiplier from fuel moisture (EFFIS FFMC). 1.0 = the
+        pre-EFFIS wind-only behaviour; <1 damp fuels slow the fire, >1
+        bone-dry fuels speed it up. Scales base rate, so head/back/flank
+        all expand or contract together.
     """
 
     def __init__(
@@ -339,12 +344,13 @@ class SpreadKernel:
         slope_pct: float = 0.0,
         slope_aspect_deg: float = 0.0,
         base_spread_rate: float = DEFAULT_BASE_SPREAD_RATE,
+        moisture_factor: float = 1.0,
     ):
         self.wind_speed = wind_speed
         self.wind_dir = wind_dir_deg
         self.slope_pct = slope_pct
         self.slope_aspect = slope_aspect_deg
-        self.base_rate = base_spread_rate
+        self.base_rate = base_spread_rate * max(0.1, moisture_factor)
 
         # Compute ellipse parameters
         self._compute_ellipse()
@@ -638,14 +644,20 @@ class BayesianFireGrid:
         slope_pct: float = 0.0,
         slope_aspect_deg: float = 0.0,
         burn_threshold: float = DEFAULT_BURN_THRESHOLD,
+        moisture_factor: float = 1.0,
+        decay_scale: float = 1.0,
     ) -> None:
         """
         Advance the probability grid by time dt (seconds).
 
         1. For each cell with p > burn_threshold, spread probability mass
-           to neighbouring cells using an elliptical spread kernel.
+           to neighbouring cells using an elliptical spread kernel (scaled
+           by ``moisture_factor`` from EFFIS FFMC when fuel-moisture data
+           is available).
         2. Apply exponential decay to all cells (uncorroborated probability
-           fades with half-life DECAY_HALF_LIFE_S).
+           fades with half-life DECAY_HALF_LIFE_S). ``decay_scale`` > 1
+           lengthens that half-life — EFFIS DMC's "deep duff keeps the fire
+           smouldering" effect.
         """
         now = datetime.now(timezone.utc).timestamp()
         dt_minutes = dt / 60.0
@@ -656,6 +668,7 @@ class BayesianFireGrid:
             wind_dir_deg=wind_dir_deg,
             slope_pct=slope_pct,
             slope_aspect_deg=slope_aspect_deg,
+            moisture_factor=moisture_factor,
         )
 
         spread_radius = kernel.spread_radius_m(dt_minutes)
@@ -739,7 +752,7 @@ class BayesianFireGrid:
         # In log-odds: this is more complex...  Let's work in probability space.
         self._compute_probs()
 
-        decay_factor = math.exp(-DECAY_LAMBDA * dt)
+        decay_factor = math.exp(-DECAY_LAMBDA * dt / max(1.0, decay_scale))
         # Decay probability toward 0 for all cells
         self.probabilities *= decay_factor
         # But keep at least a tiny residual
@@ -1174,6 +1187,7 @@ def compute_road_risk(
     wind_dir_deg: float,
     contour_level: float = 0.3,
     contour: list[list[list[float]]] | None = None,
+    moisture_factor: float = 1.0,
 ) -> list[dict]:
     """
     Assess risk to road segments from a spreading fire using the same
@@ -1210,7 +1224,11 @@ def compute_road_risk(
         effective_spread_rate_m_min, probability_at_contour,
         head_rate_m_min, back_rate_m_min, flank_rate_m_min
     """
-    kernel = SpreadKernel(wind_speed=wind_speed, wind_dir_deg=wind_dir_deg)
+    kernel = SpreadKernel(
+        wind_speed=wind_speed,
+        wind_dir_deg=wind_dir_deg,
+        moisture_factor=moisture_factor,
+    )
 
     if contour is None:
         contour = grid.export_contour(level=contour_level)

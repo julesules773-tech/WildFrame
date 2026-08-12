@@ -151,12 +151,25 @@ CREATE TABLE IF NOT EXISTS bayesian_grids (
     -- weather API. 0 = never (created before weather existed, or the fetch
     -- fell back to defaults) — the periodic wind-refresh job picks those up.
     wind_updated_at   DOUBLE PRECISION NOT NULL DEFAULT 0,
+    -- Fuel-moisture / fire-weather indices from EFFIS (daily; 0 = not yet
+    -- fetched, fetch fell back, or the fire is outside EFFIS coverage).
+    -- ffmc/dmc/isi are raw FWI-system index values; fwi_updated_at is the
+    -- epoch of the last successful fetch (0 = never — the periodic
+    -- refresh picks those up, and the advance job scales spread by them).
+    ffmc             DOUBLE PRECISION NOT NULL DEFAULT 0,
+    dmc              DOUBLE PRECISION NOT NULL DEFAULT 0,
+    isi              DOUBLE PRECISION NOT NULL DEFAULT 0,
+    fwi_updated_at   DOUBLE PRECISION NOT NULL DEFAULT 0,
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Existing databases: add the column idempotently (CREATE IF NOT EXISTS
 -- above won't touch an existing table).
 ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS last_evidence_at DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS wind_updated_at DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS ffmc DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS dmc DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS isi DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bayesian_grids ADD COLUMN IF NOT EXISTS fwi_updated_at DOUBLE PRECISION NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_grids_mode_geom ON bayesian_grids USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_grids_mode_maxp ON bayesian_grids (mode, max_p DESC);
 CREATE INDEX IF NOT EXISTS idx_grids_mode_evidence ON bayesian_grids (mode, last_evidence_at);
@@ -510,6 +523,10 @@ def _entry_from_row(row: dict) -> dict:
         "wind_speed": row["wind_speed"],
         "wind_dir_deg": row["wind_dir_deg"],
         "wind_updated_at": row["wind_updated_at"],
+        "ffmc": row["ffmc"],
+        "dmc": row["dmc"],
+        "isi": row["isi"],
+        "fwi_updated_at": row["fwi_updated_at"],
         "max_p": row["max_p"],
     }
 
@@ -538,7 +555,7 @@ def list_grid_meta(
         params.extend([w, s, e, n])
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
-        "max_p, updated_at, wind_updated_at, "
+        "max_p, updated_at, wind_updated_at, ffmc, dmc, isi, fwi_updated_at, "
         # last_predict_time lives inside the state JSONB; expose it here so
         # the export-cache key can be computed WITHOUT loading/deserializing
         # the full numpy state (the state endpoint checks its cache first).
@@ -612,6 +629,9 @@ def mutate_grid(
                 "centroid_lon": row["centroid_lon"],
                 "wind_speed": row["wind_speed"],
                 "wind_dir_deg": row["wind_dir_deg"],
+                "ffmc": row["ffmc"],
+                "dmc": row["dmc"],
+                "isi": row["isi"],
             }
             result = fn(grid, entry)
             max_p = float(grid.get_statistics()["max_p"])
@@ -624,6 +644,7 @@ def mutate_grid(
                        centroid_lat = %s, centroid_lon = %s,
                        geom = ST_SetSRID(ST_MakePoint(%s, %s), 4326),
                        wind_speed = %s, wind_dir_deg = %s,
+                       ffmc = %s, dmc = %s, isi = %s,
                        max_p = %s,
                        last_evidence_at = %s,
                        updated_at = now()
@@ -634,6 +655,7 @@ def mutate_grid(
                     entry["centroid_lat"], entry["centroid_lon"],
                     entry["centroid_lon"], entry["centroid_lat"],
                     entry["wind_speed"], entry["wind_dir_deg"],
+                    entry["ffmc"], entry["dmc"], entry["isi"],
                     max_p,
                     last_evidence_at,
                     grid_id, mode,
@@ -672,7 +694,7 @@ def _nearest_grid(
     return conn.execute(
         """
         SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, max_p,
-               wind_updated_at,
+               wind_updated_at, ffmc, dmc, isi, fwi_updated_at,
                ST_Distance(
                    geom::geography,
                    ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography
@@ -739,6 +761,10 @@ def find_or_create_grid(
                     "wind_speed": nearest["wind_speed"],
                     "wind_dir_deg": nearest["wind_dir_deg"],
                     "wind_updated_at": nearest["wind_updated_at"],
+                    "ffmc": nearest["ffmc"],
+                    "dmc": nearest["dmc"],
+                    "isi": nearest["isi"],
+                    "fwi_updated_at": nearest["fwi_updated_at"],
                     "max_p": nearest["max_p"],
                 }
 
@@ -785,6 +811,10 @@ def find_or_create_grid(
                 "wind_speed": wind_speed,
                 "wind_dir_deg": wind_dir_deg,
                 "wind_updated_at": wind_updated_at,
+                "ffmc": 0.0,
+                "dmc": 0.0,
+                "isi": 0.0,
+                "fwi_updated_at": 0.0,
                 "max_p": float(grid.get_statistics()["max_p"]),
             }
 
@@ -825,6 +855,62 @@ def update_grid_wind(
                 "    updated_at = now() "
                 "WHERE id = %s AND mode = %s",
                 (wind_speed, wind_dir_deg, time.time(), grid_id, mode),
+            )
+            return cur.rowcount > 0
+
+
+def list_grids_needing_fwi(
+    mode: str,
+    limit: int = 200,
+    max_age_s: float = 12 * 3600,
+) -> list[dict]:
+    """Return the oldest-refreshed grids whose fuel-moisture values are
+    stale (or never set — ``fwi_updated_at = 0`` covers grids created
+    before EFFIS integration). The periodic refresh job feeds these
+    centroids to EFFIS and calls :func:`update_grid_fwi`."""
+    cutoff = time.time() - max_age_s
+    with _conn() as conn:
+        return conn.execute(
+            "SELECT id, centroid_lat, centroid_lon FROM bayesian_grids "
+            "WHERE mode = %s AND fwi_updated_at < %s "
+            "ORDER BY fwi_updated_at ASC LIMIT %s",
+            (mode, cutoff, limit),
+        ).fetchall()
+
+
+def update_grid_fwi(
+    mode: str,
+    grid_id: str,
+    ffmc: float,
+    dmc: float,
+    isi: float,
+) -> bool:
+    """Persist freshly-fetched EFFIS values on a grid and stamp
+    ``fwi_updated_at`` so the refresh job doesn't immediately re-fetch.
+    Returns True if the grid was updated."""
+    with _conn() as conn:
+        with conn.transaction():
+            cur = conn.execute(
+                "UPDATE bayesian_grids "
+                "SET ffmc = %s, dmc = %s, isi = %s, fwi_updated_at = %s, "
+                "    updated_at = now() "
+                "WHERE id = %s AND mode = %s",
+                (ffmc, dmc, isi, time.time(), grid_id, mode),
+            )
+            return cur.rowcount > 0
+
+
+def touch_grid_fwi(mode: str, grid_id: str) -> bool:
+    """Stamp ``fwi_updated_at`` WITHOUT values — used for grids that will
+    never have EFFIS data (outside EMNA coverage) so the daily sweep stops
+    rescanning them. Returns True if the grid was updated."""
+    with _conn() as conn:
+        with conn.transaction():
+            cur = conn.execute(
+                "UPDATE bayesian_grids "
+                "SET fwi_updated_at = %s, updated_at = now() "
+                "WHERE id = %s AND mode = %s",
+                (time.time(), grid_id, mode),
             )
             return cur.rowcount > 0
 
@@ -1087,6 +1173,9 @@ def bulk_mutate_grids(
                         "centroid_lon": row["centroid_lon"],
                         "wind_speed": row["wind_speed"],
                         "wind_dir_deg": row["wind_dir_deg"],
+                        "ffmc": row["ffmc"],
+                        "dmc": row["dmc"],
+                        "isi": row["isi"],
                     }
                     results[gid] = fn(grid, entry)
                     max_p = float(grid.get_statistics()["max_p"])
@@ -1096,6 +1185,7 @@ def bulk_mutate_grids(
                         entry["centroid_lat"], entry["centroid_lon"],
                         entry["centroid_lon"], entry["centroid_lat"],
                         entry["wind_speed"], entry["wind_dir_deg"],
+                        entry["ffmc"], entry["dmc"], entry["isi"],
                         max_p, last_evidence_at, gid, mode,
                     ))
                 with conn.cursor() as cur:
@@ -1106,6 +1196,7 @@ def bulk_mutate_grids(
                                centroid_lat = %s, centroid_lon = %s,
                                geom = ST_SetSRID(ST_MakePoint(%s, %s), 4326),
                                wind_speed = %s, wind_dir_deg = %s,
+                               ffmc = %s, dmc = %s, isi = %s,
                                max_p = %s,
                                last_evidence_at = %s,
                                updated_at = now()
@@ -1236,6 +1327,11 @@ def advance_grids(
 
     Returns the number of grids actually advanced.
     """
+    # EFFIS fuel-moisture conversions for the advance step. Lazy import at
+    # function level: effis_fwi imports db, so a module-level import here
+    # would be an import cycle (imported once per job run, not per grid).
+    from effis_fwi import moisture_factor, decay_scale
+
     cursor_key = f"grids_advance_cursor:{mode}"
     cursor = kv_get(cursor_key) or ""
 
@@ -1265,6 +1361,11 @@ def advance_grids(
         def _advance(grid: BayesianFireGrid, entry: dict) -> bool:
             wind_speed = entry.get("wind_speed", 3.0)
             wind_dir_deg = entry.get("wind_dir_deg", 270.0)
+            # EFFIS fuel moisture (0 = no data / outside coverage → neutral).
+            ffmc = float(entry.get("ffmc") or 0.0)
+            dmc = float(entry.get("dmc") or 0.0)
+            mf = moisture_factor(ffmc) if ffmc > 0 else 1.0
+            ds = decay_scale(dmc) if dmc > 0 else 1.0
             if grid.last_predict_time > 0:
                 elapsed = now - grid.last_predict_time
                 if elapsed < min_age_s:
@@ -1273,9 +1374,14 @@ def advance_grids(
                     dt=min(elapsed, 600.0),
                     wind_speed=wind_speed,
                     wind_dir_deg=wind_dir_deg,
+                    moisture_factor=mf,
+                    decay_scale=ds,
                 )
             else:
-                grid.predict(dt=60.0, wind_speed=wind_speed, wind_dir_deg=wind_dir_deg)
+                grid.predict(
+                    dt=60.0, wind_speed=wind_speed, wind_dir_deg=wind_dir_deg,
+                    moisture_factor=mf, decay_scale=ds,
+                )
             return True
 
         if mutate_grid(mode, grid_id, _advance):
