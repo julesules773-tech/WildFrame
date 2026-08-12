@@ -116,10 +116,24 @@ _VALUE_RANGES = {
     "isi": (1.0, 1e9),
 }
 
-# Fine-fuel moisture % at which moisture_factor = 1.0 (FFMC ~89.5) — the
-# point where the current wind-only model implicitly sits.
-_FMC_REF_PCT = 12.0
-_RATE_PER_FMC_PCT = 0.045  # ~4.5% spread-rate change per FMC point (placeholder, calibrate with backtest data)
+# Calibrated moisture curve (calibrate_fwi.py, 164 stored grids): the
+# canonical Van Wagner (1987) fine-fuel function fF(m) that feeds the FWI
+# system's Initial Spread Index (ISI = 0.208 * fF * exp(0.05039 * U_kmh)),
+# normalized so factor = 1.0 at the bias-neutral anchor below.
+_FW_FMC_REF_PCT = 8.9  # population-mean FMC of observed fires (FFMC ~91.8)
+_FWI_K1 = 91.9
+_FWI_K2 = 0.1386
+_FWI_K3 = 5.31
+_FWI_K4 = 4.93e7
+
+
+def _fwi_ff(m: float) -> float:
+    """Van Wagner (1987) fine-fuel function fF(m), moisture in FMC %."""
+    return _FWI_K1 * math.exp(-_FWI_K2 * m) * (1.0 + m ** _FWI_K3 / _FWI_K4)
+
+
+# Precomputed fF at the anchor so every moisture_factor() call is 2 multiplies.
+_FW_REF_FF = _fwi_ff(_FW_FMC_REF_PCT)
 
 # --- In-process cache: "effis:{date}:{cell}" -> (expires_epoch, (ffmc, dmc, isi))
 _mem_cache: dict[str, tuple[float, tuple[float, float, float]]] = {}
@@ -364,17 +378,21 @@ def ffmc_to_fmc_pct(ffmc: float) -> float:
 
 
 def moisture_factor(ffmc: float) -> float:
-    """Spread-rate multiplier from FFMC. 1.0 = current wind-only behaviour.
+    """Spread-rate multiplier from FFMC, calibrated to the canonical FWI curve.
 
-    Anchored so FFMC ~89.5 (FMC 12%) gives 1.0: bone-dry fine fuels
-    (FFMC ~96) speed the head up ~1.4x, damp fuels (FFMC ~75) slow it to
-    ~0.5x. Clamped to [0.2, 2.0]. A placeholder curve — calibrate against
-    ISI (EFFIS) or ground truth with the backtest harness.
+    Replaces the old placeholder exponential (exp(-0.045*m), anchored at
+    FMC 12%) with Van Wagner (1987)'s fF(m) — the exact moisture curve that
+    drives EFFIS's Initial Spread Index — anchored at the bias-neutral FMC
+    8.9% (FFMC ~91.8) found by calibrate_fwi.py over the
+    stored grid population, so the average observed fire still spreads at
+    factor 1.0. The curve is steeper than the placeholder: FFMC 75 ->
+    ~0.20, FFMC 89.5 -> ~0.72, FFMC 92 -> ~1.0, FFMC 96 -> ~1.78.
+    Clamped to [0.2, 2.0].
     """
     if not ffmc or ffmc <= 0:
         return 1.0
     fmc = ffmc_to_fmc_pct(ffmc)
-    factor = math.exp(-_RATE_PER_FMC_PCT * fmc) / math.exp(-_RATE_PER_FMC_PCT * _FMC_REF_PCT)
+    factor = _fwi_ff(fmc) / _FW_REF_FF
     return max(0.2, min(2.0, factor))
 
 
