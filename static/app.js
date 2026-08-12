@@ -14,6 +14,8 @@
     currentPos: null,           // { lat, lon }
     heading: null,              // from DeviceOrientation API
     sessionId: "",
+    dataPollingInterval: null, // reports/clusters poll handle (pause on hidden tab)
+    dataPollingMs: 15000,
     reports: [],
     clusters: [],
     markers: { reports: [], clusters: [], triangulation: [], fireOrigin: [] },
@@ -42,6 +44,7 @@
       metaDots: [],     // low-zoom (detail=meta) intensity dots
       metaLayer: null,  // Leaflet layerGroup holding those dots
       metaSig: "",      // signature of last-rendered dots (skip DOM rebuild when unchanged)
+      fullSig: "",      // signature of last full-detail render (skip redraw when unchanged)
       satellitePollerActive: false,
       firmsPollerActive: false,
       usersOnly: false,       // hide satellite/Bayesian layers, show user reports only
@@ -1076,19 +1079,19 @@
         blurCtx.filter = 'none';
 
         // Pass 3: remap accumulated intensity -> lava color per pixel.
+        // Pure array reads from the precomputed LUT — no per-pixel
+        // function calls or branchy Math (the old loop ran ~1-2M of those
+        // per redraw).
         const imgData = blurCtx.getImageData(0, 0, canvasW, canvasH);
         const data = imgData.data;
+        const lut = this._ensureLavaLut();
+        const lutR = lut.r, lutG = lut.g, lutB = lut.b, lutA = lut.a;
         for (let i = 0; i < data.length; i += 4) {
-          const intensity = data[i] / 255; // gray channel (max of cells, not summed overlap)
-          if (intensity < 0.03) {
-            data[i + 3] = 0;
-            continue;
-          }
-          const color = this._lavaColor(intensity);
-          data[i] = color.r;
-          data[i + 1] = color.g;
-          data[i + 2] = color.b;
-          data[i + 3] = Math.round(color.a * 255);
+          const v = data[i]; // gray channel (max of cells, not summed overlap)
+          data[i] = lutR[v];
+          data[i + 1] = lutG[v];
+          data[i + 2] = lutB[v];
+          data[i + 3] = lutA[v];
         }
         blurCtx.putImageData(imgData, 0, 0);
 
@@ -1198,6 +1201,31 @@
       }
       return { r, g, b, a: Math.min(0.95, a) };
     },
+
+    // Precomputed RGBA lookup tables for the per-pixel remap, built once
+    // lazily from _lavaColor. The hot loop in Pass 3 then does four array
+    // reads per pixel instead of a branchy function call with Math per
+    // pixel — the old path was the biggest single jank source when
+    // zooming/panning over dense fire regions.
+    _lavaLut: null,
+    _ensureLavaLut: function () {
+      if (this._lavaLut) return this._lavaLut;
+      const r = new Uint8Array(256);
+      const g = new Uint8Array(256);
+      const b = new Uint8Array(256);
+      const a = new Uint8Array(256);
+      for (let v = 0; v < 256; v++) {
+        const c = this._lavaColor(v / 255);
+        r[v] = c.r;
+        g[v] = c.g;
+        b[v] = c.b;
+        // The old loop forced intensity < 0.03 transparent; fold that
+        // into the table so the hot loop needs no branch at all.
+        a[v] = v < 8 ? 0 : Math.round(c.a * 255);
+      }
+      this._lavaLut = { r, g, b, a };
+      return this._lavaLut;
+    },
   });
 
   // -----------------------------------------------------------------------
@@ -1243,6 +1271,42 @@
   // stays fast.
   const BAYESIAN_LOD_ZOOM = 7;
 
+  /**
+   * Cheap change detector for the full-detail grid payload. The worker
+   * checkpoints grids on ~15s buckets and the export cache serves the same
+   * state between changes, so most 5s polls return identical data. Hash
+   * per-grid (id, cell count, state version, sampled cells, wind) — a few
+   * thousand integer ops, far cheaper than re-rendering ~100k cells.
+   */
+  function _gridSignature(grids) {
+    let h = 0;
+    for (const g of grids) {
+      const st = g.state || {};
+      const cells = st.cells || [];
+      h = (h * 31 + g.id.length + cells.length + ((st.last_predict_time || 0) | 0)) | 0;
+      // Grid shape is part of the signature too: a fire can grow/shrink
+      // its footprint without the cell count or version changing.
+      h = (h * 31 + ((st.nx || 0) | 0) + ((st.ny || 0) | 0) + ((st.count || 0) | 0)) | 0;
+      // Hash EVERY cell on small grids (a localized hot-spot shift must
+      // never be missed); stride only on big payloads (100k+ cells) where
+      // sampling + the count/shape above still catches any real change.
+      if (cells.length < 512) {
+        for (const c of cells) {
+          h = (h * 31 + ((c.p * 10000) | 0) + ((c.lat * 10000) | 0) + ((c.lon * 10000) | 0)) | 0;
+        }
+      } else {
+        const step = Math.max(1, (cells.length / 64) | 0);
+        for (let i = 0; i < cells.length; i += step) {
+          const c = cells[i];
+          h = (h * 31 + ((c.p * 10000) | 0) + ((c.lat * 10000) | 0) + ((c.lon * 10000) | 0)) | 0;
+        }
+      }
+      if (g.wind_speed != null) h = (h * 31 + ((g.wind_speed * 10) | 0)) | 0;
+      if (g.wind_dir_deg != null) h = (h * 31 + (g.wind_dir_deg | 0)) | 0;
+    }
+    return h | 0;
+  }
+
   async function fetchBayesianState() {
     if (!STATE.bayesian.active || !STATE.bayesian.heatmapLayer) return;
 
@@ -1284,6 +1348,14 @@
 
       // Full detail — clear any low-zoom dots.
       renderMetaDots([]);
+
+      // Skip the entire render pass when the payload is unchanged since
+      // the last poll (the common case between worker checkpoints).
+      // Rebuilding ~100k cells, wind badges and the road-risk fetch on an
+      // identical 5s poll was a large part of the zoom/pan jank.
+      const sig = _gridSignature(grids);
+      if (sig === STATE.bayesian.fullSig) return;
+      STATE.bayesian.fullSig = sig;
 
       // Each grid is one physically separate fire (its own cluster), with
       // its own cell size / reference origin. Build one "region" per grid
@@ -2792,8 +2864,44 @@
   // Auto-refresh polling
   // -----------------------------------------------------------------------
   function startPolling(intervalMs = 15000) {
+    // Keep the handle (and the period) so the tab-hidden pause/resume can
+    // stop and restart polling without leaking intervals.
+    if (STATE.dataPollingInterval) clearInterval(STATE.dataPollingInterval);
+    STATE.dataPollingMs = intervalMs;
     refreshData();
-    setInterval(refreshData, intervalMs);
+    STATE.dataPollingInterval = setInterval(refreshData, intervalMs);
+  }
+
+  /**
+   * Pause background polling while the tab is hidden and resume (with an
+   * immediate refresh) when it comes back into view. Browsers throttle
+   * background timers anyway, but being explicit stops wasted heavy
+   * /api/bayesian/state polls on an invisible tab and leaves the map
+   * current the instant the user looks at it again.
+   */
+  function _setupVisibilityPause() {
+    if (!document.addEventListener) return;
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        if (STATE.bayesian.pollingInterval) {
+          clearInterval(STATE.bayesian.pollingInterval);
+          STATE.bayesian.pollingInterval = null;
+        }
+        if (STATE.dataPollingInterval) {
+          clearInterval(STATE.dataPollingInterval);
+          STATE.dataPollingInterval = null;
+        }
+      } else {
+        if (STATE.bayesian.active && !STATE.bayesian.pollingInterval) {
+          STATE.bayesian.pollingInterval = setInterval(fetchBayesianState, 5000);
+          fetchBayesianState();
+        }
+        if (!STATE.dataPollingInterval) {
+          STATE.dataPollingInterval = setInterval(refreshData, STATE.dataPollingMs || 15000);
+          refreshData();
+        }
+      }
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -3168,6 +3276,9 @@
 
     // Start polling
     startPolling();
+
+    // Pause/resume the polls when the tab is hidden/visible
+    _setupVisibilityPause();
 
     // Set captured_at default
     els.inputCapturedAt.value = new Date().toISOString();
