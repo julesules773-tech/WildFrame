@@ -2801,8 +2801,17 @@ def satellite_poller_stop():
 
 # Cluster radius for grouping nearby FIRMS hotspot points into a single fire.
 # VIIRS has 375m resolution — hotspots within 1km are almost certainly the
-# same fire.
-_FIRMS_CLUSTER_RADIUS_M = 1000.0
+# same fire, but an active fire front spans far more than one hotspot: a
+# single wildfire routinely produces dozens of detections spread over
+# 1–10+ km (each overpass, each VIIRS/MODIS pixel, each scan line). The
+# old 1 km radius fragmented one fire into many candidate clusters (and
+# therefore many grids — the production grid count grew past 15k, each
+# with its own full state blob, which is what makes /api/bayesian/state
+# heavy: 100k+ cells serialized per full-detail poll). 3 km merges the
+# pixels of one fire front into one grid while still separating genuinely
+# distinct fires, and matches the existing satellite-confirmation radius
+# (_FIRMS_CONFIRM_RADIUS_M = 3000.0).
+_FIRMS_CLUSTER_RADIUS_M = float(os.environ.get("WILDFRAME_FIRMS_CLUSTER_RADIUS_M", "3000.0"))
 
 # ---------------------------------------------------------------------------
 # Satellite confirmation of crowdsourced reports
@@ -2875,24 +2884,28 @@ def _match_report_to_hotspots(
 #
 # The original loop compared every hotspot against every existing cluster
 # (O(n²), ~30+ minutes for the ~100k hotspots a global day-range fetch
-# returns). Hotspots are now bucketed into ~2.2 km cells and each hotspot
+# returns). Hotspots are now bucketed into cells sized to the merge radius
+# (~2.2 × _FIRMS_CLUSTER_RADIUS_M, see _FIRMS_CELL_DEG) and each hotspot
 # only compares against clusters in its own + the 8 neighbouring cells —
 # the same single-pass semantics (merge into the nearest cluster whose
 # centroid is within _FIRMS_CLUSTER_RADIUS_M), but O(n) overall.
 # ---------------------------------------------------------------------------
 
-_FIRMS_CELL_DEG = 0.02  # ~2.2 km at the equator; > 2× the 1 km merge radius
+_FIRMS_CELL_DEG = max(0.06, 2.2 * _FIRMS_CLUSTER_RADIUS_M / 111_320.0)
 
 
 def _firms_cell(lat: float, lon: float, cell_deg: float = _FIRMS_CELL_DEG) -> tuple[int, int]:
     """Spatial-hash cell for a lat/lon.
 
-    The longitude cell is widened by 1/cos(lat) so every cell is ~2.2 km
-    square (not just at the equator), which keeps the 3×3-neighbourhood
-    lookup correct at higher latitudes. The 0.3 clamp keeps cells ≥ 1 km
-    wide in longitude up to ~78° latitude — beyond that (polar regions,
-    where FIRMS active fires don't occur) the 3×3 lookup can in theory
-    miss a mergeable cluster, which only means one extra cluster there.
+    Cell size is derived from the merge radius (≈2.2 × radius, floored at
+    0.06° ≈ 6.7 km) so the 3×3-neighbourhood lookup always covers twice
+    the merge radius — the invariant the O(n) clustering relies on. The
+    longitude cell is widened by 1/cos(lat) so every cell is square (not
+    just at the equator), which keeps the 3×3-neighbourhood lookup correct
+    at higher latitudes. The 0.3 clamp keeps cells ≥ 1 km wide in
+    longitude up to ~78° latitude — beyond that (polar regions, where
+    FIRMS active fires don't occur) the 3×3 lookup can in theory miss a
+    mergeable cluster, which only means one extra cluster there.
     """
     c = max(math.cos(math.radians(lat)), 0.3)
     return (math.floor(lon / (cell_deg / c)), math.floor(lat / cell_deg))
