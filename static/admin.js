@@ -271,7 +271,9 @@
   };
 
   function fwiTier(kind, value) {
-    const tiers = FWI_TIERS[kind];
+    // Keys are lowercase; callers pass display names like "FFMC".
+    const tiers = FWI_TIERS[String(kind).toLowerCase()];
+    if (!tiers) return { label: "Unknown", cls: "tier-na" };
     for (const t of tiers) if (value <= t.max) return t;
     return tiers[tiers.length - 1];
   }
