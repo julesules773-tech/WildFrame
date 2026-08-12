@@ -2342,6 +2342,11 @@
       e.preventDefault();
       if (STATE.uploading) return;
 
+      // The photo-attach confirmation has served its purpose once the user
+      // commits to submitting — dismiss it on any submit click (the gate
+      // warning, if shown, replaces it).
+      _setPhotoStatus("", "");
+
       const file = els.photoInput.files[0];
       if (!file) {
         toast("Please select a photo first", "error");
