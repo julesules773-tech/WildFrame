@@ -113,6 +113,123 @@
   };
 
   // -----------------------------------------------------------------------
+  // Admin deep-link — focus a specific fire grid on the map
+  // -----------------------------------------------------------------------
+
+  /**
+   * Parse the admin-dashboard deep-link query params
+   * (?grid=…&lat=…&lon=…&max_p=…&wind_speed=…&wind_dir_deg=…
+   * &ffmc=…&dmc=…&isi=…&mf=…). Returns null when the URL doesn't request
+   * a specific fire. Function declarations hoist, so this is safe to call
+   * at module scope below.
+   */
+  function _deepLinkedFire() {
+    const params = new URLSearchParams(window.location.search);
+    // Whitelist the grid id — it is interpolated into popup HTML, so a
+    // crafted ?grid=<img onerror=...> link must never survive into markup.
+    // Real grid ids are server-generated ("grid-<alnum>").
+    const grid = (params.get("grid") || "").replace(/[^a-zA-Z0-9_-]/g, "");
+    const lat = parseFloat(params.get("lat"));
+    const lon = parseFloat(params.get("lon"));
+    if (!grid || !isFinite(lat) || !isFinite(lon)) return null;
+    // Range-check so a hand-edited URL can't fly the map to nonsense.
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    const num = (k) => {
+      const v = parseFloat(params.get(k));
+      return isFinite(v) ? v : null;
+    };
+    return {
+      id: grid,
+      lat,
+      lon,
+      max_p: num("max_p"),
+      wind_speed: num("wind_speed"),
+      wind_dir_deg: num("wind_dir_deg"),
+      ffmc: num("ffmc"),
+      dmc: num("dmc"),
+      isi: num("isi"),
+      moisture_factor: num("mf"),
+    };
+  }
+
+  // Parsed once at boot — GPS must not override the deep-link destination.
+  const _DEEP_LINK_FIRE = _deepLinkedFire();
+
+  /**
+   * Fly the map to the fire grid named in the URL (opened from the admin
+   * dashboard's "Live fires" list) and open a popup with its data:
+   * probability, wind, EFFIS fuel moisture, and nearby report sources.
+   */
+  function focusDeepLinkedFire() {
+    const f = _DEEP_LINK_FIRE;
+    if (!f || !STATE.map) return;
+
+    // The Fire Grid overlay + control panel are on by default; if the
+    // visitor had turned them off, the deep link still needs the heatmap.
+    if (!STATE.bayesian.active) toggleBayesian(true);
+
+    const p = Math.min(1, Math.max(0, f.max_p || 0));
+    const pct = Math.round(p * 100);
+    const color = _metaDotColor(p);
+
+    // Confirmed reports within ~3 km (matches the FIRMS corroboration
+    // radius) tell us the fire's sources and how many people reported it.
+    const nearby = (STATE.reports || []).filter((r) =>
+      r.status === "confirmed" && _latLonKm(f.lat, f.lon, r.lat, r.lon) <= 3
+    );
+    const sources = [...new Set(nearby.map((r) => (r.source_type || "citizen")))];
+
+    const windRow = f.wind_speed != null && f.wind_dir_deg != null
+      ? `<div><span class="popup-label">Wind:</span> ${f.wind_speed.toFixed(1)} m/s ${_windDirLabel(f.wind_dir_deg)}</div>`
+      : `<div><span class="popup-label">Wind:</span> <span style="color:var(--text-muted)">N/A</span></div>`;
+
+    const hasFuel = f.ffmc != null && f.ffmc > 0;
+    const fuelRow = hasFuel
+      ? `<div><span class="popup-label">Fuel:</span> FFMC ${Math.round(f.ffmc)} · DMC ${f.dmc != null ? Math.round(f.dmc) : "—"} · ISI ${f.isi != null ? Math.round(f.isi) : "—"} <span style="color:var(--text-muted)">(×${f.moisture_factor != null ? f.moisture_factor.toFixed(2) : "1.00"})</span></div>`
+      : `<div><span class="popup-label">Fuel:</span> <span style="color:var(--text-muted)">Outside EFFIS coverage</span></div>`;
+
+    // f.id is sanitized to [a-zA-Z0-9_-] in _deepLinkedFire, so it is safe
+    // to interpolate into popup markup.
+    const html = `
+      <div class="popup-title">🔥 Active Fire</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">${f.id}</div>
+      <div style="margin-top:4px"><span class="popup-label">Probability:</span>
+        <span style="color:${color};font-weight:700">${pct}%</span></div>
+      <div><span class="popup-label">Source:</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
+      <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
+      ${windRow}
+      ${fuelRow}
+      <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}</div>
+      <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">Opened from admin dashboard</div>
+    `;
+
+    // Fly in so the full heatmap + reports render (above the meta-dot LOD).
+    // The map may boot on another continent, so open the popup only once
+    // the camera has arrived — an off-screen popup would otherwise sit at
+    // a nonsense projected position during the flight.
+    const targetZoom = Math.max(STATE.map.getZoom(), 10);
+    let popupOpened = false;
+    const openPopup = () => {
+      if (popupOpened) return;
+      popupOpened = true;
+      L.popup({ maxWidth: 300, autoPan: false })
+        .setLatLng([f.lat, f.lon])
+        .setContent(html)
+        .openOn(STATE.map);
+    };
+    STATE.map.flyTo([f.lat, f.lon], targetZoom, { duration: 0.8 });
+    STATE.map.once("moveend", openPopup);
+    // Fallback: flyTo to the current position would never fire moveend.
+    setTimeout(openPopup, 1500);
+
+    // The map only re-fetches grid state on its 5s poll; nudge it so the
+    // full-detail heatmap appears as soon as the flyTo lands.
+    setTimeout(() => {
+      if (STATE.bayesian.active) fetchBayesianState();
+    }, 900);
+  }
+
+  // -----------------------------------------------------------------------
   // Session
   // -----------------------------------------------------------------------
   function getSessionId() {
@@ -299,8 +416,9 @@
         setStatus("GPS locked", "active");
         _setManualCoordsVisible(false);
 
-        // Center map on position
-        if (STATE.map) {
+        // Center map on position (unless a deep link already aims the map
+        // at a specific fire from the admin dashboard).
+        if (STATE.map && !_DEEP_LINK_FIRE) {
           STATE.map.setView([pos.coords.latitude, pos.coords.longitude], 14);
         }
       },
@@ -310,8 +428,9 @@
         els.locText.textContent = `⚠️ ${msg}`;
         setStatus("GPS failed", "error");
         _setManualCoordsVisible(true);
-        // Default to Yosemite National Park (forest demo location)
-        if (STATE.map) {
+        // Default to Yosemite National Park (forest demo location) unless
+        // a deep link already aims the map at a specific fire.
+        if (STATE.map && !_DEEP_LINK_FIRE) {
           STATE.map.setView([37.745, -119.593], 8);
         }
       },
@@ -3273,6 +3392,9 @@
 
     // Load data
     await refreshData();
+
+    // Deep link from the admin dashboard: focus the requested fire.
+    focusDeepLinkedFire();
 
     // Start polling
     startPolling();

@@ -351,8 +351,29 @@
       const stale = f.evidence_age_h != null && f.evidence_age_h > 24;
       const prob = `${(Math.min(Math.max(f.max_p, 0), 1) * 100).toFixed(1)}%`;
 
-      const row = document.createElement("div");
+      // Deep-link to the live map focused on this fire. The row carries
+      // everything the map popup needs (grid id, centroid, probability,
+      // wind, fuel moisture) so the map shows real data immediately
+      // without another round-trip.
+      const hrefParams = new URLSearchParams({
+        grid: f.id,
+        lat: f.lat.toFixed(5),
+        lon: f.lon.toFixed(5),
+        max_p: f.max_p.toFixed(4),
+        wind_speed: f.wind_speed.toFixed(1),
+        wind_dir_deg: f.wind_dir_deg.toFixed(0),
+      });
+      if (f.ffmc > 0) hrefParams.set("ffmc", f.ffmc.toFixed(1));
+      if (f.dmc > 0) hrefParams.set("dmc", f.dmc.toFixed(1));
+      if (f.isi > 0) hrefParams.set("isi", f.isi.toFixed(1));
+      if (f.moisture_factor > 0) hrefParams.set("mf", f.moisture_factor.toFixed(2));
+
+      const row = document.createElement("a");
       row.className = "fire-row" + (stale ? " stale" : "");
+      row.href = `/?${hrefParams.toString()}`;
+      row.target = "_blank";
+      row.rel = "noopener";
+      row.title = "Show this fire on the live map";
       row.innerHTML = `
         <div class="fire-main">
           <span class="fire-id" title="${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}">${f.id}</span>
@@ -369,6 +390,7 @@
           ${fwiBadge("ISI", f.isi)}
           <span class="mf-badge" title="Spread-rate multiplier the model applies from FFMC (1.00 = wind-only behaviour)">×${f.moisture_factor.toFixed(2)}</span>
         </div>
+        <span class="fire-map-chip" aria-hidden="true">🗺️ Show on map</span>
       `;
       els.firesList.appendChild(row);
     });
