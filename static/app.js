@@ -2356,6 +2356,12 @@
         els.progressBar.classList.add("hidden");
       }
     });
+
+    // Preload the client-side fire gate in the background (progressive
+    // enhancement — the app works fine without it). Must be called from
+    // here: _loadFireGate is scoped to setupUpload, and init() calling it
+    // would throw a ReferenceError that aborts map initialization.
+    _loadFireGate();
   }
 
   function resetForm() {
@@ -3045,9 +3051,6 @@
 
     // Show the Admin button only if this browser holds the admin cookie.
     _syncAdminVisibility();
-
-    // Preload the fire gate in the background (progressive enhancement)
-    _loadFireGate();
 
     setStatus("Acquiring GPS…", "pending");
 
