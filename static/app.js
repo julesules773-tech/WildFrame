@@ -2207,6 +2207,7 @@
     // being picked. Reset per-photo state here so a stale warning from a
     // previous photo can never resurface.
     _setGateNotice("", false);
+    _setSubmitLabel();
     FIRE_GATE.warned = false;
     FIRE_GATE.lastProb = null;
     if (!FIRE_GATE.ready || !file || !file.type.startsWith("image/")) return;
@@ -2251,6 +2252,24 @@
     if (!els.fireGateNotice) return;
     els.fireGateNotice.textContent = text;
     els.fireGateNotice.classList.toggle("hidden", !show);
+  }
+
+  /**
+   * Swap the Submit button label for the gate's confirm state ("Submit
+   * anyway") and restore the original label once the user proceeds or the
+   * form resets.
+   */
+  function _setSubmitLabel(text) {
+    if (!els.submitBtn) return;
+    const label = els.submitBtn.querySelector("span:not(.btn-icon)");
+    if (!label) return;
+    if (text) {
+      if (!els.submitBtn.dataset.wfLabel) els.submitBtn.dataset.wfLabel = label.textContent;
+      label.textContent = text;
+    } else if (els.submitBtn.dataset.wfLabel) {
+      label.textContent = els.submitBtn.dataset.wfLabel;
+      delete els.submitBtn.dataset.wfLabel;
+    }
   }
 
   function setupUpload() {
@@ -2324,14 +2343,18 @@
         FIRE_GATE.warned = true;
         _setGateNotice(
           "We didn't detect fire or smoke in this photo. You can still submit it — " +
-          "distant smoke or early-stage fires are easy to miss. Click Submit again to confirm.",
+          "distant smoke or early-stage fires are easy to miss.",
           true
         );
+        // Make the confirm flow unmistakable: the button itself becomes
+        // the "proceed anyway" action.
+        _setSubmitLabel("Submit anyway");
         return;
       }
       // Confirmed — hide the notice so the confirm copy doesn't linger
       // while the upload runs (or if it fails for an unrelated reason).
       _setGateNotice("", false);
+      _setSubmitLabel();
 
       STATE.uploading = true;
       els.submitBtn.disabled = true;
@@ -2353,17 +2376,18 @@
         // "nothing" AI verdict is kept as a pending report for human review
         // (the hosted model can miss borderline fires), so every successful
         // upload follows the success path below.
+        // Every successful upload must end with a clear success signal —
+        // regardless of the client-side gate or the AI scan result (a
+        // 'nothing' verdict still means the photo was accepted and kept
+        // for human review, never silently discarded).
         if (STATE.mode === "demo") {
           // Uploads are real citizen reports and always go to the LIVE
           // (production) store — they won't show on the demo map.
-          toast("✅ Report submitted to LIVE data (switch to Live mode to see it)", "info");
+          toast("Report submitted to LIVE data — switch to Live mode to see it", "success");
         } else if (data.report?.ai_analysis?.verdict === "nothing") {
-          // The AI found nothing, but the photo is kept for a human
-          // moderator (the hosted model can miss borderline fires) —
-          // never silently discard a real fire.
-          toast("ℹ️ No fire detected by AI — photo kept for human review", "info");
+          toast("Report submitted — AI found no fire/smoke, kept for human review", "success");
         } else {
-          toast("✅ Report submitted successfully!", "success");
+          toast("Report submitted successfully!", "success");
         }
         resetForm();
         els.uploadCard.classList.add("hidden");
@@ -2401,6 +2425,7 @@
     els.previewImage.src = "";
     els.submitBtn.disabled = true;
     _setGateNotice("", false);
+    _setSubmitLabel();
     FIRE_GATE.warned = false;
     FIRE_GATE.lastProb = null;
     els.progressBar.classList.remove("active");
