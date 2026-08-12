@@ -954,11 +954,12 @@ def admin_list_grids():
     never scans thousands of stale FIRMS grids."""
     if not _require_admin():
         return jsonify({"error": "Unauthorized"}), 401
-    rows = db.list_grid_meta("production", limit=ADMIN_GRIDS_LIMIT)
-    # Spot-checking order: fires that HAVE EFFIS fuel-moisture data first
-    # (they're the ones the model is actively scaling by), then the rest.
-    # Within each group, most probable first.
-    rows.sort(key=lambda r: (float(r["ffmc"] or 0.0) <= 0.0, -float(r["max_p"])))
+    # Spot-checking order is applied IN SQL (fwi_first) so the LIMIT window
+    # can never drop the fires that actually have fuel-moisture data — they
+    # rank first regardless of how far down the max_p ordering they sit.
+    rows = db.list_grid_meta(
+        "production", limit=ADMIN_GRIDS_LIMIT, fwi_first=True,
+    )
     now = time.time()
     grids = []
     for r in rows:

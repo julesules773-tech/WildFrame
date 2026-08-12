@@ -543,16 +543,23 @@ def list_grid_meta(
     mode: str,
     bbox: Optional[tuple[float, float, float, float]] = None,
     limit: Optional[int] = None,
+    fwi_first: bool = False,
 ) -> list[dict]:
     """List grid metadata (id, centroid, wind, max_p) for a mode, filtered
     to a viewport bbox (west,south,east,north) via PostGIS and ordered by
-    peak probability. Does NOT load the heavy numpy state."""
+    peak probability. Does NOT load the heavy numpy state.
+
+    ``fwi_first=True`` orders grids WITH EFFIS fuel-moisture data
+    (ffmc > 0) before the rest — done IN SQL, before any LIMIT, so a
+    bounded window can never exclude the data-bearing fires the admin
+    dashboard exists to spot-check."""
     clauses = ["mode = %s"]
     params: list[Any] = [mode]
     if bbox is not None:
         w, s, e, n = bbox
         clauses.append("geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)")
         params.extend([w, s, e, n])
+    order = "(ffmc > 0) DESC, max_p DESC" if fwi_first else "max_p DESC"
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
         "max_p, updated_at, wind_updated_at, last_evidence_at, "
@@ -565,7 +572,7 @@ def list_grid_meta(
         # whose state predates the last_predict_time key.
         "COALESCE((state->>'last_predict_time')::float, 0.0) AS last_predict_time "
         "FROM bayesian_grids WHERE " + " AND ".join(clauses) +
-        " ORDER BY max_p DESC"
+        " ORDER BY " + order
     )
     if limit:
         sql += " LIMIT %s"
