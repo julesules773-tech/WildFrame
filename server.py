@@ -1577,11 +1577,20 @@ def _grid_to_json(
             # persistence via grids.advance). Raised gate (~10s) keeps steady
             # state cheap; dt capped at 10 minutes so fires can't run away
             # between checkpoints.
+            #
+            # Same fuel-moisture factors as the worker's checkpoint
+            # (grids.advance → db.advance_grids) so the between-poll
+            # animation doesn't silently drift toward wind-only behaviour
+            # on a dry-fuel fire (ffmc=0 / outside coverage → neutral 1.0).
             if lpt > 0 and elapsed > _PREDICT_GATE_S:
+                _ffmc = float(entry.get("ffmc") or 0.0)
+                _dmc = float(entry.get("dmc") or 0.0)
                 grid.predict(
                     dt=min(elapsed, 600.0),
                     wind_speed=entry.get("wind_speed", 3.0),
                     wind_dir_deg=entry.get("wind_dir_deg", 270.0),
+                    moisture_factor=effis_fwi.moisture_factor(_ffmc) if _ffmc > 0 else 1.0,
+                    decay_scale=effis_fwi.decay_scale(_dmc) if _dmc > 0 else 1.0,
                 )
 
             # Null (not a fake 3.0/270) until the grid has real weather.
