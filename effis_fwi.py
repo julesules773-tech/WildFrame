@@ -110,9 +110,16 @@ TILE_PX = 24
 # / cross-check only, so it just needs to be positive — extreme wind-driven
 # days push ISI past 50 (sometimes 100+), and those are exactly the days we
 # must NOT throw away FFMC/DMC for.
+#
+# DMC's upper bound: the Canadian FWI DMC code tops out around 800-900,
+# and extreme drought pushes it far past the old 300 cap — which silently
+# rejected the whole tuple as "insane" and reported NO moisture for the
+# driest fires (measured live Aug 2026: DMC 510-600 for Iberia, 758-784
+# for the Middle East). 900 keeps the strictness (nodata is 0) while
+# accepting real data with headroom.
 _VALUE_RANGES = {
     "ffmc": (1.0, 101.0),
-    "dmc": (1.0, 300.0),
+    "dmc": (1.0, 900.0),
     "isi": (1.0, 1e9),
 }
 
