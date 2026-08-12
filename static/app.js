@@ -185,10 +185,13 @@
     div.className = `toast ${type}`;
     div.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ️"}</span><span class="toast-msg">${message}</span>`;
     els.toastContainer.appendChild(div);
+    // Success confirmations (e.g. a submitted report) deserve longer on
+    // screen than transient info/error notes.
+    const duration = type === "success" ? 6500 : 4000;
     setTimeout(() => {
       div.classList.add("out");
       setTimeout(() => div.remove(), 300);
-    }, 4000);
+    }, duration);
   }
 
   // -----------------------------------------------------------------------
