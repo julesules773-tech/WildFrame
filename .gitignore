@@ -27,5 +27,9 @@ models/
 sweep_yolo.json
 sweep.json
 
+# ── Roboflow tooling (Python >=3.10 side venv + regenerable auto-label output) ──
+.venv_rf/
+auto_labels/
+
 # ── Node tooling (if any) ────────────────────────────────────────────────────
 node_modules/
