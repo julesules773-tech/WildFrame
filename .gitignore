@@ -20,5 +20,8 @@ sample_test_images/
 fire_smoke_output.jpg
 output.txt
 
+# ── ML model weights (downloaded artifacts — scp'd to prod, never committed) ──
+models/
+
 # ── Node tooling (if any) ────────────────────────────────────────────────────
 node_modules/

@@ -84,6 +84,16 @@ a local Postgres, and bootstrapping with it silently breaks the app
 (worker `PoolTimeout`, `/healthz` 500). `bootstrap.sh` now refuses to run if
 the URL targets localhost. Keep `.env` out of git; it lives on the VM.
 
+**AI model weights (gitignored):** `models/best.onnx` (~38 MB) is a
+downloaded artifact, not in git. If the rsync came from a fresh checkout,
+copy it explicitly so photo scans keep working (the app falls back to
+Roboflow when it's missing):
+
+```bash
+scp models/best.onnx ubuntu@$IP:/home/ubuntu/wildframe/models/best.onnx
+ssh -i $KEY ubuntu@$IP 'cd /home/ubuntu/wildframe && .venv/bin/pip install -q onnxruntime'
+```
+
 ## 5. Bootstrap the VM
 
 ```bash

@@ -21,11 +21,13 @@ boto3==1.41.5
 # and photo storage all work. Wheel bundles libheif — no system dep.
 pillow-heif
 
-# --- Optional: AI-powered fire/smoke detection (fire_vision.py) ---
-# Set ROBOFLOW_API_KEY=your_key_here to enable automatic photo scanning.
-# Get a free key at https://app.roboflow.com/ (US$60/mo free credits).
-# The production path scans via the hosted Roboflow API over stdlib urllib
-# (fire_vision._scan_via_hosted_api) — no extra dependencies needed.
-# Local Roboflow inference (dev only) requires inference-sdk, which drags in
-# torch/opencv/onnx/transformers (~1 GB): install it separately from
-# requirements-local.txt when running the local inference server.
+# --- AI-powered fire/smoke detection (fire_vision.py) ---
+# Default engine: local YOLOv26 fire/smoke detection (models/best.onnx,
+# served via onnxruntime — small footprint, fits the 1 GB Lightsail VM).
+# Download the weights once:  huggingface_hub download SalahALHaismawi/
+# yolov26-fire-detection best.pt  ->  export to ONNX with ultralytics.
+# Roboflow stays as an automatic fallback when no local model is present:
+# set ROBOFLOW_API_KEY in .env to enable it (see fire_vision.py header).
+onnxruntime==1.28.0   # local YOLO ONNX inference (production default engine)
+# Local dev only (NOT prod — torch does not fit the 1 GB VM):
+# ultralytics + torch, for running the .pt checkpoint or re-exporting ONNX.

@@ -2,15 +2,18 @@
 """
 fire_vision.py — AI-Powered Fire & Smoke Detection
 ===================================================
-Detects fire and/or smoke in uploaded photographs using a Roboflow workflow.
+Detects fire and/or smoke in uploaded photographs.
 
-**Primary path**: Runs the ``fire-and-smoke-segmentation-alerts`` workflow
-via a local Roboflow inference server (http://127.0.0.1:9001) using the
-``inference_sdk`` package.
+**Primary path (default)**: a local YOLOv26 fire/smoke detector — the ONNX
+export (``models/best.onnx``) served via onnxruntime in production, or the
+``.pt`` checkpoint via ultralytics/torch in dev. The engine is selected by
+``WILDFRAME_VISION_ENGINE`` (``auto`` | ``yolo`` | ``roboflow``).
 
-**Fallback path**: If the local server is unreachable, runs the same workflow
-via the Roboflow hosted inference API at ``serverless.roboflow.com`` using
-stdlib ``urllib`` (JSON body with a base64 image).
+**Roboflow fallback**: when no local model is present (or the engine is
+forced to ``roboflow``), runs the ``fire-and-smoke-segmentation-alerts``
+workflow via a local Roboflow inference server (http://127.0.0.1:9001)
+with the hosted API at ``serverless.roboflow.com`` as its own fallback
+(needs ROBOFLOW_API_KEY).
 
 Usage
 -----
@@ -39,6 +42,7 @@ import io
 import json
 import logging
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -102,6 +106,28 @@ _FIRE_CLASSES = {"fire", "flame", "fire-flame"}
 _SMOKE_CLASSES = {"smoke"}
 
 # ---------------------------------------------------------------------------
+# Local YOLO engine configuration
+# ---------------------------------------------------------------------------
+# Engine selection (WILDFRAME_VISION_ENGINE):
+#   auto      (default) — local YOLO when models/best.onnx or best.pt exists,
+#                          otherwise the Roboflow workflow (needs an API key).
+#   yolo      — force the local YOLO model; Roboflow stays as fallback.
+#   roboflow  — force the original Roboflow workflow path.
+#
+# The YOLO model is YOLOv26-S fire/smoke detection, MIT-licensed, from
+# https://huggingface.co/SalahALHaismawi/yolov26-fire-detection
+# (classes: fire / smoke / other). Locally it runs via ultralytics (torch);
+# in production we serve the ONNX export through onnxruntime — a ~50 MB pip
+# package that fits the 1 GB Lightsail VM, where torch would OOM.
+_YOLO_MODEL_LABEL = "yolov26:fire-detection"
+_YOLO_IMG_SIZE = 640
+_YOLO_PAD_COLOR = (114, 114, 114)
+# Model class ids -> our vocabulary. The third class ("other") is a catch-all
+# of related fire indicators and is deliberately unmapped: it never flips a
+# verdict on its own.
+_YOLO_CLASS_NAMES = {0: "fire", 2: "smoke"}
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -114,8 +140,10 @@ def scan_photo(
     """
     Run fire/smoke detection on a single photograph.
 
-    Tries the local Roboflow inference server first; falls back to the
-    hosted REST API if the local server isn't running.
+    Engine is chosen by ``WILDFRAME_VISION_ENGINE`` (auto|yolo|roboflow;
+    default auto — local YOLO when models/best.onnx or best.pt exists,
+    otherwise the Roboflow workflow). YOLO failures fall back to Roboflow
+    when an API key is available.
 
     Parameters
     ----------
@@ -147,15 +175,28 @@ def scan_photo(
         error : str | None
             Human-readable error if the scan failed.
     """
-    # --- Resolve API key ---
-    resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
-    if not resolved_key:
-        return _error_dict("ROBOFLOW_API_KEY not set. Set this env var or pass api_key=.")
-
     # --- Validate image file ---
     path = Path(image_path)
     if not path.is_file():
         return _error_dict(f"Image not found: {path}")
+
+    # --- Local YOLO engine (primary when configured / model present) ---
+    if _resolve_engine() == "yolo":
+        try:
+            return _scan_via_yolo(path, confidence_threshold)
+        except Exception as exc:
+            log.warning("Local YOLO scan failed: %s", exc)
+            # Fall through to Roboflow when a key is available.
+            resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
+            if not resolved_key:
+                return _error_dict(
+                    f"Local YOLO scan failed: {exc} (and ROBOFLOW_API_KEY not set "
+                    "for the Roboflow fallback)."
+                )
+    else:
+        resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
+        if not resolved_key:
+            return _error_dict("ROBOFLOW_API_KEY not set. Set this env var or pass api_key=.")
 
     # --- Try primary path: local workflow ---
     try:
@@ -396,6 +437,213 @@ def _scan_via_hosted_api(
     data = json.loads(raw)
     predictions = _extract_predictions_from_workflow(data)
     return _build_result(predictions, confidence_threshold, f"workflow:{_WORKFLOW_ID}@hosted")
+
+
+# ---------------------------------------------------------------------------
+# Local YOLO engine — pretrained YOLOv26 fire/smoke detection
+# ---------------------------------------------------------------------------
+
+
+def _yolo_model_path() -> Path | None:
+    """Path to the local YOLO weights.
+
+    Honors ``WILDFRAME_YOLO_MODEL`` when set; otherwise looks for
+    ``models/best.onnx`` (prod — onnxruntime) then ``models/best.pt``
+    (dev — ultralytics) relative to this file.
+    """
+    override = os.environ.get("WILDFRAME_YOLO_MODEL")
+    if override:
+        p = Path(override)
+        return p if p.is_file() else None
+    models_dir = Path(__file__).resolve().parent / "models"
+    for candidate in ("best.onnx", "best.pt"):
+        p = models_dir / candidate
+        if p.is_file():
+            return p
+    return None
+
+
+def _resolve_engine() -> str:
+    """Return the active vision engine: ``"yolo"`` or ``"roboflow"``.
+
+    Controlled by ``WILDFRAME_VISION_ENGINE`` (``auto`` | ``yolo`` |
+    ``roboflow``; default ``auto``) — ``auto`` picks local YOLO whenever the
+    weights are on disk, otherwise the Roboflow workflow.
+    """
+    engine = os.environ.get("WILDFRAME_VISION_ENGINE", "auto").strip().lower()
+    if engine == "yolo":
+        return "yolo"
+    if engine == "roboflow":
+        return "roboflow"
+    return "yolo" if _yolo_model_path() is not None else "roboflow"
+
+
+def _scan_via_yolo(path: Path, confidence_threshold: float) -> dict[str, Any]:
+    """Run the local YOLOv26 model and normalize to the uniform result dict.
+
+    Prefers the ONNX Runtime backend (prod — tiny footprint, no torch) and
+    falls back to ultralytics/torch (dev) when only the ``.pt`` file exists.
+    """
+    model_path = _yolo_model_path()
+    if model_path is None:
+        raise RuntimeError(
+            "No local YOLO model found (looked for models/best.onnx / best.pt). "
+            "Download it from https://huggingface.co/SalahALHaismawi/yolov26-fire-detection"
+        )
+    if model_path.suffix == ".onnx":
+        detections = _run_yolo_onnx(model_path, path, confidence_threshold)
+    else:
+        detections = _run_yolo_torch(model_path, path, confidence_threshold)
+    return _build_result(detections, confidence_threshold, _YOLO_MODEL_LABEL)
+
+
+def _run_yolo_torch(model_path: Path, path: Path, confidence_threshold: float) -> list[dict]:
+    """YOLO inference via ultralytics/torch (dev machine)."""
+    from ultralytics import YOLO
+
+    model = _yolo_torch_model(model_path)
+    results = model.predict(
+        str(path),
+        conf=confidence_threshold,
+        imgsz=_YOLO_IMG_SIZE,
+        verbose=False,
+        device="cpu",
+    )
+    detections: list[dict[str, Any]] = []
+    boxes = results[0].boxes
+    if boxes is None:
+        return detections
+    for box in boxes:
+        cls = int(box.cls[0])
+        label = _YOLO_CLASS_NAMES.get(cls)
+        if label is None:
+            continue  # "other" — never flips a verdict (matches the ONNX path)
+        conf = float(box.conf[0])
+        x1, y1, x2, y2 = [float(v) for v in box.xyxy[0].tolist()]
+        detections.append({"class": label, "confidence": conf, "bbox": [x1, y1, x2, y2]})
+    return detections
+
+
+def _run_yolo_onnx(model_path: Path, path: Path, confidence_threshold: float) -> list[dict]:
+    """YOLO inference via onnxruntime (production).
+
+    The exported graph is end-to-end: a single ``[1, 300, 6]`` output of
+    ``[x1, y1, x2, y2, conf, cls]`` with NMS baked in, so the only work left
+    is letterboxing the image, un-mapping the boxes, and thresholding.
+    """
+    import onnxruntime as ort
+    from PIL import Image, ImageOps
+
+    session = _yolo_onnx_session(model_path)
+    with Image.open(path) as img:
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    blob, ratio, pad_l, pad_t = _yolo_letterbox(img, _YOLO_IMG_SIZE)
+    outputs = session.run(None, {session.get_inputs()[0].name: blob})
+    return _decode_yolo_end2end(outputs, ratio, pad_l, pad_t, confidence_threshold)
+
+
+def _yolo_letterbox(img: Any, size: int) -> tuple[Any, float, float, float]:
+    """Resize + gray-pad *img* to ``size`` x ``size``.
+
+    Returns ``(NCHW float32 blob normalized to 0-1, scale ratio, pad_left,
+    pad_top)`` so detection boxes can be mapped back to the original image.
+    """
+    import numpy as np
+    from PIL import Image
+
+    w, h = img.size
+    ratio = min(size / w, size / h)
+    nw, nh = max(1, round(w * ratio)), max(1, round(h * ratio))
+    resized = img.resize((nw, nh), Image.BILINEAR)
+    canvas = Image.new("RGB", (size, size), _YOLO_PAD_COLOR)
+    pad_l = (size - nw) // 2
+    pad_t = (size - nh) // 2
+    canvas.paste(resized, (pad_l, pad_t))
+    arr = np.asarray(canvas, dtype=np.float32) / 255.0
+    blob = np.ascontiguousarray(arr[None].transpose(0, 3, 1, 2))
+    return blob, ratio, float(pad_l), float(pad_t)
+
+
+def _decode_yolo_end2end(
+    outputs: list[Any],
+    ratio: float,
+    pad_l: float,
+    pad_t: float,
+    confidence_threshold: float,
+) -> list[dict]:
+    """Decode the end-to-end ONNX output ``[1, N, 6]`` -> detection dicts.
+
+    Unmaps the NMS-ed boxes back to original pixel coordinates and skips
+    detections below the threshold or from unmapped classes ("other").
+
+    NOTE: the exported graph bakes in its own NMS/conf filter (~0.25), so
+    ultra-low-confidence detections in the 0.10-0.25 band appear via the
+    torch backend but not here — verdicts and max confidences are unaffected
+    and both sit far below the auto-approval floors (0.80/0.40).
+    """
+    detections: list[dict[str, Any]] = []
+    if not outputs:
+        return detections
+    out = outputs[0]
+    if out.ndim != 3 or out.shape[-1] != 6:
+        log.warning("Unexpected YOLO ONNX output shape %s — treating as no detections", out.shape)
+        return detections
+    for row in out[0]:
+        x1, y1, x2, y2, conf, cls = (float(v) for v in row[:6])
+        if conf < confidence_threshold:
+            continue
+        label = _YOLO_CLASS_NAMES.get(int(cls))
+        if label is None:
+            continue  # "other" — never flips a verdict
+        detections.append(
+            {
+                "class": label,
+                "confidence": conf,
+                "bbox": [
+                    (x1 - pad_l) / ratio,
+                    (y1 - pad_t) / ratio,
+                    (x2 - pad_l) / ratio,
+                    (y2 - pad_t) / ratio,
+                ],
+            }
+        )
+    return detections
+
+
+_yolo_cache_lock = threading.Lock()
+_yolo_torch_cache: tuple[str, Any] | None = None
+
+
+def _yolo_torch_model(model_path: Path):
+    """Module-level cached ultralytics model (loading takes ~1-2s)."""
+    global _yolo_torch_cache
+    if _yolo_torch_cache is None or _yolo_torch_cache[0] != str(model_path):
+        with _yolo_cache_lock:
+            if _yolo_torch_cache is None or _yolo_torch_cache[0] != str(model_path):
+                from ultralytics import YOLO
+
+                _yolo_torch_cache = (str(model_path), YOLO(model_path))
+    return _yolo_torch_cache[1]
+
+
+_yolo_onnx_cache: tuple[str, Any] | None = None
+
+
+def _yolo_onnx_session(model_path: Path):
+    """Module-level cached ONNX Runtime session (first scan pays load cost)."""
+    global _yolo_onnx_cache
+    if _yolo_onnx_cache is None or _yolo_onnx_cache[0] != str(model_path):
+        with _yolo_cache_lock:
+            if _yolo_onnx_cache is None or _yolo_onnx_cache[0] != str(model_path):
+                import onnxruntime as ort
+
+                _yolo_onnx_cache = (
+                    str(model_path),
+                    ort.InferenceSession(
+                        str(model_path), providers=["CPUExecutionProvider"]
+                    ),
+                )
+    return _yolo_onnx_cache[1]
 
 
 # ---------------------------------------------------------------------------
