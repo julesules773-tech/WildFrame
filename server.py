@@ -123,9 +123,15 @@ ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
 # auto-approves. Set WILDFRAME_AUTO_APPROVE=0 to keep every report in the
 # human-review queue.
 AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
-# Class-specific confidence floor (flame is noisy, smoke is precise).
-AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.80"))
-AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.40"))
+# Class-specific confidence floors, tuned for the local YOLOv26 engine via
+# sweep_yolo.py over the fire_dataset (755 fire / 244 clean): fire is the
+# reliable class (real fires avg 0.74, clean avg 0.04) while smoke has
+# high-confidence false positives, so fire >= 0.50 OR smoke >= 0.70 keeps
+# ~90% of real fires eligible at only 6/244 clean-image false passes.
+# (The Roboflow-era pairing — fire 0.80 / smoke 0.40 — reflected the old
+# model's opposite behaviour: flame noisy, smoke precise.)
+AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.50"))
+AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.70"))
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
@@ -391,7 +397,8 @@ def _auto_approval_decision(
       - verdict must be positive (flame/smoke/both); nothing/error/None never
         auto-approve, even with high confidence.
       - class-specific confidence floor: fire >= AUTO_APPROVE_FLAME_MIN_CONF
-        OR smoke >= AUTO_APPROVE_SMOKE_MIN_CONF (flame is noisy, smoke precise).
+        OR smoke >= AUTO_APPROVE_SMOKE_MIN_CONF (with the YOLOv26 engine,
+        fire is the reliable class and smoke the noisy one).
       - at least one independent corroboration (cluster or satellite).
     Returns (approved, source) with source "satellite+cluster" / "cluster" /
     "satellite", or (False, None).
