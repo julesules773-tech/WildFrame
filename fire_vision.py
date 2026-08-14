@@ -116,16 +116,19 @@ _SMOKE_CLASSES = {"smoke"}
 #
 # The YOLO model is YOLOv26-S fire/smoke detection, MIT-licensed, from
 # https://huggingface.co/SalahALHaismawi/yolov26-fire-detection
-# (classes: fire / smoke / other). Locally it runs via ultralytics (torch);
-# in production we serve the ONNX export through onnxruntime — a ~50 MB pip
-# package that fits the 1 GB Lightsail VM, where torch would OOM.
-_YOLO_MODEL_LABEL = "yolov26:fire-detection"
+# (classes: fire / smoke / other), fine-tuned locally on the Roboflow
+# fire/smoke dataset via train_local.py (2 classes: fire/smoke). Locally it
+# runs via ultralytics (torch); in production we serve the ONNX export
+# through onnxruntime — a ~50 MB pip package that fits the 1 GB Lightsail
+# VM, where torch would OOM.
+_YOLO_MODEL_LABEL = "yolov26:fire-detection:retrained"
 _YOLO_IMG_SIZE = 640
 _YOLO_PAD_COLOR = (114, 114, 114)
-# Model class ids -> our vocabulary. The third class ("other") is a catch-all
-# of related fire indicators and is deliberately unmapped: it never flips a
-# verdict on its own.
-_YOLO_CLASS_NAMES = {0: "fire", 2: "smoke"}
+# Model class ids -> our vocabulary. The retrained model (train_local.py,
+# fine-tuned on the Roboflow fire/smoke dataset) has exactly two classes:
+# 0=fire, 1=smoke. (The original HF checkpoint had a third catch-all class
+# "other" at id 1, deliberately unmapped; the retrain drops it.)
+_YOLO_CLASS_NAMES = {0: "fire", 1: "smoke"}
 
 # ---------------------------------------------------------------------------
 # Public API

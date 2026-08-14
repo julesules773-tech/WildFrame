@@ -23,6 +23,10 @@ output.txt
 # ── ML model weights (downloaded artifacts — scp'd to prod, never committed) ──
 models/
 
+# ── Local training artifacts (regenerable via train_local.py pull/train) ──
+dataset_rf/
+runs/
+
 # ── Sweep caches (regenerable via sweep_yolo.py / threshold_sweep.py) ──
 sweep_yolo.json
 sweep.json
