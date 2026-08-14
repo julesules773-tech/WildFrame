@@ -15,13 +15,19 @@ workflow via a local Roboflow inference server (http://127.0.0.1:9001)
 with the hosted API at ``serverless.roboflow.com`` as its own fallback
 (needs ROBOFLOW_API_KEY).
 
-**Ensemble mode (optional)**: with ``WILDFRAME_VISION_ENSEMBLE=1`` and a
-Roboflow key present, every scan runs the local YOLO model and the Roboflow
-workflow IN PARALLEL and merges by max per-class confidence, so either
-engine detecting fire/smoke raises that class's confidence — the two models
-cover each other's blind spots. Off by default (YOLO-only); the Roboflow leg
-uses ``WILDFRAME_ROBOFLOW_WORKFLOW`` when set (point it at a trained model
-once one exists). If one engine fails, the other's verdict stands.
+**Ensemble mode (optional)**: with ``WILDFRAME_VISION_ENSEMBLE=1`` (and a
+local EfficientNet checkpoint on disk), every scan runs the local YOLO
+detector and the fine-tuned EfficientNet-B0 classifier IN PARALLEL and
+merges by max per-class confidence, so either engine detecting fire raises
+that class's confidence — the detector catches localized fires, the
+classifier catches whole-frame fires YOLO misses (and vice versa). Off by
+default (YOLO-only). If one engine fails, the other's verdict stands.
+
+**EfficientNet leg**: ``models/effnet_fire.onnx`` (or ``.pt`` in dev) is the
+fine-tuned 2-class classifier from effnet_train.py — a single fire
+probability per photo, no boxes, no smoke channel. Runs via onnxruntime in
+production (the VM has no torch). Use ``WILDFRAME_VISION_ENGINE=effnet`` to
+scan with it alone (the sweep harness does this per leg).
 
 Usage
 -----
@@ -138,29 +144,33 @@ _YOLO_PAD_COLOR = (114, 114, 114)
 # "other" at id 1, deliberately unmapped; the retrain drops it.)
 _YOLO_CLASS_NAMES = {0: "fire", 1: "smoke"}
 
-# --- Ensemble mode (parallel YOLO + Roboflow) ---
-# When WILDFRAME_VISION_ENSEMBLE=1, every scan runs the local YOLO model AND
-# the Roboflow workflow in parallel and merges by MAX per-class confidence,
-# so either model detecting fire/smoke raises that class's confidence — the
-# two engines cover each other's blind spots. Default OFF (YOLO-only): the
-# Roboflow leg needs a trained cloud model (point WILDFRAME_ROBOFLOW_WORKFLOW
-# at it), and merged confidences sit above YOLO-alone values, so the
+# --- Ensemble mode (parallel YOLO + EfficientNet classifier) ---
+# When WILDFRAME_VISION_ENSEMBLE=1, every scan runs the local YOLO detector
+# AND the fine-tuned EfficientNet-B0 classifier in parallel and merges by
+# MAX per-class confidence, so either engine detecting fire raises that
+# class's confidence — the two engines cover each other's blind spots
+# (YOLO localizes, EfficientNet reads the whole frame). Default OFF
+# (YOLO-only). Merged confidences sit above YOLO-alone values, so the
 # auto-approval floors (server.py) must be re-tuned via sweep_yolo before
 # enabling.
 _ENSEMBLE_ENABLED = os.environ.get("WILDFRAME_VISION_ENSEMBLE", "0") == "1"
-_ENSEMBLE_WORKFLOW = os.environ.get("WILDFRAME_ROBOFLOW_WORKFLOW") or _WORKFLOW_ID
 
-if _ENSEMBLE_ENABLED and os.environ.get("WILDFRAME_ROBOFLOW_WORKFLOW") is None:
-    # The default workflow references the old (now-empty) model — flipping
-    # the ensemble on without pointing it at a trained workflow buys zero
-    # coverage while taxing every upload with the hosted call's latency.
-    log.warning(
-        "Ensemble enabled but WILDFRAME_ROBOFLOW_WORKFLOW is not set — the "
-        "Roboflow leg will use the default workflow (%s) which currently "
-        "returns no detections. Set WILDFRAME_ROBOFLOW_WORKFLOW to a trained "
-        "model's workflow before relying on the ensemble.",
-        _WORKFLOW_ID,
-    )
+# ---------------------------------------------------------------------------
+# Local EfficientNet classifier leg
+# ---------------------------------------------------------------------------
+# Fine-tuned EfficientNet-B0 (effnet_train.py) — a whole-image 2-class
+# classifier producing ONE fire probability per photo (no boxes, no smoke
+# channel on our 2-class model). Synthesized as a single "fire" detection so
+# it flows through the shared _build_result merge. Prod runs the ONNX export
+# via onnxruntime (the 1 GB VM has no torch); dev can use the .pt checkpoint.
+_EFFNET_MODEL_LABEL = "efficientnet-b0:fire:fine-tuned"
+_EFFNET_IMG_SIZE = 224
+_EFFNET_MEAN = (0.485, 0.456, 0.406)
+_EFFNET_STD = (0.229, 0.224, 0.225)
+_EFFNET_CLASS_FIRE = 1  # class index of "fire" (classes: [non_fire, fire])
+
+_effnet_ort_session: Any = None
+_effnet_torch_model: Any = None
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -219,13 +229,25 @@ def scan_photo(
     # ensemble's Roboflow leg) ---
     resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
 
-    # --- Local YOLO engine (primary when configured / model present) ---
-    if _resolve_engine() == "yolo":
-        # Ensemble mode: YOLO + Roboflow in parallel. Needs a key for the
-        # Roboflow leg; without one, fall through to YOLO-only.
-        if _ENSEMBLE_ENABLED and resolved_key:
+    # --- Local engine dispatch ---
+    engine = _resolve_engine()
+    if engine == "effnet":
+        # EfficientNet alone (the sweep harness's per-leg mode).
+        try:
+            return _scan_via_effnet(path, confidence_threshold)
+        except Exception as exc:
+            log.warning("Local EfficientNet scan failed: %s", exc)
+            if not resolved_key:
+                return _error_dict(
+                    f"Local EfficientNet scan failed: {exc} (and ROBOFLOW_API_KEY "
+                    "not set for the Roboflow fallback)."
+                )
+    elif engine == "yolo":
+        # Ensemble mode: local YOLO + EfficientNet in parallel. Needs the
+        # EffNet checkpoint on disk; without one, fall through to YOLO-only.
+        if _ENSEMBLE_ENABLED and _effnet_model_path() is not None:
             try:
-                return _scan_via_ensemble(path, confidence_threshold, resolved_key)
+                return _scan_via_ensemble(path, confidence_threshold)
             except Exception as exc:
                 log.warning("Ensemble scan failed: %s — falling back to YOLO-only", exc)
         try:
@@ -518,18 +540,118 @@ def _yolo_model_path() -> Path | None:
 
 
 def _resolve_engine() -> str:
-    """Return the active vision engine: ``"yolo"`` or ``"roboflow"``.
+    """Return the active vision engine: ``"yolo"`` | ``"effnet"`` | ``"roboflow"``.
 
     Controlled by ``WILDFRAME_VISION_ENGINE`` (``auto`` | ``yolo`` |
-    ``roboflow``; default ``auto``) — ``auto`` picks local YOLO whenever the
-    weights are on disk, otherwise the Roboflow workflow.
+    ``effnet`` | ``roboflow``; default ``auto``) — ``auto`` picks local YOLO
+    whenever the weights are on disk, otherwise the Roboflow workflow.
+    ``effnet`` forces the EfficientNet classifier leg alone (the sweep
+    harness uses it to scan one leg at a time).
     """
     engine = os.environ.get("WILDFRAME_VISION_ENGINE", "auto").strip().lower()
     if engine == "yolo":
         return "yolo"
     if engine == "roboflow":
         return "roboflow"
+    if engine == "effnet":
+        return "effnet"
     return "yolo" if _yolo_model_path() is not None else "roboflow"
+
+
+def _effnet_model_path() -> Path | None:
+    """Path to the local EfficientNet weights.
+
+    Honors ``WILDFRAME_EFFNET_MODEL`` when set; otherwise looks for
+    ``models/effnet_fire.onnx`` (prod — onnxruntime) then
+    ``models/effnet_fire.pt`` (dev — torch) relative to this file.
+    """
+    override = os.environ.get("WILDFRAME_EFFNET_MODEL")
+    if override:
+        p = Path(override)
+        return p if p.is_file() else None
+    models_dir = Path(__file__).resolve().parent / "models"
+    for candidate in ("effnet_fire.onnx", "effnet_fire.pt"):
+        p = models_dir / candidate
+        if p.is_file():
+            return p
+    return None
+
+
+def _scan_via_effnet(path: Path, confidence_threshold: float) -> dict[str, Any]:
+    """Run the local EfficientNet-B0 classifier and normalize to the uniform
+    result dict.
+
+    The model returns ONE fire probability for the whole image, which is
+    synthesized as a single "fire" detection (bbox = full frame) so it flows
+    through the shared ``_build_result`` merge — the ensemble therefore needs
+    no special-casing.
+    """
+    model_path = _effnet_model_path()
+    if model_path is None:
+        raise RuntimeError(
+            "No local EfficientNet model found (looked for "
+            "models/effnet_fire.onnx / effnet_fire.pt). Train it with effnet_train.py."
+        )
+    if model_path.suffix == ".onnx":
+        fire_prob = _run_effnet_onnx(model_path, path)
+    else:
+        fire_prob = _run_effnet_torch(model_path, path)
+    detections = []
+    if fire_prob >= confidence_threshold:
+        detections.append({
+            "class": "fire",
+            "confidence": round(float(fire_prob), 4),
+            "bbox": [0, 0, 1, 1],  # whole-frame classification
+        })
+    return _build_result(detections, confidence_threshold, _EFFNET_MODEL_LABEL)
+
+
+def _effnet_preprocess(img) -> "Any":
+    """PIL image -> (1, 3, 224, 224) float32 NCHW tensor, ImageNet
+    normalized. PIL-only (no torchvision on the prod VM)."""
+    import numpy as np
+    from PIL import Image
+
+    img = img.convert("RGB").resize((_EFFNET_IMG_SIZE, _EFFNET_IMG_SIZE), Image.BILINEAR)
+    arr = np.asarray(img, dtype=np.float32) / 255.0
+    arr = (arr - np.array(_EFFNET_MEAN, np.float32)) / np.array(_EFFNET_STD, np.float32)
+    return arr.transpose(2, 0, 1)[None]  # NHWC -> NCHW + batch dim
+
+
+def _run_effnet_onnx(model_path: Path, path: Path) -> float:
+    """EfficientNet fire probability via onnxruntime (prod path)."""
+    global _effnet_ort_session
+    import numpy as np
+    import onnxruntime as ort
+    from PIL import Image
+
+    if _effnet_ort_session is None:
+        _effnet_ort_session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    with Image.open(path) as img:
+        x = _effnet_preprocess(img)
+    logits = _effnet_ort_session.run(["logits"], {"input": x})[0]
+    exp = np.exp(logits - logits.max(-1, keepdims=True))
+    probs = exp / exp.sum(-1, keepdims=True)
+    return float(probs[0][_EFFNET_CLASS_FIRE])
+
+
+def _run_effnet_torch(model_path: Path, path: Path) -> float:
+    """EfficientNet fire probability via torch (dev path for the .pt ckpt)."""
+    global _effnet_torch_model
+    import torch
+    import timm
+    from PIL import Image
+
+    if _effnet_torch_model is None:
+        m = timm.create_model("efficientnet_b0", pretrained=False, num_classes=2)
+        m.load_state_dict(torch.load(model_path, map_location="cpu")["state_dict"])
+        m.eval()
+        _effnet_torch_model = m
+    with Image.open(path) as img:
+        x = torch.from_numpy(_effnet_preprocess(img))
+    with torch.no_grad():
+        logits = _effnet_torch_model(x)
+    return float(torch.softmax(logits, dim=1)[0][_EFFNET_CLASS_FIRE].item())
 
 
 def _scan_via_yolo(path: Path, confidence_threshold: float) -> dict[str, Any]:
@@ -554,18 +676,18 @@ def _scan_via_yolo(path: Path, confidence_threshold: float) -> dict[str, Any]:
 def _scan_via_ensemble(
     path: Path,
     confidence_threshold: float,
-    api_key: str,
 ) -> dict[str, Any]:
-    """Run the local YOLO model and the Roboflow workflow IN PARALLEL and
-    merge by max per-class confidence — either engine detecting fire/smoke
+    """Run the local YOLO detector and the EfficientNet classifier IN PARALLEL
+    and merge by max per-class confidence — either engine detecting fire
     raises that class's confidence, so the two models cover each other's
-    blind spots.
+    blind spots: YOLO catches localized fires with boxes, EfficientNet reads
+    the whole frame and catches fires YOLO's anchor boxes miss.
 
     Both engines run in worker threads and are joined before merging. If one
-    engine fails (Roboflow outage, missing key, etc.), the other's verdict
-    stands and the failure is surfaced on the result's ``error`` field — a
-    degraded-but-useful scan, never a hard failure. If both fail, the result
-    is an error dict.
+    engine fails (model missing, onnxruntime error, etc.), the other's
+    verdict stands and the failure is surfaced on the result's ``error``
+    field — a degraded-but-useful scan, never a hard failure. If both fail,
+    the result is an error dict.
 
     The merge reuses ``_build_result``: each leg's per-class confidence is
     the max over its own detections, so concatenating both legs' detections
@@ -574,7 +696,7 @@ def _scan_via_ensemble(
 
     Returns the uniform result dict (same shape as scan_photo) with the
     merged confidence and a ``model`` label like
-    ``ensemble:yolov26:fire-detection:retrained+workflow:<id>``.
+    ``ensemble:yolov26:fire-detection:retrained+efficientnet-b0:fire:fine-tuned``.
     """
     results: dict[str, dict[str, Any]] = {}
 
@@ -585,41 +707,38 @@ def _scan_via_ensemble(
             log.warning("Ensemble YOLO leg failed: %s", exc)
             results["yolo"] = _error_dict(f"YOLO leg failed: {exc}")
 
-    def _run_roboflow() -> None:
+    def _run_effnet() -> None:
         try:
-            results["roboflow"] = _scan_via_roboflow(
-                path, api_key, confidence_threshold, workflow_id=_ENSEMBLE_WORKFLOW,
-            )
+            results["effnet"] = _scan_via_effnet(path, confidence_threshold)
         except Exception as exc:  # pragma: no cover - defensive
-            log.warning("Ensemble Roboflow leg failed: %s", exc)
-            results["roboflow"] = _error_dict(f"Roboflow leg failed: {exc}")
+            log.warning("Ensemble EfficientNet leg failed: %s", exc)
+            results["effnet"] = _error_dict(f"EfficientNet leg failed: {exc}")
 
-    threads = [threading.Thread(target=_run_yolo), threading.Thread(target=_run_roboflow)]
+    threads = [threading.Thread(target=_run_yolo), threading.Thread(target=_run_effnet)]
     for t in threads:
         t.start()
     for t in threads:
-        # Internal HTTP timeouts bound each leg (hosted API _TIMEOUT_S=60s),
-        # so an unbounded join is effectively bounded — but a cap here keeps
-        # the ensemble robust to any future leg without its own timeout.
+        # Each leg is CPU-bound local inference (no HTTP), so a generous cap
+        # here keeps the ensemble robust to any future slow leg.
         t.join(timeout=90.0)
 
     yolo_r = results.get("yolo") or _error_dict("YOLO leg did not return")
-    rf_r = results.get("roboflow") or _error_dict("Roboflow leg did not return")
+    eff_r = results.get("effnet") or _error_dict("EfficientNet leg did not return")
 
     # Merge through the shared builder: concatenated detections -> identical
     # per-class max confidence + verdict as the single-engine path computes.
-    detections = list(yolo_r.get("detections") or []) + list(rf_r.get("detections") or [])
+    detections = list(yolo_r.get("detections") or []) + list(eff_r.get("detections") or [])
     model_label = "ensemble:" + "+".join(
-        m for m in (yolo_r.get("model"), rf_r.get("model")) if m
+        m for m in (yolo_r.get("model"), eff_r.get("model")) if m
     )
     result = _build_result(detections, confidence_threshold, model_label)
 
     # Surface one-leg failures (degraded-but-useful) and force an error
     # verdict only when BOTH legs failed.
-    errors = [e for e in (yolo_r.get("error"), rf_r.get("error")) if e]
+    errors = [e for e in (yolo_r.get("error"), eff_r.get("error")) if e]
     if errors:
         result["error"] = " | ".join(errors)
-    if yolo_r.get("verdict") == "error" and rf_r.get("verdict") == "error":
+    if yolo_r.get("verdict") == "error" and eff_r.get("verdict") == "error":
         result["verdict"] = "error"
     return result
 

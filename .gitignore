@@ -29,6 +29,8 @@ runs/
 
 # ── Sweep caches (regenerable via sweep_yolo.py / threshold_sweep.py) ──
 sweep_yolo.json
+sweep_effnet.json
+effnet_rows_*.json
 sweep.json
 
 # ── Roboflow tooling (Python >=3.10 side venv + regenerable auto-label output) ──

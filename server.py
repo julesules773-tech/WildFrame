@@ -129,15 +129,16 @@ ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
 # auto-approves. Set WILDFRAME_AUTO_APPROVE=0 to keep every report in the
 # human-review queue.
 AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
-# Class-specific confidence floors, tuned for the local YOLOv26 engine via
-# sweep_yolo.py over the fire_dataset (755 fire / 244 clean). The retrained
-# 2-class model (train_local.py) is far more precise than the original HF
-# checkpoint: fire >= 0.80 OR smoke >= 0.70 achieves ZERO false passes on
-# the 244 clean images at 73.2% recall — a genuinely safe auto-approval
-# line. (The earlier 0.50/0.70 pairing traded a few false passes for higher
-# recall on the noisier original model; smoke stays at 0.70 because smoke
-# detections still carry the highest-confidence false positives.)
-AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.80"))
+# Class-specific confidence floors, tuned via sweep_yolo.py over the
+# fire_dataset (755 fire / 244 clean) for the LOCAL ENSEMBLE — YOLOv26
+# detector + fine-tuned EfficientNet-B0 classifier (fire_vision.py,
+# WILDFRAME_VISION_ENSEMBLE=1). Merging the two by max per-class confidence
+# lifts recall from 66% (YOLO alone @ 0.80/0.70) to 100% at (fire >= 0.60,
+# smoke >= 0.70) with 5/244 false passes — best F1 99.7%. There is no
+# zero-false-pass threshold anymore (the classifier's non_fire.178 scores
+# fire=1.0), but the corroboration gate means a false pass alone never
+# auto-approves; recall is the direction that matters here.
+AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.60"))
 AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.70"))
 
 UPLOAD_DIR.mkdir(exist_ok=True)

@@ -8,16 +8,20 @@ Scans the fire_dataset with the chosen engine(s), caches the per-image
 offline — no re-inference for floor changes.
 
 Legs (--leg):
-    yolo      — the local YOLOv26 model (default, original behaviour)
+    yolo      — the local YOLOv26 detector (default, original behaviour)
+    effnet    — the fine-tuned EfficientNet-B0 classifier (fire probability
+                per whole image, no boxes; via fire_vision WILDFRAME_VISION_
+                ENGINE=effnet — the ONNX prod path when present)
     roboflow  — the Roboflow workflow (hosted API; needs ROBOFLOW_API_KEY;
                 scans are metered and ~5s each, so prefer --limit for probes)
-    ensemble  — BOTH legs scanned into separate caches, then merged offline
-                by MAX per-class confidence (fire=max, smoke=max) — exactly
-                mirroring fire_vision._scan_via_ensemble, so the merged
-                rows are what auto-approval would actually see. The merged
-                result is only an error when BOTH legs errored (one-leg
-                failure keeps the working leg's confidence, like the live
-                ensemble's degraded-but-useful path).
+    ensemble  — the live ensemble: YOLO + EfficientNet scanned into separate
+                caches, then merged offline by MAX per-class confidence
+                (fire=max, smoke=max) — exactly mirroring
+                fire_vision._scan_via_ensemble, so the merged rows are what
+                auto-approval would actually see. The merged result is only
+                an error when BOTH legs errored (one-leg failure keeps the
+                working leg's confidence, like the live ensemble's
+                degraded-but-useful path).
 
 Ground truth comes from the folder layout (same convention as
 threshold_sweep.py):
@@ -43,9 +47,8 @@ Notes
   so per-image scores are either 0 or >= ~0.25 — thresholds below that are
   equivalent to "any detection".
 * Deterministic: rows are cached; the sweep itself is pure arithmetic.
-* Until a trained Roboflow model exists, the roboflow leg returns 0
-  detections everywhere, so --leg ensemble equals the YOLO leg exactly —
-  floors won't move until the cloud model contributes.
+* The effnet leg produces no smoke channel (fire probability only), so the
+  ensemble's smoke confidence is YOLO's alone.
 """
 
 from __future__ import annotations
@@ -168,10 +171,10 @@ def _scan(paths: list[Path], workers: int, quiet: bool, engine: str = "yolo") ->
 
     def _run(p: Path) -> dict:
         try:
-            if engine == "roboflow":
+            if engine in ("roboflow", "effnet"):
                 import os as _os
 
-                _os.environ["WILDFRAME_VISION_ENGINE"] = "roboflow"
+                _os.environ["WILDFRAME_VISION_ENGINE"] = engine
             r = scan_photo(p, confidence_threshold=0.0)
             return {
                 "fire_conf": float(r.get("fire_confidence", 0.0) or 0.0),
@@ -196,8 +199,8 @@ def _scan(paths: list[Path], workers: int, quiet: bool, engine: str = "yolo") ->
     return rows
 
 
-def _merge_ensemble(yolo_rows: list[dict], rf_rows: list[dict]) -> list[dict]:
-    """Merge the yolo + roboflow leg caches into what the live ensemble sees.
+def _merge_ensemble(a_rows: list[dict], b_rows: list[dict]) -> list[dict]:
+    """Merge two leg caches into what the live ensemble sees.
 
     Mirrors fire_vision._scan_via_ensemble: per-class confidence is the MAX
     across legs (a detection by either engine raises that class), and a row
@@ -205,27 +208,27 @@ def _merge_ensemble(yolo_rows: list[dict], rf_rows: list[dict]) -> list[dict]:
     working leg's confidence — the degraded-but-useful path). Rows present
     in only one cache are kept as-is (the missing leg contributed nothing).
     """
-    rf_by_name = {r["name"]: r for r in rf_rows}
+    b_by_name = {r["name"]: r for r in b_rows}
     merged: list[dict] = []
     seen: set[str] = set()
-    for yr in yolo_rows:
-        seen.add(yr["name"])
-        fr = rf_by_name.get(yr["name"])
-        if fr is None:
-            merged.append(yr)
+    for ar in a_rows:
+        seen.add(ar["name"])
+        br = b_by_name.get(ar["name"])
+        if br is None:
+            merged.append(ar)
             continue
-        errors = [e for e in (yr.get("error"), fr.get("error")) if e]
+        errors = [e for e in (ar.get("error"), br.get("error")) if e]
         merged.append({
-            "file": yr["file"],
-            "name": yr["name"],
-            "positive": yr["positive"],
-            "fire_conf": max(yr["fire_conf"], fr["fire_conf"]),
-            "smoke_conf": max(yr["smoke_conf"], fr["smoke_conf"]),
+            "file": ar["file"],
+            "name": ar["name"],
+            "positive": ar["positive"],
+            "fire_conf": max(ar["fire_conf"], br["fire_conf"]),
+            "smoke_conf": max(ar["smoke_conf"], br["smoke_conf"]),
             "error": " | ".join(errors) if len(errors) == 2 else None,
         })
-    for fr in rf_rows:
-        if fr["name"] not in seen:
-            merged.append(fr)
+    for br in b_rows:
+        if br["name"] not in seen:
+            merged.append(br)
     merged.sort(key=lambda r: r["name"])
     return merged
 
@@ -377,11 +380,13 @@ def main() -> int:
     parser.add_argument("--smoke-grid", metavar="CSV", default=",".join(f"{t:.2f}" for t in _SMOKE_GRID))
     parser.add_argument("--workers", type=int, default=4, metavar="N", help="Concurrent scans")
     parser.add_argument("--json", metavar="FILE", default="sweep_yolo.json", help="YOLO-leg cache/export file")
+    parser.add_argument("--effnet-json", metavar="FILE", default="sweep_effnet.json",
+                        help="EfficientNet-leg cache file (used by --leg effnet/ensemble)")
     parser.add_argument("--rf-json", metavar="FILE", default="sweep_yolo.rf.json",
-                        help="Roboflow-leg cache file (used by --leg roboflow/ensemble)")
-    parser.add_argument("--leg", choices=("yolo", "roboflow", "ensemble"), default="yolo",
-                        help="Which engine(s) to sweep: yolo (default), roboflow, or ensemble "
-                             "(both, merged by max per-class confidence)")
+                        help="Roboflow-leg cache file (used by --leg roboflow)")
+    parser.add_argument("--leg", choices=("yolo", "effnet", "roboflow", "ensemble"), default="yolo",
+                        help="Which engine(s) to sweep: yolo (default), effnet, roboflow, or "
+                             "ensemble (YOLO + EfficientNet, merged by max per-class confidence)")
     parser.add_argument("--reuse", action="store_true", help="Skip scanning, re-analyze the cache file(s)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
@@ -411,6 +416,15 @@ def main() -> int:
                       f"{_resolve_engine()}).")
                 sys.exit(2)
             print(f"engine: YOLO — {_yolo_model_path()}")
+        elif engine == "effnet":
+            from fire_vision import _effnet_model_path
+
+            if _effnet_model_path() is None:
+                print("❌ Local EfficientNet model not active. Put models/effnet_fire.onnx "
+                      "(or .pt) in models/ or set WILDFRAME_VISION_ENGINE=effnet "
+                      f"(resolved: {_effnet_model_path()}).")
+                sys.exit(2)
+            print(f"engine: EfficientNet — {_effnet_model_path()}")
         dirs = [Path(d) for d in args.dirs] if args.dirs else [_DEFAULT_DATASET]
         pos, neg = _discover(dirs, args.limit)
         print(f"Scanning {len(pos)} positives + {len(neg)} negatives…", flush=True)
@@ -420,17 +434,20 @@ def main() -> int:
         return rows
 
     leg_label = "YOLOv26"
-    if args.leg == "roboflow":
+    if args.leg == "effnet":
+        rows = _ensure_cache(Path(args.effnet_json), "effnet")
+        leg_label = "EfficientNet-B0 classifier"
+    elif args.leg == "roboflow":
         # Single roboflow leg: --json is this leg's cache (--rf-json only
         # names the roboflow cache when running --leg ensemble).
         rows = _ensure_cache(Path(args.json), "roboflow")
         leg_label = "Roboflow workflow"
     elif args.leg == "ensemble":
         yolo_rows = _ensure_cache(Path(args.json), "yolo")
-        rf_rows = _ensure_cache(Path(args.rf_json), "roboflow")
-        rows = _merge_ensemble(yolo_rows, rf_rows)
+        eff_rows = _ensure_cache(Path(args.effnet_json), "effnet")
+        rows = _merge_ensemble(yolo_rows, eff_rows)
         print(f"Merged {len(rows)} ensemble rows (max per-class across legs)")
-        leg_label = "ENSEMBLE (YOLO + Roboflow)"
+        leg_label = "ENSEMBLE (YOLO + EfficientNet)"
     else:
         rows = _ensure_cache(Path(args.json), "yolo")
 
