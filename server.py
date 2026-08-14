@@ -124,13 +124,14 @@ ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
 # human-review queue.
 AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
 # Class-specific confidence floors, tuned for the local YOLOv26 engine via
-# sweep_yolo.py over the fire_dataset (755 fire / 244 clean): fire is the
-# reliable class (real fires avg 0.74, clean avg 0.04) while smoke has
-# high-confidence false positives, so fire >= 0.50 OR smoke >= 0.70 keeps
-# ~90% of real fires eligible at only 6/244 clean-image false passes.
-# (The Roboflow-era pairing — fire 0.80 / smoke 0.40 — reflected the old
-# model's opposite behaviour: flame noisy, smoke precise.)
-AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.50"))
+# sweep_yolo.py over the fire_dataset (755 fire / 244 clean). The retrained
+# 2-class model (train_local.py) is far more precise than the original HF
+# checkpoint: fire >= 0.80 OR smoke >= 0.70 achieves ZERO false passes on
+# the 244 clean images at 73.2% recall — a genuinely safe auto-approval
+# line. (The earlier 0.50/0.70 pairing traded a few false passes for higher
+# recall on the noisier original model; smoke stays at 0.70 because smoke
+# detections still carry the highest-confidence false positives.)
+AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.80"))
 AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.70"))
 
 UPLOAD_DIR.mkdir(exist_ok=True)

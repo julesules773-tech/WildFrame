@@ -73,13 +73,19 @@ def _current_floors() -> tuple[float, float]:
             targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
             if not any(t in ("AUTO_APPROVE_FLAME_MIN_CONF", "AUTO_APPROVE_SMOKE_MIN_CONF") for t in targets):
                 continue
+            # Unwrap float(os.environ.get("WILDFRAME_...", "0.80")) -> default
+            # literal in the inner get(...) call's args[1].
             call = node.value
-            # os.environ.get("WILDFRAME_...", "0.50") -> default literal in args[1]
-            if (isinstance(call.func, ast.Attribute) and call.func.attr == "get"
-                    and len(call.args) == 2
-                    and isinstance(call.args[1], ast.Constant)):
+            inner = None
+            if isinstance(call.func, ast.Name) and call.func.id == "float" and call.args:
+                inner = call.args[0]
+            if inner is None or not isinstance(inner, ast.Call):
+                continue
+            if (isinstance(inner.func, ast.Attribute) and inner.func.attr == "get"
+                    and len(inner.args) == 2
+                    and isinstance(inner.args[1], ast.Constant)):
                 for t in targets:
-                    found[t] = float(call.args[1].value)
+                    found[t] = float(inner.args[1].value)
     return (found.get("AUTO_APPROVE_FLAME_MIN_CONF", 0.50),
             found.get("AUTO_APPROVE_SMOKE_MIN_CONF", 0.70))
 
