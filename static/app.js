@@ -1143,74 +1143,90 @@
       const regions = this._regions || [];
 
       // --- Draw organic "lava field" heatmap ---
-      // Technique: draw each cell as a soft radial gradient whose brightness
-      // IS the cell's absolute probability (t = p), composited with per-
-      // channel max ("lighten") so overlapping/adjacent cells MERGE into
-      // continuous blobby shapes instead of a grid of squares — and so
-      // overlapping cells never sum into a brighter color than their
-      // certainty deserves. Then remap the intensity field through a lava
-      // color ramp per-pixel: hotter (more certain) regions glow brighter.
-      //
-      // Cells come from potentially several independent grids (one per
-      // fire cluster), each with its own cell size / reference latitude,
-      // so pixel radius is computed per-region. The color scale is ABSOLUTE
-      // (probability 0..1, matching the "Max prob" stat): yellow is always
-      // low probability, red is always ≥0.6, no matter what else is on
-      // screen or at any zoom level.
+      // Technique: sample the cells onto a SMALL offscreen canvas, then
+      // upscale that field onto the map canvas with bilinear smoothing.
+      // Sampling each cell at ~1/3 of its pixel size averages neighboring
+      // cells together, and the upscale interpolates between them — so
+      // adjacent cells MERGE into one continuous gradient instead of a
+      // visible grid of boxes. Compositing is per-channel max ("lighten")
+      // so overlapping cells never sum into a brighter color than their
+      // certainty deserves. The color scale is ABSOLUTE (probability 0..1,
+      // matching the "Max prob" stat): yellow is always low probability,
+      // red is always ≥0.6, no matter what else is on screen or at any
+      // zoom level.
       const anyCells = regions.some((r) => r.cells && r.cells.length > 0);
       if (this._showHeatmap && anyCells) {
+        // Pick a downscale so low-res cells are ~3px — small enough that
+        // the upscale interpolation reads as one smooth field, but big
+        // enough that the low-res canvas stays cheap to remap/blur.
+        const maxCellPx = Math.max(5, ...regions
+          .filter((r) => r.cells && r.cells.length > 0)
+          .map((r) => this._cellSizePxFor(r)));
+        const downscale = Math.min(16, Math.max(2, maxCellPx / 3));
+        const loW = Math.max(2, Math.ceil(canvasW / downscale));
+        const loH = Math.max(2, Math.ceil(canvasH / downscale));
+
         // Pass 1: accumulate a grayscale intensity field via per-cell max.
-        const accumCanvas = this._getOffscreenCanvas(canvasW, canvasH);
+        const accumCanvas = this._getOffscreenCanvas(loW, loH);
         const accumCtx = accumCanvas.getContext('2d');
-        accumCtx.clearRect(0, 0, canvasW, canvasH);
+        accumCtx.clearRect(0, 0, loW, loH);
         accumCtx.globalCompositeOperation = 'lighten';
 
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
-          const cellSizePx = this._cellSizePxFor(region);
+          const cellSizeLo = Math.max(1.2, this._cellSizePxFor(region) / downscale);
           // Radius bigger than one cell so neighboring cells overlap and
           // fuse into a single shape rather than staying as separate dots.
-          const radius = cellSizePx * 1.7;
+          const radius = cellSizeLo * 2.2;
 
           for (const cell of region.cells) {
             const p = cell.p;
             if (p < this._threshold) continue;
 
             const pt = map.latLngToContainerPoint([cell.lat, cell.lon]);
-            if (pt.x < -radius || pt.x > canvasW + radius ||
-                pt.y < -radius || pt.y > canvasH + radius) continue;
+            const x = pt.x / downscale;
+            const y = pt.y / downscale;
+            if (x < -radius || x > loW + radius ||
+                y < -radius || y > loH + radius) continue;
 
             // Absolute scale: brightness = the cell's true probability.
             // (Grid probabilities live in 0..1 — bayesian_filter clamps at
             // PROB_MAX=0.9999 — so 1.0 is the natural "hot" end.)
             const t = Math.min(1, Math.max(0, p));
             const v = Math.round(255 * t);
-            const grd = accumCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, radius);
+            // Flat-topped falloff: intensity holds at the cell's value over
+            // most of the radius and only fades near the edge. A linear
+            // falloff dips ~30% between adjacent cell centers — exactly
+            // what reads as a "grid of dots". The plateau keeps the field
+            // level between neighbors so the cells fuse into one blob.
+            const grd = accumCtx.createRadialGradient(x, y, 0, x, y, radius);
             grd.addColorStop(0, `rgba(${v},${v},${v},1)`);
+            grd.addColorStop(0.6, `rgba(${v},${v},${v},1)`);
             grd.addColorStop(1, 'rgba(0,0,0,1)');
             accumCtx.fillStyle = grd;
             accumCtx.beginPath();
-            accumCtx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+            accumCtx.arc(x, y, radius, 0, Math.PI * 2);
             accumCtx.fill();
           }
         }
         accumCtx.globalCompositeOperation = 'source-over';
 
-        // Pass 2: soften the blob edges into smooth, melty contours.
+        // Pass 2: soften blob edges at low resolution (cheap) so the
+        // upscaled field is melty rather than grainy.
         const blurCanvas = this._blurCanvas || (this._blurCanvas = document.createElement('canvas'));
-        blurCanvas.width = canvasW;
-        blurCanvas.height = canvasH;
+        blurCanvas.width = loW;
+        blurCanvas.height = loH;
         const blurCtx = blurCanvas.getContext('2d');
-        blurCtx.clearRect(0, 0, canvasW, canvasH);
-        blurCtx.filter = 'blur(6px)';
+        blurCtx.clearRect(0, 0, loW, loH);
+        blurCtx.filter = 'blur(1.5px)';
         blurCtx.drawImage(accumCanvas, 0, 0);
         blurCtx.filter = 'none';
 
         // Pass 3: remap accumulated intensity -> lava color per pixel.
         // Pure array reads from the precomputed LUT — no per-pixel
-        // function calls or branchy Math (the old loop ran ~1-2M of those
-        // per redraw).
-        const imgData = blurCtx.getImageData(0, 0, canvasW, canvasH);
+        // function calls or branchy Math. Runs at low resolution, so it's
+        // up to ~100x cheaper than remapping the full-size canvas.
+        const imgData = blurCtx.getImageData(0, 0, loW, loH);
         const data = imgData.data;
         const lut = this._ensureLavaLut();
         const lutR = lut.r, lutG = lut.g, lutB = lut.b, lutA = lut.a;
@@ -1223,9 +1239,14 @@
         }
         blurCtx.putImageData(imgData, 0, 0);
 
+        // Pass 4: upscale the low-res colored field to the map canvas with
+        // bilinear smoothing — this interpolation is what turns the
+        // per-cell samples into one continuous, box-free heatmap.
         ctx.save();
         ctx.globalAlpha = 0.92;
-        ctx.drawImage(blurCanvas, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(blurCanvas, 0, 0, canvasW, canvasH);
         ctx.restore();
       }
 
