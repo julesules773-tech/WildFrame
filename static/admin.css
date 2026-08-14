@@ -104,6 +104,13 @@
      workspace and always stay reachable via scroll. */
   flex: 1; min-height: 0; overflow-y: auto; padding: 20px;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  /* grid-auto-rows: max-content is the load-bearing fix: with a definite
+     container height (flex: 1) and enough cards to overflow, auto-sized
+     grid rows were being COMPRESSED to the cards' min-content (~56px,
+     photo crushed to 0) to fit the viewport instead of scrolling. Sizing
+     rows to max-content keeps every card at its full intrinsic height so
+     the container scrolls properly. */
+  grid-auto-rows: max-content;
   gap: 16px; align-content: start;
 }
 

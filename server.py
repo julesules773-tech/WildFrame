@@ -111,6 +111,12 @@ SOURCE_TYPES = {"citizen", "NASA", "Sentinel", "CCTV", "drone", "IoT", "ranger",
 
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+# Static assets are served with no-cache so deploys (rsync/scp of new
+# files) reach visitors on their next load instead of after Flask's default
+# 12h SEND_FILE_MAX_AGE window. Small files + conditional requests make
+# the revalidation cost negligible; asset URLs in the pages also carry ?v=
+# version params as a hard bust for any intermediate cache.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
 # Admin secret for dashboard access.
 # Set env var WILDFRAME_ADMIN_SECRET or use the default (change in production!).

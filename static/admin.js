@@ -130,7 +130,11 @@
   }
 
   async function attemptLogin() {
-    const secret = els.password.value.trim();
+    // Fall back to the stored session secret when the password field is
+    // empty (the auto-login path from init()) — otherwise a returning
+    // moderator with a saved session could never get back in without
+    // retyping the password.
+    const secret = els.password.value.trim() || STATE.secret;
     if (!secret) return;
 
     // Quick validation against the server
