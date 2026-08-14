@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 """
-sweep_yolo.py — Re-tune the auto-approval confidence floors for the local
-YOLOv26 engine (fire >= T_fire OR smoke >= T_smoke) against ground truth.
+sweep_yolo.py — Re-tune the auto-approval confidence floors (fire >= T_fire
+OR smoke >= T_smoke) against ground truth, per engine or as an ensemble.
 ================================================================================
-Scans the fire_dataset ONCE with the local YOLO model (the default
-fire_vision engine), caches the per-image (fire_conf, smoke_conf) scores,
-then evaluates every (T_fire, T_smoke) pair offline — no re-inference.
+Scans the fire_dataset with the chosen engine(s), caches the per-image
+(fire_conf, smoke_conf) scores, then evaluates every (T_fire, T_smoke) pair
+offline — no re-inference for floor changes.
+
+Legs (--leg):
+    yolo      — the local YOLOv26 model (default, original behaviour)
+    roboflow  — the Roboflow workflow (hosted API; needs ROBOFLOW_API_KEY;
+                scans are metered and ~5s each, so prefer --limit for probes)
+    ensemble  — BOTH legs scanned into separate caches, then merged offline
+                by MAX per-class confidence (fire=max, smoke=max) — exactly
+                mirroring fire_vision._scan_via_ensemble, so the merged
+                rows are what auto-approval would actually see. The merged
+                result is only an error when BOTH legs errored (one-leg
+                failure keeps the working leg's confidence, like the live
+                ensemble's degraded-but-useful path).
 
 Ground truth comes from the folder layout (same convention as
 threshold_sweep.py):
@@ -19,17 +31,21 @@ applied afterwards in the server; this sweep measures the model side alone).
 
 Usage
 -----
-    python sweep_yolo.py                # full dataset, default grid
-    python sweep_yolo.py --json sweep_yolo.json --reuse   # re-analyze cache
-    python sweep_yolo.py --limit 100    # quick balanced subset
+    python sweep_yolo.py                        # full dataset, YOLO leg
+    python sweep_yolo.py --leg roboflow --limit 20 --json sweep_yolo.rf.json
+    python sweep_yolo.py --leg ensemble \
+        --json sweep_yolo.json --rf-json sweep_yolo.rf.json
+    python sweep_yolo.py --leg ensemble --reuse   # merge cached legs only
 
 Notes
 -----
 * The exported ONNX graph bakes in its own NMS confidence filter (~0.25),
   so per-image scores are either 0 or >= ~0.25 — thresholds below that are
   equivalent to "any detection".
-* Deterministic: rows are cached to the --json file; the sweep itself is
-  pure arithmetic.
+* Deterministic: rows are cached; the sweep itself is pure arithmetic.
+* Until a trained Roboflow model exists, the roboflow leg returns 0
+  detections everywhere, so --leg ensemble equals the YOLO leg exactly —
+  floors won't move until the cloud model contributes.
 """
 
 from __future__ import annotations
@@ -137,7 +153,14 @@ def _discover(dirs: list[Path], limit: int) -> tuple[list[Path], list[Path]]:
     return pos, neg
 
 
-def _scan(paths: list[Path], workers: int, quiet: bool) -> list[dict]:
+def _scan(paths: list[Path], workers: int, quiet: bool, engine: str = "yolo") -> list[dict]:
+    """Scan every image with the given engine leg and cache (fire, smoke) scores.
+
+    ``engine`` is "yolo" or "roboflow". For roboflow, each call hits the
+    hosted workflow API (~5s/image, metered) — the local inference server is
+    used instead when it's running on :9001. Rows carry an ``error`` field
+    only when the engine itself failed (per image).
+    """
     rows: list[dict] = []
     total = len(paths)
     t0 = time.time()
@@ -145,6 +168,10 @@ def _scan(paths: list[Path], workers: int, quiet: bool) -> list[dict]:
 
     def _run(p: Path) -> dict:
         try:
+            if engine == "roboflow":
+                import os as _os
+
+                _os.environ["WILDFRAME_VISION_ENGINE"] = "roboflow"
             r = scan_photo(p, confidence_threshold=0.0)
             return {
                 "fire_conf": float(r.get("fire_confidence", 0.0) or 0.0),
@@ -167,6 +194,40 @@ def _scan(paths: list[Path], workers: int, quiet: bool) -> list[dict]:
                 print(f"    [{done}/{total}] {rate:.1f} img/s · ETA {(total - done) / max(rate, 0.01):.0f}s", flush=True)
     rows.sort(key=lambda r: r["name"])
     return rows
+
+
+def _merge_ensemble(yolo_rows: list[dict], rf_rows: list[dict]) -> list[dict]:
+    """Merge the yolo + roboflow leg caches into what the live ensemble sees.
+
+    Mirrors fire_vision._scan_via_ensemble: per-class confidence is the MAX
+    across legs (a detection by either engine raises that class), and a row
+    is an error ONLY when BOTH legs errored (one-leg failure keeps the
+    working leg's confidence — the degraded-but-useful path). Rows present
+    in only one cache are kept as-is (the missing leg contributed nothing).
+    """
+    rf_by_name = {r["name"]: r for r in rf_rows}
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for yr in yolo_rows:
+        seen.add(yr["name"])
+        fr = rf_by_name.get(yr["name"])
+        if fr is None:
+            merged.append(yr)
+            continue
+        errors = [e for e in (yr.get("error"), fr.get("error")) if e]
+        merged.append({
+            "file": yr["file"],
+            "name": yr["name"],
+            "positive": yr["positive"],
+            "fire_conf": max(yr["fire_conf"], fr["fire_conf"]),
+            "smoke_conf": max(yr["smoke_conf"], fr["smoke_conf"]),
+            "error": " | ".join(errors) if len(errors) == 2 else None,
+        })
+    for fr in rf_rows:
+        if fr["name"] not in seen:
+            merged.append(fr)
+    merged.sort(key=lambda r: r["name"])
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +270,13 @@ def _pct(x) -> str:
     return f"{x * 100:6.1f}%" if x is not None else "    n/a"
 
 
-def _print_pair_table(pairs: list[dict], n_pos: int, n_neg: int) -> None:
+def _print_pair_table(pairs: list[dict], n_pos: int, n_neg: int, leg_label: str = "YOLOv26") -> None:
     """Best F1 with zero FPs first, then zero-FP rows by recall, then best F1 overall."""
     best_zero_fp = max((p for p in pairs if p["fp"] == 0), key=lambda p: (p["recall"] or 0.0, p["f1"]), default=None)
     best_f1 = max(pairs, key=lambda p: (p["f1"], p["precision"] if p["precision"] is not None else 0.0))
 
     print(f"\n{_C['BOLD']}{'═' * 82}{_C['RESET']}")
-    print(f"{_C['BOLD']}  AUTO-APPROVAL FLOOR SWEEP — YOLOv26 · {n_pos} positives · {n_neg} negatives{_C['RESET']}")
+    print(f"{_C['BOLD']}  AUTO-APPROVAL FLOOR SWEEP — {leg_label} · {n_pos} positives · {n_neg} negatives{_C['RESET']}")
     print(f"  rule: pass = fire ≥ T_fire  OR  smoke ≥ T_smoke   (corroboration gate is separate)")
     print(f"{_C['BOLD']}{'═' * 82}{_C['RESET']}")
     header = (f"  {'T_fire':>6}  {'T_smoke':>7}  {'PRECISION':>9}  {'RECALL':>7}  {'F1':>6}  "
@@ -315,34 +376,63 @@ def main() -> int:
     parser.add_argument("--fire-grid", metavar="CSV", default=",".join(f"{t:.2f}" for t in _FIRE_GRID))
     parser.add_argument("--smoke-grid", metavar="CSV", default=",".join(f"{t:.2f}" for t in _SMOKE_GRID))
     parser.add_argument("--workers", type=int, default=4, metavar="N", help="Concurrent scans")
-    parser.add_argument("--json", metavar="FILE", default="sweep_yolo.json", help="Cache/export file")
-    parser.add_argument("--reuse", action="store_true", help="Skip scanning, re-analyze the cache file")
+    parser.add_argument("--json", metavar="FILE", default="sweep_yolo.json", help="YOLO-leg cache/export file")
+    parser.add_argument("--rf-json", metavar="FILE", default="sweep_yolo.rf.json",
+                        help="Roboflow-leg cache file (used by --leg roboflow/ensemble)")
+    parser.add_argument("--leg", choices=("yolo", "roboflow", "ensemble"), default="yolo",
+                        help="Which engine(s) to sweep: yolo (default), roboflow, or ensemble "
+                             "(both, merged by max per-class confidence)")
+    parser.add_argument("--reuse", action="store_true", help="Skip scanning, re-analyze the cache file(s)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
-    cache = Path(args.json)
-    rows: list[dict] = []
-    if args.reuse and cache.is_file():
-        rows = json.loads(cache.read_text())
-        print(f"Reused {len(rows)} cached scans from {cache}")
-    else:
-        # Guard: this harness measures the YOLO engine specifically — if auto
-        # resolves elsewhere (e.g. no models/best.onnx in a fresh checkout),
-        # scan_photo would silently sweep the hosted Roboflow model instead.
-        from fire_vision import _resolve_engine, _yolo_model_path
+    def _ensure_cache(cache_path: Path, engine: str) -> list[dict]:
+        """Load a leg's cached rows if present (+ --reuse), else scan and cache."""
+        if cache_path.is_file() and (args.reuse or engine != "roboflow"):
+            rows = json.loads(cache_path.read_text())
+            print(f"Loaded {len(rows)} cached {engine} scans from {cache_path}")
+            return rows
+        if engine == "roboflow":
+            # The hosted workflow is metered + slow; require the key up front
+            # rather than burning a failed run.
+            import os as _os
 
-        if _resolve_engine() != "yolo" or _yolo_model_path() is None:
-            print("❌ Local YOLO engine not active. Put models/best.onnx (or best.pt) "
-                  f"in models/ or set WILDFRAME_VISION_ENGINE=yolo (resolved: "
-                  f"{_resolve_engine()}).")
-            sys.exit(2)
-        print(f"engine: YOLO — {_yolo_model_path()}")
+            if not _os.environ.get("ROBOFLOW_API_KEY"):
+                print("❌ ROBOFLOW_API_KEY not set — cannot scan the roboflow leg "
+                      "(hosted API requires it).")
+                sys.exit(2)
+            print("engine: Roboflow workflow (hosted API)")
+        elif engine == "yolo":
+            from fire_vision import _resolve_engine, _yolo_model_path
+
+            if _resolve_engine() != "yolo" or _yolo_model_path() is None:
+                print("❌ Local YOLO engine not active. Put models/best.onnx (or best.pt) "
+                      f"in models/ or set WILDFRAME_VISION_ENGINE=yolo (resolved: "
+                      f"{_resolve_engine()}).")
+                sys.exit(2)
+            print(f"engine: YOLO — {_yolo_model_path()}")
         dirs = [Path(d) for d in args.dirs] if args.dirs else [_DEFAULT_DATASET]
         pos, neg = _discover(dirs, args.limit)
         print(f"Scanning {len(pos)} positives + {len(neg)} negatives…", flush=True)
-        rows = _scan(pos + neg, args.workers, args.quiet)
-        cache.write_text(json.dumps(rows, indent=1))
-        print(f"Saved {len(rows)} rows to {cache}")
+        rows = _scan(pos + neg, args.workers, args.quiet, engine=engine)
+        cache_path.write_text(json.dumps(rows, indent=1))
+        print(f"Saved {len(rows)} rows to {cache_path}")
+        return rows
+
+    leg_label = "YOLOv26"
+    if args.leg == "roboflow":
+        # Single roboflow leg: --json is this leg's cache (--rf-json only
+        # names the roboflow cache when running --leg ensemble).
+        rows = _ensure_cache(Path(args.json), "roboflow")
+        leg_label = "Roboflow workflow"
+    elif args.leg == "ensemble":
+        yolo_rows = _ensure_cache(Path(args.json), "yolo")
+        rf_rows = _ensure_cache(Path(args.rf_json), "roboflow")
+        rows = _merge_ensemble(yolo_rows, rf_rows)
+        print(f"Merged {len(rows)} ensemble rows (max per-class across legs)")
+        leg_label = "ENSEMBLE (YOLO + Roboflow)"
+    else:
+        rows = _ensure_cache(Path(args.json), "yolo")
 
     labeled = [r for r in rows if not r["error"] and r["positive"] is not None]
     n_pos = sum(1 for r in labeled if r["positive"])
@@ -354,7 +444,7 @@ def main() -> int:
     smoke_grid = [float(x) for x in args.smoke_grid.split(",")]
     pairs = _sweep(labeled, fire_grid, smoke_grid)
 
-    _print_pair_table(pairs, n_pos, n_neg)
+    _print_pair_table(pairs, n_pos, n_neg, leg_label)
     current = _current_floors()
     _print_current(labeled, *current, n_pos, n_neg)
     _print_gate_split(labeled, *current, "current")
