@@ -15,6 +15,14 @@ workflow via a local Roboflow inference server (http://127.0.0.1:9001)
 with the hosted API at ``serverless.roboflow.com`` as its own fallback
 (needs ROBOFLOW_API_KEY).
 
+**Ensemble mode (optional)**: with ``WILDFRAME_VISION_ENSEMBLE=1`` and a
+Roboflow key present, every scan runs the local YOLO model and the Roboflow
+workflow IN PARALLEL and merges by max per-class confidence, so either
+engine detecting fire/smoke raises that class's confidence — the two models
+cover each other's blind spots. Off by default (YOLO-only); the Roboflow leg
+uses ``WILDFRAME_ROBOFLOW_WORKFLOW`` when set (point it at a trained model
+once one exists). If one engine fails, the other's verdict stands.
+
 Usage
 -----
     from fire_vision import scan_photo
@@ -130,6 +138,30 @@ _YOLO_PAD_COLOR = (114, 114, 114)
 # "other" at id 1, deliberately unmapped; the retrain drops it.)
 _YOLO_CLASS_NAMES = {0: "fire", 1: "smoke"}
 
+# --- Ensemble mode (parallel YOLO + Roboflow) ---
+# When WILDFRAME_VISION_ENSEMBLE=1, every scan runs the local YOLO model AND
+# the Roboflow workflow in parallel and merges by MAX per-class confidence,
+# so either model detecting fire/smoke raises that class's confidence — the
+# two engines cover each other's blind spots. Default OFF (YOLO-only): the
+# Roboflow leg needs a trained cloud model (point WILDFRAME_ROBOFLOW_WORKFLOW
+# at it), and merged confidences sit above YOLO-alone values, so the
+# auto-approval floors (server.py) must be re-tuned via sweep_yolo before
+# enabling.
+_ENSEMBLE_ENABLED = os.environ.get("WILDFRAME_VISION_ENSEMBLE", "0") == "1"
+_ENSEMBLE_WORKFLOW = os.environ.get("WILDFRAME_ROBOFLOW_WORKFLOW") or _WORKFLOW_ID
+
+if _ENSEMBLE_ENABLED and os.environ.get("WILDFRAME_ROBOFLOW_WORKFLOW") is None:
+    # The default workflow references the old (now-empty) model — flipping
+    # the ensemble on without pointing it at a trained workflow buys zero
+    # coverage while taxing every upload with the hosted call's latency.
+    log.warning(
+        "Ensemble enabled but WILDFRAME_ROBOFLOW_WORKFLOW is not set — the "
+        "Roboflow leg will use the default workflow (%s) which currently "
+        "returns no detections. Set WILDFRAME_ROBOFLOW_WORKFLOW to a trained "
+        "model's workflow before relying on the ensemble.",
+        _WORKFLOW_ID,
+    )
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -183,36 +215,35 @@ def scan_photo(
     if not path.is_file():
         return _error_dict(f"Image not found: {path}")
 
+    # --- Resolve the Roboflow key (needed for the Roboflow path and the
+    # ensemble's Roboflow leg) ---
+    resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
+
     # --- Local YOLO engine (primary when configured / model present) ---
     if _resolve_engine() == "yolo":
+        # Ensemble mode: YOLO + Roboflow in parallel. Needs a key for the
+        # Roboflow leg; without one, fall through to YOLO-only.
+        if _ENSEMBLE_ENABLED and resolved_key:
+            try:
+                return _scan_via_ensemble(path, confidence_threshold, resolved_key)
+            except Exception as exc:
+                log.warning("Ensemble scan failed: %s — falling back to YOLO-only", exc)
         try:
             return _scan_via_yolo(path, confidence_threshold)
         except Exception as exc:
             log.warning("Local YOLO scan failed: %s", exc)
             # Fall through to Roboflow when a key is available.
-            resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
             if not resolved_key:
                 return _error_dict(
                     f"Local YOLO scan failed: {exc} (and ROBOFLOW_API_KEY not set "
                     "for the Roboflow fallback)."
                 )
     else:
-        resolved_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
         if not resolved_key:
             return _error_dict("ROBOFLOW_API_KEY not set. Set this env var or pass api_key=.")
 
-    # --- Try primary path: local workflow ---
-    try:
-        return _scan_via_local_workflow(path, resolved_key, confidence_threshold)
-    except Exception as exc:
-        log.info("Local workflow failed, falling back to hosted API: %s", exc)
-
-    # --- Fallback: hosted REST API ---
-    try:
-        return _scan_via_hosted_api(path, resolved_key, confidence_threshold)
-    except Exception as exc:
-        log.warning("Hosted API also failed: %s", exc)
-        return _error_dict(f"All inference paths failed: {exc}")
+    # --- Roboflow path: local workflow, then hosted API fallback ---
+    return _scan_via_roboflow(path, resolved_key, confidence_threshold)
 
 
 def verdict_to_source_tag(verdict: str) -> str:
@@ -248,6 +279,7 @@ def _scan_via_local_workflow(
     path: Path,
     api_key: str,
     confidence_threshold: float,
+    workflow_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the fire/smoke segmentation workflow via the local inference server."""
     try:
@@ -257,6 +289,7 @@ def _scan_via_local_workflow(
             "inference_sdk not installed. Run: pip install inference-sdk"
         )
 
+    workflow_id = workflow_id or _WORKFLOW_ID
     client = InferenceHTTPClient(
         api_url=_LOCAL_INFERENCE_URL,
         api_key=api_key,
@@ -265,7 +298,7 @@ def _scan_via_local_workflow(
     t0 = time.time()
     result = client.run_workflow(
         workspace_name=_WORKSPACE_NAME,
-        workflow_id=_WORKFLOW_ID,
+        workflow_id=workflow_id,
         images={
             "image": str(path),
         },
@@ -274,7 +307,7 @@ def _scan_via_local_workflow(
     log.info("Local workflow returned in %.1fs", elapsed)
 
     predictions = _extract_predictions_from_workflow(result)
-    return _build_result(predictions, confidence_threshold, "workflow:" + _WORKFLOW_ID)
+    return _build_result(predictions, confidence_threshold, "workflow:" + workflow_id)
 
 
 def _extract_predictions_from_workflow(
@@ -395,6 +428,7 @@ def _scan_via_hosted_api(
     path: Path,
     api_key: str,
     confidence_threshold: float,
+    workflow_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Run the fire/smoke workflow via the Roboflow hosted inference API.
@@ -405,10 +439,11 @@ def _scan_via_hosted_api(
     are downscaled to ``_MAX_HOSTED_EDGE_PX`` first so oversized photos can't
     trigger HTTP 413 on the base64 request body.
     """
+    workflow_id = workflow_id or _WORKFLOW_ID
     image_bytes = _prepare_hosted_image_bytes(path)
     b64_data = base64.b64encode(image_bytes).decode("ascii")
 
-    url = f"{_API_HOST}/infer/workflows/{_WORKSPACE_NAME}/{_WORKFLOW_ID}"
+    url = f"{_API_HOST}/infer/workflows/{_WORKSPACE_NAME}/{workflow_id}"
     payload = json.dumps(
         {
             "api_key": api_key,
@@ -439,7 +474,23 @@ def _scan_via_hosted_api(
 
     data = json.loads(raw)
     predictions = _extract_predictions_from_workflow(data)
-    return _build_result(predictions, confidence_threshold, f"workflow:{_WORKFLOW_ID}@hosted")
+    return _build_result(predictions, confidence_threshold, f"workflow:{workflow_id}@hosted")
+
+
+def _scan_via_roboflow(
+    path: Path,
+    api_key: str,
+    confidence_threshold: float,
+    workflow_id: str | None = None,
+) -> dict[str, Any]:
+    """Run the Roboflow workflow: local inference server first, hosted API as
+    fallback. Shared by the single-engine path and the ensemble's Roboflow leg.
+    """
+    try:
+        return _scan_via_local_workflow(path, api_key, confidence_threshold, workflow_id=workflow_id)
+    except Exception as exc:
+        log.info("Local workflow failed, falling back to hosted API: %s", exc)
+    return _scan_via_hosted_api(path, api_key, confidence_threshold, workflow_id=workflow_id)
 
 
 # ---------------------------------------------------------------------------
@@ -498,6 +549,79 @@ def _scan_via_yolo(path: Path, confidence_threshold: float) -> dict[str, Any]:
     else:
         detections = _run_yolo_torch(model_path, path, confidence_threshold)
     return _build_result(detections, confidence_threshold, _YOLO_MODEL_LABEL)
+
+
+def _scan_via_ensemble(
+    path: Path,
+    confidence_threshold: float,
+    api_key: str,
+) -> dict[str, Any]:
+    """Run the local YOLO model and the Roboflow workflow IN PARALLEL and
+    merge by max per-class confidence — either engine detecting fire/smoke
+    raises that class's confidence, so the two models cover each other's
+    blind spots.
+
+    Both engines run in worker threads and are joined before merging. If one
+    engine fails (Roboflow outage, missing key, etc.), the other's verdict
+    stands and the failure is surfaced on the result's ``error`` field — a
+    degraded-but-useful scan, never a hard failure. If both fail, the result
+    is an error dict.
+
+    The merge reuses ``_build_result``: each leg's per-class confidence is
+    the max over its own detections, so concatenating both legs' detections
+    and deriving the verdict through the shared builder yields identical
+    numbers while keeping the verdict rules in ONE place.
+
+    Returns the uniform result dict (same shape as scan_photo) with the
+    merged confidence and a ``model`` label like
+    ``ensemble:yolov26:fire-detection:retrained+workflow:<id>``.
+    """
+    results: dict[str, dict[str, Any]] = {}
+
+    def _run_yolo() -> None:
+        try:
+            results["yolo"] = _scan_via_yolo(path, confidence_threshold)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("Ensemble YOLO leg failed: %s", exc)
+            results["yolo"] = _error_dict(f"YOLO leg failed: {exc}")
+
+    def _run_roboflow() -> None:
+        try:
+            results["roboflow"] = _scan_via_roboflow(
+                path, api_key, confidence_threshold, workflow_id=_ENSEMBLE_WORKFLOW,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("Ensemble Roboflow leg failed: %s", exc)
+            results["roboflow"] = _error_dict(f"Roboflow leg failed: {exc}")
+
+    threads = [threading.Thread(target=_run_yolo), threading.Thread(target=_run_roboflow)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        # Internal HTTP timeouts bound each leg (hosted API _TIMEOUT_S=60s),
+        # so an unbounded join is effectively bounded — but a cap here keeps
+        # the ensemble robust to any future leg without its own timeout.
+        t.join(timeout=90.0)
+
+    yolo_r = results.get("yolo") or _error_dict("YOLO leg did not return")
+    rf_r = results.get("roboflow") or _error_dict("Roboflow leg did not return")
+
+    # Merge through the shared builder: concatenated detections -> identical
+    # per-class max confidence + verdict as the single-engine path computes.
+    detections = list(yolo_r.get("detections") or []) + list(rf_r.get("detections") or [])
+    model_label = "ensemble:" + "+".join(
+        m for m in (yolo_r.get("model"), rf_r.get("model")) if m
+    )
+    result = _build_result(detections, confidence_threshold, model_label)
+
+    # Surface one-leg failures (degraded-but-useful) and force an error
+    # verdict only when BOTH legs failed.
+    errors = [e for e in (yolo_r.get("error"), rf_r.get("error")) if e]
+    if errors:
+        result["error"] = " | ".join(errors)
+    if yolo_r.get("verdict") == "error" and rf_r.get("verdict") == "error":
+        result["verdict"] = "error"
+    return result
 
 
 def _run_yolo_torch(model_path: Path, path: Path, confidence_threshold: float) -> list[dict]:
