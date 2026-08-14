@@ -98,7 +98,11 @@
 
 /* ---------- Reports Grid ---------- */
 #reports-container {
-  flex: 1; overflow-y: auto; padding: 20px;
+  /* min-height: 0 lets the container shrink below its content and scroll
+     internally instead of pushing the fires / auto-approved sections (or
+     the viewport edge) out of the way — the reports are the primary
+     workspace and always stay reachable via scroll. */
+  flex: 1; min-height: 0; overflow-y: auto; padding: 20px;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px; align-content: start;
 }
@@ -198,6 +202,37 @@
   animation: sp-spin 0.7s linear infinite;
 }
 @keyframes sp-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Collapsible dashboard sections ---------- */
+.collapse-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer;
+  transition: var(--transition); flex-shrink: 0; line-height: 1;
+}
+.collapse-toggle:hover {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: var(--accent); color: var(--accent);
+}
+.collapse-toggle:active { transform: scale(0.92); }
+.collapse-toggle .chevron {
+  display: inline-block;
+  transition: transform 0.25s ease;
+  font-size: 12px;
+}
+.collapse-toggle.collapsed .chevron { transform: rotate(-90deg); }
+
+.fires-section.collapsed .fires-list,
+.auto-approved-section.collapsed .auto-approved-list { display: none; }
+
+/* A collapsed section is just its header — reclaim the vertical space for
+   the reports grid (they were being squeezed off-screen before). */
+.fires-section.collapsed,
+.auto-approved-section.collapsed { margin-bottom: 8px; padding-bottom: 10px; }
+.fires-section.collapsed .fires-header,
+.auto-approved-section.collapsed .auto-approved-header { margin-bottom: 0; }
 
 /* ---------- Live fires (active grids + EFFIS fuel moisture) ---------- */
 .fires-section {
@@ -300,9 +335,11 @@
   box-shadow: 0 0 24px rgba(249, 115, 22, 0.06);
 }
 .auto-approved-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; gap: 10px;
   margin-bottom: 10px;
 }
+.auto-approved-title { flex-shrink: 0; }
+.auto-approved-count { flex-shrink: 0; }
 .auto-approved-title {
   font-size: 13px; font-weight: 700; color: var(--accent);
   letter-spacing: 0.3px;

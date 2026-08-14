@@ -37,11 +37,46 @@
     autoSection: $("#auto-approved-section"),
     autoList: $("#auto-approved-list"),
     autoCount: $("#auto-approved-count"),
+    autoToggle: $("#auto-approved-toggle"),
     firesSection: $("#fires-section"),
     firesList: $("#fires-list"),
     firesCount: $("#fires-count"),
+    firesToggle: $("#fires-toggle"),
     toastContainer: $("#admin-toast-container"),
   };
+
+  // -----------------------------------------------------------------------
+  // Section collapse state (persisted per browser)
+  // -----------------------------------------------------------------------
+  // Both secondary sections start COLLAPSED so the reports grid — the
+  // primary moderation workspace — gets the full height instead of being
+  // squeezed by the fires / auto-approved panels. The choice sticks.
+  const SECTION_UI_KEY = "wf.admin.sectionsCollapsed";
+  let uiState = { firesCollapsed: true, autoCollapsed: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(SECTION_UI_KEY) || "{}");
+    if (typeof saved.firesCollapsed === "boolean") uiState.firesCollapsed = saved.firesCollapsed;
+    if (typeof saved.autoCollapsed === "boolean") uiState.autoCollapsed = saved.autoCollapsed;
+  } catch (e) { /* ignore malformed storage */ }
+
+  function applySectionState() {
+    const toggle = (btn, collapsed) => {
+      if (!btn) return;
+      btn.classList.toggle("collapsed", collapsed);
+      btn.setAttribute("aria-expanded", String(!collapsed));
+      btn.title = collapsed ? "Expand" : "Collapse";
+    };
+    if (els.firesSection) els.firesSection.classList.toggle("collapsed", uiState.firesCollapsed);
+    if (els.autoSection) els.autoSection.classList.toggle("collapsed", uiState.autoCollapsed);
+    toggle(els.firesToggle, uiState.firesCollapsed);
+    toggle(els.autoToggle, uiState.autoCollapsed);
+  }
+
+  function toggleSection(key) {
+    uiState[key] = !uiState[key];
+    try { localStorage.setItem(SECTION_UI_KEY, JSON.stringify(uiState)); } catch (e) { /* ignore */ }
+    applySectionState();
+  }
 
   // -----------------------------------------------------------------------
   // Toast notification
@@ -714,6 +749,11 @@
 
     // Logout button
     els.logoutBtn.addEventListener("click", logout);
+
+    // Section collapse toggles
+    if (els.firesToggle) els.firesToggle.addEventListener("click", () => toggleSection("firesCollapsed"));
+    if (els.autoToggle) els.autoToggle.addEventListener("click", () => toggleSection("autoCollapsed"));
+    applySectionState();
 
     // Start polling
     startPolling();

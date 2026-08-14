@@ -64,6 +64,9 @@
     <!-- Live fires: active Bayesian grids with fuel-moisture context -->
     <section id="fires-section" class="fires-section hidden">
       <div class="fires-header">
+        <button id="fires-toggle" class="collapse-toggle" title="Collapse / expand live fires" aria-expanded="true">
+          <span class="chevron">▾</span>
+        </button>
         <span class="fires-title">🔥 Live fires</span>
         <span id="fires-count" class="fires-count"></span>
         <span class="fires-hint" title="EFFIS FFMC/DMC/ISI feed the spread model daily (Europe + Middle East + North Africa); 0 = outside coverage or not fetched yet.">
@@ -76,6 +79,9 @@
     <!-- Recently auto-approved strip (human backstop for auto-approvals) -->
     <div id="auto-approved-section" class="auto-approved-section hidden">
       <div class="auto-approved-header">
+        <button id="auto-approved-toggle" class="collapse-toggle" title="Collapse / expand recently auto-approved" aria-expanded="true">
+          <span class="chevron">▾</span>
+        </button>
         <span class="auto-approved-title">🤖 Recently auto-approved</span>
         <span id="auto-approved-count" class="auto-approved-count"></span>
       </div>

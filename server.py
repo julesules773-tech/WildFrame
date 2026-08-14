@@ -432,6 +432,14 @@ def list_reports():
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=ACTIVE_REPORT_HOURS)
     active = [r for r in reports if _parse_ts(r.get("captured_at", "")) >= cutoff]
+    # Photos are only exposed for APPROVED (confirmed) reports on the public
+    # map. Pending/rejected/cancelled reports stay visible as markers for
+    # context, but their photos are withheld until a moderator confirms
+    # them — the admin endpoints (which must show photos pre-approval) read
+    # the database directly and are unaffected.
+    for r in active:
+        if r.get("status") != "confirmed":
+            r.pop("photo_url", None)
     return jsonify({"reports": active, "count": len(active), "mode": "demo" if demo else "production"})
 
 

@@ -842,6 +842,15 @@
         ? `<div><span class="popup-label">Satellite:</span> No FIRMS match</div>`
         : "";
 
+    // Photos are gated on approval: the server strips photo_url from
+    // unapproved reports, and the UI shows a placeholder instead so a
+    // pending report never leaks its photo on the public map.
+    const photoBlock = r.status === "confirmed" && r.photo_url
+      ? `<div style="margin-top:6px"><img src="${r.photo_url}" style="width:100%;max-width:180px;border-radius:6px;" alt="Report photo" /></div>`
+      : r.status === "pending"
+        ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">📷 Photo visible after approval</div>`
+        : "";
+
     marker.bindPopup(`
         <div class="popup-title">📸 Fire Report</div>
         <div><span class="popup-label">Status:</span> ${r.status}</div>
@@ -850,7 +859,7 @@
         <div><span class="popup-label">Reported:</span> ${new Date(r.captured_at).toLocaleString()}</div>
         <div><span class="popup-label">Source:</span> ${r.source_type || "citizen"}</div>
         ${satLine}
-        ${r.photo_url ? `<div style="margin-top:6px"><img src="${r.photo_url}" style="width:100%;max-width:180px;border-radius:6px;" alt="Report photo" /></div>` : ""}
+        ${photoBlock}
         ${aiBadge}
       `, { maxWidth: 280 });
 
