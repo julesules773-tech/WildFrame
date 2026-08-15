@@ -992,6 +992,84 @@
   // -----------------------------------------------------------------------
 
   /**
+   * Separable centered sliding-window max (dilate, isMax=true) or min
+   * (erode, isMax=false) filter on a grayscale ImageData buffer, in place.
+   *
+   * A monotonic deque gives O(w*h) per pass regardless of radius; the
+   * window is CENTERED on each pixel (max/min over [i-r, i+r]) via a
+   * forward + backward half-window (radius r+1) per axis, so morphology is
+   * symmetric — a causal-only window would erode away the trailing edge of
+   * every narrow blob. The accumulated heatmap field is gray (R=G=B), so
+   * only the R channel is filtered and mirrored back to G/B. Used for the
+   * display-level merge: dilate then erode (a grayscale closing) bridges
+   * ~1 km gaps between hot cells so nearby fires fuse into one blob.
+   */
+  function _grayDilateErode(data, w, h, r, isMax) {
+    const win = r + 1;
+    const better = isMax ? (a, b) => a >= b : (a, b) => a <= b;
+    const tmp = new Uint8ClampedArray(w * h);
+    const f = new Uint8ClampedArray(Math.max(w, h));
+    const b = new Uint8ClampedArray(Math.max(w, h));
+    const deque = new Int32Array(Math.max(w, h));
+
+    // Horizontal pass: centered window over x in [x-r, x+r]
+    for (let y = 0; y < h; y++) {
+      const base = y * w * 4;
+      let head = 0, tail = 0;
+      for (let x = 0; x < w; x++) {
+        const v = data[base + x * 4];
+        while (head < tail && better(v, data[base + deque[tail - 1] * 4])) tail--;
+        deque[tail++] = x;
+        while (deque[head] <= x - win) head++;
+        f[x] = data[base + deque[head] * 4];
+      }
+      head = 0; tail = 0;
+      for (let x = w - 1; x >= 0; x--) {
+        const v = data[base + x * 4];
+        while (head < tail && better(v, data[base + deque[tail - 1] * 4])) tail--;
+        deque[tail++] = x;
+        while (deque[head] >= x + win) head++;
+        b[x] = data[base + deque[head] * 4];
+      }
+      for (let x = 0; x < w; x++) {
+        tmp[y * w + x] = better(f[x], b[x]) ? f[x] : b[x];
+      }
+    }
+
+    // Vertical pass: centered window over y in [y-r, y+r]
+    for (let x = 0; x < w; x++) {
+      let head = 0, tail = 0;
+      for (let y = 0; y < h; y++) {
+        const idx = y * w + x;
+        const v = tmp[idx];
+        while (head < tail && better(v, tmp[deque[tail - 1] * w + x])) tail--;
+        deque[tail++] = y;
+        while (deque[head] <= y - win) head++;
+        f[y] = tmp[deque[head] * w + x];
+      }
+      head = 0; tail = 0;
+      for (let y = h - 1; y >= 0; y--) {
+        const idx = y * w + x;
+        const v = tmp[idx];
+        while (head < tail && better(v, tmp[deque[tail - 1] * w + x])) tail--;
+        deque[tail++] = y;
+        while (deque[head] >= y + win) head++;
+        b[y] = tmp[deque[head] * w + x];
+      }
+      for (let y = 0; y < h; y++) {
+        data[(y * w + x) * 4] = better(f[y], b[y]) ? f[y] : b[y];
+      }
+    }
+
+    // Mirror R back to G/B (gray field).
+    for (let i = 0; i < w * h; i++) {
+      const v = data[i * 4];
+      data[i * 4 + 1] = v;
+      data[i * 4 + 2] = v;
+    }
+  }
+
+  /**
    * Custom Leaflet layer that renders the Bayesian probability grid as a
    * translucent heatmap on an HTML5 Canvas overlay.
    * Redraws on every map move/zoom and every state update.
@@ -1211,6 +1289,20 @@
           }
         }
         accumCtx.globalCompositeOperation = 'source-over';
+
+        // Display-level merge — the same ~1 km logic as the contour layer:
+        // a grayscale CLOSING (dilate then erode) on the accumulated field
+        // with a ~5-cell kernel. Dilation bridges the dark gap between hot
+        // cells whose fires are within ~1 km of each other, so they fuse
+        // into one connected blob instead of rendering as separate islands;
+        // the erosion then restores the outer boundary so every fire doesn't
+        // grow ~500 m bigger. Display-only: the grid probabilities are
+        // untouched, so "Max prob" and the absolute color scale stay honest.
+        const kernelR = Math.max(2, Math.min(20, Math.round(5 * (maxCellPx / downscale))));
+        const grayImg = accumCtx.getImageData(0, 0, loW, loH);
+        _grayDilateErode(grayImg.data, loW, loH, kernelR, true);   // dilate — bridge the gaps
+        _grayDilateErode(grayImg.data, loW, loH, kernelR, false);  // erode — restore the boundary
+        accumCtx.putImageData(grayImg, 0, 0);
 
         // Pass 2: soften blob edges at low resolution (cheap) so the
         // upscaled field is melty rather than grainy.
