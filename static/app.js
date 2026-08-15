@@ -40,6 +40,7 @@
       showHeatmap: true,
       showContour: true,
       pollingInterval: null,
+      pollMs: 5000,     // adaptive: 5s while fires change, backs off to 30s when idle
       windLabels: [],   // per-grid wind label markers added to map
       metaDots: [],     // low-zoom (detail=meta) intensity dots
       metaLayer: null,  // Leaflet layerGroup holding those dots
@@ -1504,6 +1505,10 @@
         renderGridWindLabels([], []);
         renderMetaDots(grids);
         updateBayesianStats();
+        // Meta payloads are tiny (~3KB) — keep the cadence fast here so
+        // low-zoom dots stay current; backoff only applies to the heavy
+        // full-detail path.
+        STATE.bayesian.pollMs = 5000;
         return;
       }
 
@@ -1513,10 +1518,18 @@
       // Skip the entire render pass when the payload is unchanged since
       // the last poll (the common case between worker checkpoints).
       // Rebuilding ~100k cells, wind badges and the road-risk fetch on an
-      // identical 5s poll was a large part of the zoom/pan jank.
+      // identical 5s poll was a large part of the zoom/pan jank. Also
+      // back off the poll interval: when nothing on the map changed, the
+      // next poll happens later (up to 30s), so an idle browser stops
+      // hammering the server with identical 300KB payloads. Any change
+      // resets the cadence back to 5s.
       const sig = _gridSignature(grids);
-      if (sig === STATE.bayesian.fullSig) return;
+      if (sig === STATE.bayesian.fullSig) {
+        STATE.bayesian.pollMs = Math.min((STATE.bayesian.pollMs || 5000) * 2, 30000);
+        return;
+      }
       STATE.bayesian.fullSig = sig;
+      STATE.bayesian.pollMs = 5000;
 
       // Each grid is one physically separate fire (its own cluster), with
       // its own cell size / reference origin. Build one "region" per grid
@@ -1553,7 +1566,30 @@
       }
     } catch (err) {
       console.warn("Fire grid state fetch error:", err);
+      // Transient error — back off so a flapping endpoint doesn't get
+      // hammered on a 5s loop; next successful change resets the cadence.
+      STATE.bayesian.pollMs = Math.min((STATE.bayesian.pollMs || 5000) * 2, 30000);
     }
+  }
+
+  /**
+   * Self-rescheduling Bayesian poll loop. Instead of a fixed 5s interval,
+   * each tick reschedules itself at STATE.bayesian.pollMs — which
+   * fetchBayesianState backs off (up to 30s) when the payload is
+   * unchanged and resets to 5s when a fire changes. Idle tabs therefore
+   * stop requesting identical ~300KB payloads, cutting server + client
+   * load dramatically; the map still snaps to fresh data the moment
+   * anything moves.
+   */
+  async function _bayesianPollTick() {
+    if (!STATE.bayesian.active || !STATE.bayesian.heatmapLayer) return;
+    await fetchBayesianState();
+    // Re-arm AFTER the fetch so a backoff decided by this poll applies to
+    // the next delay (otherwise the cadence lags one tick behind).
+    STATE.bayesian.pollingInterval = setTimeout(
+      _bayesianPollTick,
+      STATE.bayesian.pollMs || 5000
+    );
   }
 
   /**
@@ -2280,8 +2316,9 @@
       _applyGridLayerVisibility();
       fetchBayesianState();
 
-      // Start polling Bayesian state every 5 seconds
-      STATE.bayesian.pollingInterval = setInterval(fetchBayesianState, 5000);
+      // Start the adaptive Bayesian poll loop (5s while active, backs off
+      // to 30s when the payload is unchanged).
+      _bayesianPollTick();
     } else {
       // Remove from map
       if (STATE.bayesian.heatmapLayer && STATE.map) {
@@ -2300,7 +2337,7 @@
 
       // Stop polling
       if (STATE.bayesian.pollingInterval) {
-        clearInterval(STATE.bayesian.pollingInterval);
+        clearTimeout(STATE.bayesian.pollingInterval);
         STATE.bayesian.pollingInterval = null;
       }
 
@@ -3069,7 +3106,7 @@
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         if (STATE.bayesian.pollingInterval) {
-          clearInterval(STATE.bayesian.pollingInterval);
+          clearTimeout(STATE.bayesian.pollingInterval);
           STATE.bayesian.pollingInterval = null;
         }
         if (STATE.dataPollingInterval) {
@@ -3078,7 +3115,10 @@
         }
       } else {
         if (STATE.bayesian.active && !STATE.bayesian.pollingInterval) {
-          STATE.bayesian.pollingInterval = setInterval(fetchBayesianState, 5000);
+          // Resume the adaptive poll loop (pollMs remembers the backoff
+          // from before the tab was hidden — no reason to re-arm at 5s
+          // if fires were idle).
+          _bayesianPollTick();
           fetchBayesianState();
         }
         if (!STATE.dataPollingInterval) {

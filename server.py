@@ -1466,10 +1466,19 @@ MIN_STATE_THRESHOLD = 0.02
 # overflow (rare, and cheap to rebuild).
 _EXPORT_CACHE: dict = {}
 _EXPORT_CACHE_LOCK = threading.Lock()
-_EXPORT_CACHE_MAX = 4000
+# Trimmed from 4000 for the 1 GB Lightsail VM: each entry holds a full
+# serialized export (cells + statistics + contour), so 4000 could eat
+# ~100 MB+ of the VM's scarce RAM (it was already swapping). 1200 keeps
+# the hot viewport cached while freeing memory for numpy state loads.
+_EXPORT_CACHE_MAX = 1200
 # Quantize elapsed time into buckets so exports stay stable (and cached)
 # between worker checkpoints while the fire still visibly advances.
-_EXPORT_DT_BUCKET_S = 15.0
+# 45s (was 15s): the bucket rolls over 3x less often, so the expensive
+# full recompute (numpy load + predict + contour) happens 3x less — on
+# the 1 GB VM a bucket roll over a busy viewport was a multi-second stall
+# on every 15s. Fires still animate between checkpoints, just in 45s
+# steps instead of 15s (imperceptible on a heatmap).
+_EXPORT_DT_BUCKET_S = 45.0
 
 # Read-path fallback predict gate: if a grid hasn't been checkpointed by
 # the worker for this long, the read path extrapolates it in-memory (never
@@ -1647,7 +1656,6 @@ def _grid_to_json(
         ]
         return {
             "grids": grids_out,
-            "total_grids": db.count_grids(mode),
             "returned_grids": len(grids_out),
             "detail": "meta",
         }
@@ -1733,7 +1741,6 @@ def _grid_to_json(
 
     return {
         "grids": grids_out,
-        "total_grids": db.count_grids(mode),
         "returned_grids": len(grids_out),
         "detail": "full",
     }
