@@ -596,7 +596,22 @@ def list_grid_meta(
     params: list[Any] = [mode]
     if bbox is not None:
         w, s, e, n = bbox
-        clauses.append("geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)")
+        # Include any grid whose CELL EXTENT could reach into the viewport,
+        # not just grids whose centroid is inside it. Without this, zooming
+        # into the edge of a big fire (or between two fires) drops the whole
+        # grid — the fire's centroid is outside the viewport bbox — so the
+        # visible part of the fire silently vanishes from the heatmap.
+        # Expand the envelope by each grid's own half-extent (nx*cell/2,
+        # read from the state JSONB, so it adapts per grid). Meters->degrees
+        # uses the E-W conversion (÷cos(lat)) so one delta covers both axes;
+        # missing/legacy state falls back to the plain centroid test.
+        clauses.append(
+            "geom && ST_Expand(ST_MakeEnvelope(%s, %s, %s, %s, 4326), "
+            "GREATEST(0.0, "
+            "COALESCE((state->>'cell_size_m')::float, 0.0) * "
+            "COALESCE((state->>'nx')::float, 0.0) / 2.0 "
+            "/ (111320.0 * GREATEST(cos(radians(centroid_lat)), 0.2))))"
+        )
         params.extend([w, s, e, n])
     order = "(ffmc > 0) DESC, max_p DESC" if fwi_first else "max_p DESC"
     sql = (
