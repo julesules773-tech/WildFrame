@@ -1070,6 +1070,133 @@
   }
 
   /**
+   * Bounding-box-limited grayscale closing (dilate then erode) on a
+   * canvas-sized RGBA ImageData buffer, in place.
+   *
+   * The full-canvas morphology is O(w·h) per pass, which at the 4x
+   * downscale cap is ~79k px × 4 sweeps × 2 calls — several tens of ms
+   * per redraw. But the hot pixels (the only cells above the visibility
+   * floor) usually cover a small fraction of the canvas: fires are
+   * scattered dots on black. This computes the bbox of the non-zero
+   * (R channel) pixels, crops that region padded by the kernel radius,
+   * runs the identical separable morphology on the crop, and writes it
+   * back. The pad (2×r) is generous enough that the closing at every
+   * original bbox pixel has its full [±r, ±r] context inside the crop,
+   * so the result is bit-identical to running on the whole canvas.
+   */
+  function _grayDilateErodeBBox(data, w, h, r, isMax) {
+    // 1. Find the bounding box of non-zero (hot) pixels.
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) {
+      const base = y * w * 4;
+      for (let x = 0; x < w; x++) {
+        if (data[base + x * 4] > 0) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+      }
+    }
+    if (x1 < 0) return; // empty field — nothing to merge
+
+    // 2. Pad the crop by 2× the kernel radius so every original pixel's
+    //    centered window stays inside the crop.
+    const pad = 2 * r;
+    const X0 = Math.max(0, x0 - pad), Y0 = Math.max(0, y0 - pad);
+    const X1 = Math.min(w - 1, x1 + pad), Y1 = Math.min(h - 1, y1 + pad);
+    const cw = X1 - X0 + 1, ch = Y1 - Y0 + 1;
+
+    // If the crop covers most of the canvas the copy costs more than it
+    // saves — just run the plain full-canvas filter.
+    if (cw * ch >= w * h * 0.75) {
+      _grayDilateErode(data, w, h, r, isMax);
+      return;
+    }
+
+    // 3. Copy the crop (R channel only) into a compact 1-channel buffer.
+    const tmp = new Uint8ClampedArray(cw * ch);
+    for (let y = 0; y < ch; y++) {
+      const sBase = (Y0 + y) * w * 4 + X0 * 4;
+      const dBase = y * cw;
+      for (let x = 0; x < cw; x++) {
+        tmp[dBase + x] = data[sBase + x * 4];
+      }
+    }
+
+    // 4. Run the same separable morphology on the compact crop.
+    const win = r + 1;
+    const better = isMax ? (a, b) => a >= b : (a, b) => a <= b;
+    const f = new Uint8ClampedArray(Math.max(cw, ch));
+    const bb = new Uint8ClampedArray(Math.max(cw, ch));
+    const deque = new Int32Array(Math.max(cw, ch));
+    const out = new Uint8ClampedArray(cw * ch);
+
+    // Horizontal pass
+    for (let y = 0; y < ch; y++) {
+      const base = y * cw;
+      let head = 0, tail = 0;
+      for (let x = 0; x < cw; x++) {
+        const v = tmp[base + x];
+        while (head < tail && better(v, tmp[base + deque[tail - 1]])) tail--;
+        deque[tail++] = x;
+        while (deque[head] <= x - win) head++;
+        f[x] = tmp[base + deque[head]];
+      }
+      head = 0; tail = 0;
+      for (let x = cw - 1; x >= 0; x--) {
+        const v = tmp[base + x];
+        while (head < tail && better(v, tmp[base + deque[tail - 1]])) tail--;
+        deque[tail++] = x;
+        while (deque[head] >= x + win) head++;
+        bb[x] = tmp[base + deque[head]];
+      }
+      for (let x = 0; x < cw; x++) {
+        out[base + x] = better(f[x], bb[x]) ? f[x] : bb[x];
+      }
+    }
+
+    // Vertical pass
+    for (let x = 0; x < cw; x++) {
+      let head = 0, tail = 0;
+      for (let y = 0; y < ch; y++) {
+        const idx = y * cw + x;
+        const v = out[idx];
+        while (head < tail && better(v, out[deque[tail - 1] * cw + x])) tail--;
+        deque[tail++] = y;
+        while (deque[head] <= y - win) head++;
+        f[y] = out[deque[head] * cw + x];
+      }
+      head = 0; tail = 0;
+      for (let y = ch - 1; y >= 0; y--) {
+        const idx = y * cw + x;
+        const v = out[idx];
+        while (head < tail && better(v, out[deque[tail - 1] * cw + x])) tail--;
+        deque[tail++] = y;
+        while (deque[head] >= y + win) head++;
+        bb[y] = out[deque[head] * cw + x];
+      }
+      for (let y = 0; y < ch; y++) {
+        tmp[y * cw + x] = better(f[y], bb[y]) ? f[y] : bb[y];
+      }
+    }
+
+    // 5. Write the crop back (R channel), mirroring G/B like the full
+    //    filter does so the blurred/LUT passes see an identical field.
+    for (let y = 0; y < ch; y++) {
+      const dBase = (Y0 + y) * w * 4 + X0 * 4;
+      const sBase = y * cw;
+      for (let x = 0; x < cw; x++) {
+        const v = tmp[sBase + x];
+        const idx = dBase + x * 4;
+        data[idx] = v;
+        data[idx + 1] = v;
+        data[idx + 2] = v;
+      }
+    }
+  }
+
+  /**
    * Custom Leaflet layer that renders the Bayesian probability grid as a
    * translucent heatmap on an HTML5 Canvas overlay.
    * Redraws on every map move/zoom and every state update.
@@ -1313,8 +1440,12 @@
         const cellLo = Math.max(1.2, maxCellPx / downscale);
         const kernelR = Math.max(2, Math.min(64, Math.round(5 * cellLo)));
         const grayImg = accumCtx.getImageData(0, 0, loW, loH);
-        _grayDilateErode(grayImg.data, loW, loH, kernelR, true);   // dilate — bridge the gaps
-        _grayDilateErode(grayImg.data, loW, loH, kernelR, false);  // erode — restore the boundary
+        // Bbox-limited morphology: the full-canvas sweep was ~45ms of the
+        // ~57ms redraw on dense viewports even though hot pixels cover a
+        // fraction of the canvas. The crop is bit-identical to the full
+        // pass (2×r padding keeps every window inside the crop).
+        _grayDilateErodeBBox(grayImg.data, loW, loH, kernelR, true);   // dilate — bridge the gaps
+        _grayDilateErodeBBox(grayImg.data, loW, loH, kernelR, false);  // erode — restore the boundary
         accumCtx.putImageData(grayImg, 0, 0);
 
         // Pass 2: soften blob edges at low resolution (cheap) so the

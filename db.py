@@ -601,16 +601,20 @@ def list_grid_meta(
         # into the edge of a big fire (or between two fires) drops the whole
         # grid — the fire's centroid is outside the viewport bbox — so the
         # visible part of the fire silently vanishes from the heatmap.
-        # Expand the envelope by each grid's own half-extent (nx*cell/2,
-        # read from the state JSONB, so it adapts per grid). Meters->degrees
-        # uses the E-W conversion (÷cos(lat)) so one delta covers both axes;
-        # missing/legacy state falls back to the plain centroid test.
+        #
+        # IMPORTANT: this must stay a CONSTANT expansion, not a per-row
+        # expression. A per-row ST_Expand(GREATEST(COALESCE(state->>...)...))
+        # reads the state JSONB for every row in the table, which defeats
+        # the GiST index on geom and falls back to a full Parallel Seq Scan
+        # (~940ms on the production fleet vs ~15ms indexed). Grids are
+        # bounded (nx*cell/2 half-extent, metres->degrees via the E-W
+        # conversion ÷cos(lat)) — the largest half-extent on the production
+        # fleet is ~0.23°, so a constant 0.3° margin covers every grid's
+        # cells (with headroom for future larger grids) while keeping the
+        # index usable. The client culls off-screen cells anyway, so a hair
+        # of over-fetch near the viewport edge is harmless.
         clauses.append(
-            "geom && ST_Expand(ST_MakeEnvelope(%s, %s, %s, %s, 4326), "
-            "GREATEST(0.0, "
-            "COALESCE((state->>'cell_size_m')::float, 0.0) * "
-            "COALESCE((state->>'nx')::float, 0.0) / 2.0 "
-            "/ (111320.0 * GREATEST(cos(radians(centroid_lat)), 0.2))))"
+            "geom && ST_Expand(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 0.3)"
         )
         params.extend([w, s, e, n])
     order = "(ffmc > 0) DESC, max_p DESC" if fwi_first else "max_p DESC"
