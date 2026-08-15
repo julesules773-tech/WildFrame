@@ -1420,6 +1420,15 @@
   // stays fast.
   const BAYESIAN_LOD_ZOOM = 7;
 
+  // A grid must reach this peak probability before it counts as a *visible*
+  // fire for the wind badge / low-zoom dots. The server exports any cell
+  // above 0.02 (cheap payload), but a grid that decayed to max_p 0.03 paints
+  // only a near-invisible yellow fleck — yet still arrives with wind data,
+  // which produced orphaned badges/dots over "no fire" ground. Production
+  // grids are bimodal: real fires sit ≥ 0.3, decayed ghosts ≤ 0.03, so 0.1
+  // cleanly separates them (matches the legend's "low" band boundary).
+  const MIN_FIRE_VISIBLE_P = 0.1;
+
   /**
    * Cheap change detector for the full-detail grid payload. The worker
    * checkpoints grids on ~15s buckets and the export cache serves the same
@@ -1474,7 +1483,10 @@
       const zoom = STATE.map ? STATE.map.getZoom() : 12;
       const meta = zoom < BAYESIAN_LOD_ZOOM;
       // D. Skip marching-squares contours server-side when the toggle is off.
-      const contour = STATE.bayesian.showContour ? 0.6 : 0;
+      // Level 0.3 = the heatmap's fire-edge threshold (legend: orange starts
+      // at 0.3) — a 0.6 contour only rings the hot core and renders as
+      // scattered segments. Same level the road-risk feature uses.
+      const contour = STATE.bayesian.showContour ? 0.3 : 0;
       const url = `/api/bayesian/state?threshold=${threshold}&contour=${contour}&mode=${STATE.mode}&bbox=${encodeURIComponent(bbox)}&detail=${meta ? "meta" : "full"}`;
 
       const res = await fetch(url);
@@ -2030,7 +2042,11 @@
     const capped = (dots || []).slice(0, 600);
     for (const d of capped) {
       const p = d.max_p || 0;
-      if (p < threshold) continue;
+      // Both the slider AND the visibility floor gate a dot: a decayed
+      // grid (max_p ~0.03) must not render a clickable "fire" dot — the
+      // same rule the wind badge uses, so low-zoom dots never outlive
+      // the fire they represent.
+      if (p < threshold || p < MIN_FIRE_VISIBLE_P) continue;
       // Clickable: beta users expected the dots to be buttons — they now
       // are. Clicking zooms into the fire and opens a summary popup.
       const dot = L.circleMarker([d.lat, d.lon], {
@@ -2148,6 +2164,20 @@
     for (let i = 0; i < grids.length; i++) {
       const g = grids[i];
       const region = regions[i];
+
+      // No visible fire → no badge. A decayed grid (FIRMS stopped
+      // corroborating) still arrives in the payload with wind data but no
+      // cells above the render threshold — the heatmap shows nothing, so
+      // an orphaned wind badge would linger over empty ground.
+      if (!region.cells || region.cells.length === 0) continue;
+
+      // Peak probability floor: a grid that decayed to a few near-invisible
+      // cells still ships cells above the export floor, but isn't a fire
+      // worth a badge. Tie the badge to the same visibility the heatmap
+      // color scale implies (legend: "low" < 0.3) so a faded fire loses
+      // its wind badge when its blob fades.
+      const maxP = (g.statistics || {}).max_p;
+      if (maxP == null || maxP < MIN_FIRE_VISIBLE_P) continue;
 
       // No real weather for this grid yet → no badge (never fake a value).
       if (g.wind_speed == null || g.wind_dir_deg == null) continue;

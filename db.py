@@ -488,7 +488,14 @@ def accept_all_pending(mode: str) -> list[dict]:
 
 
 def delete_report(report_id: str, mode: str = "production") -> Optional[dict]:
-    """Delete one report (mode-scoped). Returns the deleted report or None."""
+    """Delete one report (mode-scoped). Returns the deleted report or None.
+
+    Also reverses the report's grid evidence: a deleted report must not
+    keep a fire alive on the map (the grid it seeded would otherwise keep
+    its fused probability — and its wind badge — until the 24h stale
+    purge). Negative evidence never stamps ``last_updated``, so a delete
+    can't keep the grid alive either.
+    """
     with _conn() as conn:
         with conn.transaction():
             row = conn.execute(
@@ -496,7 +503,39 @@ def delete_report(report_id: str, mode: str = "production") -> Optional[dict]:
                 "RETURNING id, status, data",
                 (report_id, mode),
             ).fetchone()
-    return _row_to_report(row) if row else None
+    deleted = _row_to_report(row) if row else None
+    if deleted is not None:
+        _reverse_report_evidence(deleted, mode)
+    return deleted
+
+
+def _reverse_report_evidence(report: dict, mode: str) -> None:
+    """Reverse a deleted confirmed report's contribution to its grid.
+
+    The grid near the report's location gets the same evidence the report
+    originally fused, but with a NEGATED log-likelihood ratio (the
+    ``agency_cancel`` pattern). Because ``update()`` only stamps
+    ``last_updated`` for positive evidence, a delete never resets the
+    grid's expiry clock.
+    """
+    from bayesian_filter import Evidence  # lazy: db.py already imports the grid
+
+    if report.get("status") != "confirmed":
+        return  # only confirmed reports ever fed the grid
+    lat, lon = report.get("lat"), report.get("lon")
+    if lat is None or lon is None:
+        return
+    grid_id = find_grid_near(mode, float(lat), float(lon))
+    if grid_id is None:
+        return
+
+    def _reverse(grid: "BayesianFireGrid", entry: dict) -> None:
+        ev = Evidence.from_report(report, wind_dir_deg=entry.get("wind_dir_deg"))
+        ev.log_likelihood_ratio = -ev.log_likelihood_ratio
+        ev.source = f"report-removed:{report.get('id')}"
+        grid.update(ev)
+
+    mutate_grid(mode, grid_id, _reverse)
 
 
 def count_reports(mode: str) -> int:
