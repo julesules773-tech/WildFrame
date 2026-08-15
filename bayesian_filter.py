@@ -534,7 +534,139 @@ def marching_squares_contour(
             if len(pts) == 2:
                 segments.append([pts[0], pts[1]])
 
-    return segments
+    # Chain the per-cell 2-point fragments into continuous polylines / closed
+    # rings. Marching squares emits one isolated segment per cell; without
+    # chaining the client strokes disconnected fragments and the contour
+    # never forms an enclosed shape. Shared edge intersections are
+    # interpolated by both adjacent cells on the same edge, so they agree to
+    # floating-point noise — quantize to ``_CHAIN_KEY_DIGITS`` decimals so
+    # they key together (points on different edges differ by >= half a cell,
+    # far above the noise floor, so the key cannot collide).
+    if not segments:
+        return segments
+    key_digits = 6
+
+    # Cell spacing (m) from the coordinate arrays — used by the micro-fragment
+    # filter and the stitch step below.
+    cell_m = float(grid_x[1, 0] - grid_x[0, 0]) if nx > 1 else 0.0
+
+    def _key(p: tuple[float, float]) -> tuple[float, float]:
+        return (round(float(p[0]), key_digits), round(float(p[1]), key_digits))
+
+    adjacency: dict[tuple[float, float], list[tuple[float, float]]] = {}
+    for a, b in segments:
+        ka, kb = _key(a), _key(b)
+        adjacency.setdefault(ka, []).append(kb)
+        adjacency.setdefault(kb, []).append(ka)
+
+    chained: list[list[tuple[float, float]]] = []
+    used: set[tuple[float, float]] = set()
+    # Boundary endpoints (degree 1) exist exactly when a region touches the
+    # array edge. Starting the walk from one makes a single forward walk
+    # cover the whole open chain; starting from an interior point would
+    # split it in two and falsely look like a ring.
+    boundary = sorted(p for p, nbrs in adjacency.items() if len(nbrs) == 1)
+    candidates = boundary + sorted(p for p in adjacency if len(adjacency[p]) != 1)
+    for start in candidates:
+        if start in used:
+            continue
+        chain = [start]
+        used.add(start)
+        # Single forward walk. On a closed ring this loops all the way back
+        # to ``start``'s neighbour; on an open chain it ends on the opposite
+        # boundary endpoint.
+        cur = start
+        while True:
+            nxt = None
+            for nb in adjacency.get(cur, ()):
+                if nb not in used:
+                    nxt = nb
+                    break
+            if nxt is None:
+                break
+            chain.append(nxt)
+            used.add(nxt)
+            cur = nxt
+
+        if start in adjacency.get(cur, ()):
+            # Ring: the walk looped back to ``start``'s neighbour — append
+            # ``start`` to close it. No artificial boundary invented.
+            chained.append(chain + [start])
+        else:
+            # Open chain (region touches the grid edge): left open on
+            # purpose — closing it would invent a boundary where the fire
+            # actually extends past the grid.
+            chained.append(chain)
+
+    # Drop small OPEN fragments: the discrete spread kernel leaves isolated
+    # single-cell probability pockets (a lone p>0.3 cell among ~10%
+    # neighbours) whose contours come out as tiny broken line pieces that
+    # render as stray, unenclosed bits on the map. Closed rings are kept
+    # whatever their size (a single-cell fire is still a fire); only OPEN
+    # fragments below a few cells of perimeter are noise.
+    if cell_m > 0:
+        chained = [
+            c for c in chained
+            if c[0] == c[-1] or _chain_perimeter(c) >= 3.0 * cell_m
+        ]
+
+    # Stitch open chains whose endpoints are within ~1 cell of each other.
+    # These are the same contour point separated by marching-squares
+    # interpolation noise (e.g. around a diagonally-touching pocket), which
+    # leaves an almost-closed ring with a tiny visible gap. Joining them
+    # makes the ring enclosed again. Endpoints on the grid edge are excluded
+    # — those are genuine open contours (fire extends past the grid).
+    if cell_m > 0:
+        stitch_tol = 1.0 * cell_m
+        stitched: list[list[tuple[float, float]]] = []
+        for c in chained:
+            if len(c) < 2 or c[0] == c[-1]:
+                stitched.append(c)
+                continue
+            a, b = c[0], c[-1]
+            a_edge = _on_grid_edge(a, grid_x, grid_y)
+            b_edge = _on_grid_edge(b, grid_x, grid_y)
+            if not a_edge and not b_edge and _dist(a, b) <= stitch_tol:
+                stitched.append(c + [a])  # close the ring
+            else:
+                stitched.append(c)
+        chained = stitched
+
+    return chained
+
+
+def _chain_perimeter(chain: list[tuple[float, float]]) -> float:
+    """Total length of a contour chain (grid units). For a closed ring the
+    closing edge (last point back to first) is counted by the loop since the
+    chain already ends where it started."""
+    if len(chain) < 2:
+        return 0.0
+    total = 0.0
+    last = chain[0]
+    for pt in chain[1:]:
+        total += math.hypot(pt[0] - last[0], pt[1] - last[1])
+        last = pt
+    return total
+
+
+def _dist(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _on_grid_edge(
+    p: tuple[float, float],
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+) -> bool:
+    """True when ``p`` sits on the outermost grid coordinate line (the fire
+    region reaches the array boundary there)."""
+    x, y = p
+    return (
+        abs(x - float(grid_x.min())) < 1e-6
+        or abs(x - float(grid_x.max())) < 1e-6
+        or abs(y - float(grid_y.min())) < 1e-6
+        or abs(y - float(grid_y.max())) < 1e-6
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -924,8 +1056,37 @@ class BayesianFireGrid:
         # Ensure probabilities are synced from logits before extracting contour
         self._compute_probs()
 
+        # Light 3x3 smoothing (pure numpy, separable 1-2-1) before contouring:
+        # the discrete spread kernel leaves isolated single-cell probability
+        # pockets (a lone p>0.3 cell among ~10% neighbours) whose contours are
+        # tiny disconnected fragments that render as stray, unenclosed line
+        # bits on the map. Smoothing merges those pockets into the fire region
+        # so the contour can actually enclose. Display-level only — the grid's
+        # probabilities are untouched. Full 3x3 Gaussian (weights 1,2,1
+        # squared) ≈ sigma 0.7: below one cell, so genuinely separate fires
+        # stay separate.
+        probs = self.probabilities
+        # Smoothing dilutes the peak (a lone 0.33 pocket drops to ~0.09), so
+        # only apply it to well-established fires (peak well above the
+        # contour level). Borderline fires keep their raw field — chaining +
+        # micro-fragment filtering still clean those up.
+        if (
+            probs.shape[0] >= 3 and probs.shape[1] >= 3
+            and float(np.max(probs)) > 2.0 * level
+        ):
+            p = np.asarray(probs, dtype=np.float64)
+            p = (p[:-2, :] + 2.0 * p[1:-1, :] + p[2:, :]) / 4.0
+            p = (p[:, :-2] + 2.0 * p[:, 1:-1] + p[:, 2:]) / 4.0
+            # Re-expand to the full grid with the mean baseline at the rim so
+            # grid_x/grid_y stay aligned (the rim is below any contour level
+            # anyway).
+            padded = np.empty_like(p, shape=probs.shape)
+            padded[:] = np.mean(probs)
+            padded[1:-1, 1:-1] = p
+            probs = padded
+
         segments_xy = marching_squares_contour(
-            self.probabilities, level, self.grid_x, self.grid_y,
+            probs, level, self.grid_x, self.grid_y,
         )
 
         result = []
