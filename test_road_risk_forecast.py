@@ -133,7 +133,14 @@ check("rate_modifier roughly doubles arrival",
 # ---- 6. compute_road_risk plumbing ----
 print("== 6. compute_road_risk smoke ==")
 g = BayesianFireGrid(center_lat=51.106, center_lon=18.941, cell_size_m=2000.0, nx=60, ny=60)
-g.update(Evidence.satellite_hotspot(51.106, 18.941))
+# An established fire: a grid of hotspots (3x3, ~2 km apart) so the
+# probability field and its 0.3 contour cover many cells (a bare
+# single-cell seed produces a micro contour that the contour extractor
+# drops as noise).
+for dlat in (-0.02, 0.0, 0.02):
+    for dlon in (-0.02, 0.0, 0.02):
+        g.update(Evidence.satellite_hotspot(51.106 + dlat, 18.941 + dlon))
+g.predict(dt=900.0)
 g.predict(dt=900.0)
 import math  # noqa: E402
 

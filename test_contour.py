@@ -71,11 +71,11 @@ seg5 = marching_squares_contour(vals5, 0.5, gx, gy)
 check("donut -> outer + hole rings", len(seg5) == 2 and all(ring(s) for s in seg5),
       str([len(s) for s in seg5]))
 
-# 6. single-cell pocket -> tiny but CLOSED ring (small open fragments are
-# dropped as noise; small closed rings are kept — a fire is a fire)
+# 6. single-cell pocket -> micro ring, dropped as noise (a fire that tiny
+# is not meaningful to display)
 vals6 = np.zeros((nx, ny)); vals6[15, 15] = 1.0
 seg6 = marching_squares_contour(vals6, 0.5, gx, gy)
-check("single-cell pocket is a closed ring", len(seg6) == 1 and ring(seg6[0]),
+check("single-cell pocket dropped (micro contour)", len(seg6) == 0,
       str([len(s) for s in seg6]))
 
 # 7. interpolation-noise gap stitching: two blobs diagonally touching produce

@@ -598,16 +598,17 @@ def marching_squares_contour(
             # actually extends past the grid.
             chained.append(chain)
 
-    # Drop small OPEN fragments: the discrete spread kernel leaves isolated
+    # Drop micro contours: the discrete spread kernel leaves isolated
     # single-cell probability pockets (a lone p>0.3 cell among ~10%
-    # neighbours) whose contours come out as tiny broken line pieces that
-    # render as stray, unenclosed bits on the map. Closed rings are kept
-    # whatever their size (a single-cell fire is still a fire); only OPEN
-    # fragments below a few cells of perimeter are noise.
+    # neighbours) whose contours are tiny rings (~5-8 points, a few cells
+    # of perimeter) that render as absurdly small shapes on the map. A fire
+    # that small isn't meaningful to display (and the road-risk / contour
+    # math never relied on it), so anything below a few cells of perimeter
+    # is dropped — open or closed.
     if cell_m > 0:
         chained = [
             c for c in chained
-            if c[0] == c[-1] or _chain_perimeter(c) >= 3.0 * cell_m
+            if _chain_perimeter(c) >= 6.0 * cell_m
         ]
 
     # Stitch open chains whose endpoints are within ~1 cell of each other.
