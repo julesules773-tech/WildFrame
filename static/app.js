@@ -1088,16 +1088,15 @@
       this._canvas = L.DomUtil.create("canvas", "bayesian-heatmap-canvas");
       this._container.appendChild(this._canvas);
 
-      // IMPORTANT: append to the map's root container, NOT an overlay pane.
-      // Leaflet applies its own CSS transform to panes (mapPane/overlayPane)
-      // during pan/zoom for performance. Our drawing code positions cells
-      // using map.latLngToContainerPoint(), which is already screen-absolute.
-      // If we sat inside a pane, Leaflet's transform would shift our
-      // already-positioned pixels a second time, causing the cells to drift
-      // further out of place with every pan/zoom. The root map container is
-      // not transformed, so it stays screen-fixed and matches our math.
-      map.getContainer().appendChild(this._container);
-      this._container.style.zIndex = 400; // sit above tiles, below markers/popups
+      // Append to the OVERLAY pane, not the map root. The overlay pane
+      // stacks above the tiles but below the shadow/marker/popup panes, so
+      // the heatmap glow sits over the map but never covers the wind
+      // badges, report markers or popups. Drawing uses
+      // map.latLngToLayerPoint() (pane-relative): Leaflet shifts the pane
+      // itself during pan/zoom (translate3d of _mapPanePos), so pane-local
+      // coordinates stay correct without double-offsetting. The canvas is
+      // hidden during drag/zoom and redrawn on moveend/zoomend.
+      map.getPane('overlayPane').appendChild(this._container);
 
       this._ctx = this._canvas.getContext("2d");
 
@@ -1262,7 +1261,7 @@
             const p = cell.p;
             if (p < this._threshold) continue;
 
-            const pt = map.latLngToContainerPoint([cell.lat, cell.lon]);
+            const pt = map.latLngToLayerPoint([cell.lat, cell.lon]);
             const x = pt.x / downscale;
             const y = pt.y / downscale;
             if (x < -radius || x > loW + radius ||
@@ -1364,10 +1363,10 @@
         for (const seg of allContourSegs) {
           if (seg.length < 2) continue;
           ctx.beginPath();
-          const pt0 = map.latLngToContainerPoint(seg[0]);
+          const pt0 = map.latLngToLayerPoint(seg[0]);
           ctx.moveTo(pt0.x, pt0.y);
           for (let k = 1; k < seg.length; k++) {
-            const pt = map.latLngToContainerPoint(seg[k]);
+            const pt = map.latLngToLayerPoint(seg[k]);
             ctx.lineTo(pt.x, pt.y);
           }
           ctx.stroke();
@@ -1384,10 +1383,10 @@
         for (const seg of allContourSegs) {
           if (seg.length < 2) continue;
           ctx.beginPath();
-          const pt0 = map.latLngToContainerPoint(seg[0]);
+          const pt0 = map.latLngToLayerPoint(seg[0]);
           ctx.moveTo(pt0.x, pt0.y);
           for (let k = 1; k < seg.length; k++) {
-            const pt = map.latLngToContainerPoint(seg[k]);
+            const pt = map.latLngToLayerPoint(seg[k]);
             ctx.lineTo(pt.x, pt.y);
           }
           ctx.stroke();
