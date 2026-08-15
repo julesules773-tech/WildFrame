@@ -1240,7 +1240,12 @@
         const maxCellPx = Math.max(5, ...regions
           .filter((r) => r.cells && r.cells.length > 0)
           .map((r) => this._cellSizePxFor(r)));
-        const downscale = Math.min(16, Math.max(2, maxCellPx / 3));
+        // Cap the upscale at 4x: the upscale's smoothing kernel spreads
+        // a hard edge over ~1.5–2 source pixels, so at 8–16x the whole
+        // field melted into a blurry mush. 4x keeps the edge transition
+        // to ~6–8 full-res px and the low-res canvas at ~350×225 (79k
+        // pixels) — still cheap for the LUT remap loop.
+        const downscale = Math.min(4, Math.max(2, maxCellPx / 3));
         const loW = Math.max(2, Math.ceil(canvasW / downscale));
         const loH = Math.max(2, Math.ceil(canvasH / downscale));
 
@@ -1253,9 +1258,16 @@
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
           const cellSizeLo = Math.max(1.2, this._cellSizePxFor(region) / downscale);
-          // Radius bigger than one cell so neighboring cells overlap and
-          // fuse into a single shape rather than staying as separate dots.
-          const radius = cellSizeLo * 2.2;
+          // Radius just past one cell so neighboring cells overlap and
+          // fuse into a single shape. The plateau always extends past the
+          // neighbor's center (1 cell) so there is no dip between adjacent
+          // cells; the fade band targets a constant ~6px on the full-res
+          // canvas — soft when zoomed out (melty, hides cell dots) but
+          // crisp when zoomed in (the old wide fade grew with the cell
+          // size, so zoomed-in blobs melted into a wide blurry mush).
+          const radius = cellSizeLo * 1.55;
+          const fadeLo = Math.min(radius * 0.5, Math.max(0.6, 6 / downscale));
+          const plateau = Math.min(0.97, Math.max(1 - fadeLo / radius, (1.05 * cellSizeLo) / radius));
 
           for (const cell of region.cells) {
             const p = cell.p;
@@ -1273,13 +1285,10 @@
             const t = Math.min(1, Math.max(0, p));
             const v = Math.round(255 * t);
             // Flat-topped falloff: intensity holds at the cell's value over
-            // most of the radius and only fades near the edge. A linear
-            // falloff dips ~30% between adjacent cell centers — exactly
-            // what reads as a "grid of dots". The plateau keeps the field
-            // level between neighbors so the cells fuse into one blob.
+            // most of the radius and only fades near the edge.
             const grd = accumCtx.createRadialGradient(x, y, 0, x, y, radius);
             grd.addColorStop(0, `rgba(${v},${v},${v},1)`);
-            grd.addColorStop(0.6, `rgba(${v},${v},${v},1)`);
+            grd.addColorStop(plateau, `rgba(${v},${v},${v},1)`);
             grd.addColorStop(1, 'rgba(0,0,0,1)');
             accumCtx.fillStyle = grd;
             accumCtx.beginPath();
@@ -1297,7 +1306,12 @@
         // the erosion then restores the outer boundary so every fire doesn't
         // grow ~500 m bigger. Display-only: the grid probabilities are
         // untouched, so "Max prob" and the absolute color scale stay honest.
-        const kernelR = Math.max(2, Math.min(20, Math.round(5 * (maxCellPx / downscale))));
+        // 5 cells of lo-res px = the ~1 km merge (cells are ~200 m). The
+        // old 20px cap silently shrank this to ~300 m once the downscale
+        // cap dropped to 4x; the deque filter is O(w·h) regardless of
+        // kernel size, so a wide window is free.
+        const cellLo = Math.max(1.2, maxCellPx / downscale);
+        const kernelR = Math.max(2, Math.min(64, Math.round(5 * cellLo)));
         const grayImg = accumCtx.getImageData(0, 0, loW, loH);
         _grayDilateErode(grayImg.data, loW, loH, kernelR, true);   // dilate — bridge the gaps
         _grayDilateErode(grayImg.data, loW, loH, kernelR, false);  // erode — restore the boundary
@@ -1310,7 +1324,13 @@
         blurCanvas.height = loH;
         const blurCtx = blurCanvas.getContext('2d');
         blurCtx.clearRect(0, 0, loW, loH);
-        blurCtx.filter = 'blur(1.5px)';
+        // Fixed 0.3px blur at low resolution: it hides per-cell ringing
+        // and softens the upscale just enough to stay melty, but never
+        // grows with the cell size — the old 1.5px fixed blur (and the
+        // adaptive variant) smeared the whole field by up to ~10px after
+        // the upscale.
+        const blurR = 0.3;
+        blurCtx.filter = `blur(${blurR.toFixed(2)}px)`;
         blurCtx.drawImage(accumCanvas, 0, 0);
         blurCtx.filter = 'none';
 
