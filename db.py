@@ -1244,6 +1244,13 @@ def bulk_mutate_grids(
                         "isi": row["isi"],
                     }
                     results[gid] = fn(grid, entry)
+                    if not results[gid]:
+                        # No-op mutation (e.g. the FIRMS dedup skipped every
+                        # hotspot for this grid) — don't write it back. A
+                        # write would bump updated_at for zero state change
+                        # and invalidate the export cache keyed on it,
+                        # forcing re-serialization on the next map poll.
+                        continue
                     max_p = float(grid.get_statistics()["max_p"])
                     last_evidence_at = float(grid.last_updated.max())
                     updates.append((

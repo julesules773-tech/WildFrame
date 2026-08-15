@@ -3203,6 +3203,47 @@ def _cluster_firms_hotspots(hotspots: list) -> list[dict]:
     return clusters
 
 
+def _fuse_firms_hotspots(grid: "BayesianFireGrid", hotspots: list) -> int:
+    """Fuse new FIRMS detections into a grid, skipping already-fused ones.
+
+    FIRMS re-returns the FULL past-24h window on every pass, so without
+    dedup every poll would (a) re-add +log(50) per hotspot — ratcheting
+    probabilities up to the 0.9999 clamp — and (b) re-stamp
+    last_updated = now, so evidence never aged past the 12h shelf life
+    and evidence-gated decay never engaged. That pinned ~99% of
+    production grids at max_p >= 0.85 (the all-crimson wall).
+
+    Dedup is per cell: a hotspot is only fused if that cell has not yet
+    seen a detection at least as recent (by acquisition time). Each fused
+    detection stamps ``last_updated`` with its acquisition time (not fetch
+    time), so the cutoff is "newest detection this cell has seen" and
+    decay/purge run off real detection recency.
+
+    Returns the number of hotspots actually injected.
+    """
+    # Sort oldest-first so per-cell last_updated stamps advance
+    # monotonically — the dedup is then deterministic regardless of the
+    # order FIRMS returns detections.
+    ordered = sorted(
+        hotspots,
+        key=lambda h: h.acquired_at.timestamp() if h.acquired_at is not None else 0.0,
+    )
+    injected = 0
+    for hs in ordered:
+        at = hs.acquired_at
+        ts = at.timestamp() if at is not None else None
+        if ts is not None:
+            ci, cj = grid.latlon_to_cell(hs.latitude, hs.longitude)
+            if ts <= grid.last_updated[ci, cj]:
+                continue  # already fused this detection
+        grid.update(
+            Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude),
+            at=ts,
+        )
+        injected += 1
+    return injected
+
+
 def _fetch_nasa_firms_pass(
     min_confidence: str = "nominal",
 ) -> dict:
@@ -3331,15 +3372,13 @@ def _fetch_nasa_firms_pass(
     jobs = []
     for grid_id, hotspots in hotspots_by_grid.items():
         def _inject(grid: BayesianFireGrid, entry: dict, _hs=hotspots) -> int:
-            for hs in _hs:
-                grid.update(Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude))
-            return len(_hs)
+            return _fuse_firms_hotspots(grid, _hs)
 
         jobs.append((grid_id, _inject))
 
     results = db.bulk_mutate_grids(mode, jobs)
     total_injected = sum(results.values())
-    grids_hit = len(results)
+    grids_hit = sum(1 for v in results.values() if v)
 
     post_count = db.count_grids(mode)
     new_grids = max(0, post_count - pre_count)
