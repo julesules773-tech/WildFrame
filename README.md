@@ -56,7 +56,9 @@ all state survives restarts.
 | `migrate.py`         | one-time setup: create schema, import legacy JSON |
 | `nasa_firms.py`      | NASA FIRMS API client (24h hotspot fetches) |
 | `fire_vision.py`     | optional AI fire/smoke detection on uploaded photos (Roboflow) |
-| `bayesian_filter.py` | Bayesian fire-propagation grid model |
+| `bayesian_filter.py` | Bayesian fire-propagation grid model + road-risk assessment |
+| `weather.py`         | wind + hourly forecast for grids (WeatherAPI.com primary, Open-Meteo fallback) |
+| `effis_fwi.py`       | EFFIS fuel-moisture indices (FFMC/DMC/ISI) scaling the spread model |
 | `triangulation.py`   | multi-report triangulation helpers |
 | `static/`            | frontend: `index.html` (map), `admin.html` (dashboard), `app.js`, styles |
 
@@ -87,6 +89,10 @@ take precedence** — `load_dotenv()` never overrides an existing env var.
 | `WILDFRAME_AUTO_APPROVE` | `1` | corroboration-gated auto-approval (see below). Set to `0` to keep every report in the human-review queue |
 | `WILDFRAME_AUTO_APPROVE_FLAME_CONF` | `0.80` | minimum **fire-class** confidence for auto-approval. Flame is the noisy class (false positives up to 0.94 on clean images), so its bar is high |
 | `WILDFRAME_AUTO_APPROVE_SMOKE_CONF` | `0.40` | minimum **smoke-class** confidence for auto-approval. Smoke detections stay precise at low confidence (91.8% precision at 0.40), so its bar is low. Both floors calibrated with `threshold_sweep.py` against the fire dataset |
+| `WILDFRAME_WEATHERAPI_KEY` | — | **primary wind provider** — WeatherAPI.com key (<https://www.weatherapi.com/>). `WEATHERAPI_API_KEY` is accepted as an alias. When set, wind + the hourly forecast series come from the paid, commercial-licensed API; when unset, Open-Meteo's free tier is used directly |
+| `WILDFRAME_WEATHER` | `1` | set to `0` to disable live weather entirely (grids then use the neutral defaults: 3.0 m/s @ 270°) |
+| `WILDFRAME_WEATHER_DAILY_BUDGET` | `9500` | per-day request cap for the **Open-Meteo fallback** (under its 10k/day free tier; the counter lives in `kv_store`) |
+| `WILDFRAME_WEATHERAPI_DAILY_BUDGET` | `60000` | per-day request cap for **WeatherAPI.com** (~66.7k/day on a 2M/mo plan — cap is a runaway-loop guard, not a plan limit) |
 
 ## Corroboration-gated auto-approval
 
@@ -118,6 +124,67 @@ the admin dashboard** (showing the class + confidence that cleared the
 floor), so a human can still reject anywhere the corroboration was wrong.
 
 `.env` is gitignored; only `.env.example` is committed.
+
+## Wind, weather budgets, and forecast-driven road risk
+
+Every Bayesian grid carries real 10 m wind (`wind_speed`, `wind_dir_deg`)
+that shapes the spread ellipse, the smoke-drift upwind shift, and the
+road-risk model — see `weather.py`.
+
+**Providers (primary → fallback → neutral):**
+
+1. **WeatherAPI.com** — used whenever `WILDFRAME_WEATHERAPI_KEY` is set.
+   Paid plans carry a commercial license and a large per-day quota. One
+   `forecast.json` call per cell returns *both* the current wind and the
+   hourly forecast series (3 days: wind, precip, humidity, temp), so the
+   forecast costs no extra requests.
+2. **Open-Meteo** (free, budget-gated) — the default when no key is set,
+   and the automatic fallback if WeatherAPI errors or its budget is out.
+   Free tier is non-commercial only, so a paid plan is the compliant
+   choice for commercial deployments.
+3. **Neutral defaults** (3.0 m/s @ 270°) — only if both providers fail or
+   are budget-exhausted. Weather never blocks report ingestion or grid
+   creation.
+
+**Direction convention:** both providers report the direction the wind
+comes FROM; WildFrame stores the direction the fire spreads TOWARD (the
+head of the spread ellipse, 0° = north). `weather.py` flips by 180°.
+
+**Caching & budgets:** wind and the forecast series are cached per ~55 km
+cell (0.5°) with a 24 h TTL in `kv_store` (`weather:{cell}`,
+`weather_fc:{cell}`) plus an in-process cache. Two independent per-day
+budget counters guard the providers (`weather_budget`, `weatherapi_budget`
+in `kv_store`) so neither the free tier nor the paid quota can be burned
+by a runaway loop; exhausted budgets fall through to the other provider.
+Failed fetches refund their budget slot.
+
+### Road risk (`POST /api/bayesian/road-risk`)
+
+For each fire, road segments near the contour (Overpass/OSM, cached in
+`osm_road_cache`) are assessed against the head/back/flank spread ellipse:
+`t_arrival = distance / effective_rate(bearing)` bucketed into risk tiers
+(**critical** < 30 min, **high** < 2 h, **moderate** < 6 h, else **low**),
+weighted by the grid probability at the contour point.
+
+When the cell has an hourly forecast series, arrival becomes a
+**wind-at-arrival fixed point** (`_converged_arrival` in
+`bayesian_filter.py`): a road reached in 90 min is assessed with the wind
+that will actually be blowing in 90 min, iterating until the risk **tier**
+holds steady (max 3 iterations). Two guardrails, both reviewed in:
+
+- **Critical tier (< 30 min) is intentionally unchanged** — arrival that
+  fast reads the current/first forecast hour anyway, so iteration is
+  skipped and behavior is byte-identical to the pre-forecast code.
+- **Oscillation fallback** — if the tier cycles between forecast-hour
+  buckets (e.g. high → moderate → high) instead of stabilizing, the road
+  falls back to the current-wind estimate rather than returning a
+  mid-cycle wind.
+
+A future precipitation dampener slots in via the `rate_modifier` hook
+(`(rate, t_arrival) -> rate`, evaluated inside the convergence loop) —
+wind and precip would then converge together instead of precip being a
+post-hoc scalar. The road-risk response includes a `forecast_wind_grids`
+metadata counter so forecast coverage is observable.
 
 ## Photo storage (S3)
 

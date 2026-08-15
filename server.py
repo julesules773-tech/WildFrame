@@ -2279,6 +2279,23 @@ def bayesian_road_risk():
     max_peak_probability = 0.0  # highest peak prob among no-contour grids —
                                  # helps distinguish "close" from "nowhere near"
 
+    # Batch-load forecast series for the viewport's unique ~55 km cells in
+    # ONE query (same pattern as get_grid_entries_batch — no per-grid N+1).
+    # The series is populated as a side-effect of the wind refresh; cells
+    # missing it self-heal via weather.get_forecast_series (one fetch each).
+    _cell_centroids: dict[str, tuple[float, float]] = {}
+    for _r in _meta_rows:
+        _cell_centroids.setdefault(
+            weather._cell_key(_r["centroid_lat"], _r["centroid_lon"]),
+            (_r["centroid_lat"], _r["centroid_lon"]),
+        )
+    _fc_hits = db.kv_get_many([weather._fc_kv_key(c) for c in _cell_centroids])
+    _forecast_by_cell: dict[str, Optional[list]] = {}
+    for _cell, (_lat, _lon) in _cell_centroids.items():
+        _cached = (_fc_hits.get(weather._fc_kv_key(_cell)) or {}).get("hours")
+        _forecast_by_cell[_cell] = _cached or weather.get_forecast_series(_lat, _lon)
+    _forecast_used_count = 0
+
     for key, entry in viewport_items:
         grid = entry["grid"]
         wind_speed = entry.get("wind_speed", 3.0)
@@ -2327,11 +2344,21 @@ def bayesian_road_risk():
                 print(f"[road-risk] {key}: OSM fetch failed ({exc}) — skipping grid")
                 continue
 
-        # Compute risk for this grid's roads
+        # Compute risk for this grid's roads, with the wind-at-arrival
+        # forecast correction when the cell has an hourly series (None →
+        # current-wind-only, exactly the pre-forecast behavior).
+        _cell = weather._cell_key(
+            entry.get("centroid_lat") or grid.center_lat,
+            entry.get("centroid_lon") or grid.center_lon,
+        )
+        forecast_series = _forecast_by_cell.get(_cell)
+        if forecast_series:
+            _forecast_used_count += 1
         risk_results = compute_road_risk(
             grid, segments, wind_speed, wind_dir,
             contour_level=contour_level, contour=contour,
             moisture_factor=moisture_factor,
+            forecast_series=forecast_series,
         )
 
         if not risk_results:
@@ -2410,6 +2437,7 @@ def bayesian_road_risk():
             "grids_without_contour": grids_without_contour,
             "grids_without_roads": grids_without_roads,
             "grids_fetch_failed": grids_fetch_failed,
+            "forecast_wind_grids": _forecast_used_count,
             "empty_reason": empty_reason,
         },
     })

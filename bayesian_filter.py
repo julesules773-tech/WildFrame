@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterator
@@ -1216,6 +1217,119 @@ def _initial_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     return (bearing + 360) % 360
 
 
+# How many wind-at-arrival iterations before we give up on convergence.
+MAX_FORECAST_ITERS = 3
+
+
+def _risk_tier(t_arrival: float) -> str:
+    """Bucket an arrival time (minutes) into a risk tier."""
+    for tier_name, tier_minutes in ROAD_RISK_TIERS:
+        if t_arrival < tier_minutes:
+            return tier_name
+    return "low"
+
+
+def _rate_toward(
+    segment_bearing: float,
+    wind_speed: float,
+    wind_dir_deg: float,
+    moisture_factor: float,
+) -> float:
+    """Closed-form effective spread rate (m/min) toward a road bearing under
+    a given wind (direction flipped to spread-TOWARD convention)."""
+    kernel = SpreadKernel(
+        wind_speed=wind_speed,
+        wind_dir_deg=wind_dir_deg,
+        moisture_factor=moisture_factor,
+    )
+    phi = (segment_bearing - wind_dir_deg + 360) % 360
+    return effective_spread_rate(phi, kernel.head, kernel.back, kernel.flank)
+
+
+def _wind_at_arrival(
+    series: list[dict],
+    now_epoch: float,
+    t_arrival_min: float,
+) -> tuple[float, float]:
+    """Nearest-hour forecast wind (speed, dir) to ``now + t_arrival_min``.
+
+    Known v1 limitation (hour-snapping): a road whose arrival time straddles
+    an hour boundary gets the adjacent hour's wind, which can flip a tier for
+    no physical reason. Linear interpolation on speed is easy; direction
+    needs a circular mean — deferred, not silently solved."""
+    target = now_epoch + t_arrival_min * 60.0
+    best = min(series, key=lambda h: abs(h["ts"] - target))
+    return best["speed"], best["dir"]
+
+
+def _converged_arrival(
+    segment_bearing: float,
+    best_dist: float,
+    wind_speed: float,
+    wind_dir_deg: float,
+    moisture_factor: float,
+    series: list[dict],
+    rate_modifier: Any | None,
+    now_epoch: float,
+) -> tuple[float, float, float, bool]:
+    """Wind-at-arrival fixed-point iteration for one road segment.
+
+    Returns ``(t_arrival_min, wind_speed_used, wind_dir_used, converged)``:
+
+    - Starts from the current-wind estimate (the fallback).
+    - Re-looks-up the forecast wind at the current arrival time, rebuilds
+      the ellipse, and recomputes arrival — so a road reached in 90 min is
+      assessed with the wind that will actually be blowing in 90 min.
+    - Stops early when the risk TIER (not raw minutes) is stable across two
+      iterations — a tier-stable result is good enough and cheap. A tier that
+      merely REPEATS earlier in the sequence (e.g. high → moderate → high) is
+      a 2-cycle between forecast-hour buckets, not stability — convergence
+      requires a tier that holds steady across consecutive iterations.
+    - Caps at ``MAX_FORECAST_ITERS``; if it never stabilizes (arrival time
+      oscillates between forecast-hour buckets), falls back to the
+      current-wind-only estimate rather than returning whichever iteration
+      happened to run last.
+    - **Critical tier (<30 min) is intentionally unchanged**: arrival that
+      fast reads the current/first forecast hour anyway, so iteration buys
+      nothing — behavior is byte-identical to the pre-forecast code.
+
+    ``rate_modifier`` is a ``(rate_m_min, t_arrival_min) -> rate_m_min`` hook
+    (None = identity). It is re-evaluated INSIDE the loop with the current
+    arrival time, so a future precip dampener (which scales rate by the rain
+    expected in the arrival window) converges together with the wind instead
+    of being bolted on as a post-hoc scalar.
+    """
+    rate0 = _rate_toward(segment_bearing, wind_speed, wind_dir_deg, moisture_factor)
+    t_cur = best_dist / rate0 if rate0 > 0 else float("inf")
+
+    # Critical tier: keep byte-identical behavior (no iteration).
+    if t_cur < ROAD_RISK_TIERS[0][1]:
+        return t_cur, wind_speed, wind_dir_deg, False
+
+    t_prev, ws, wd = t_cur, wind_speed, wind_dir_deg
+    seen_tiers = [_risk_tier(t_cur)]
+    for _ in range(MAX_FORECAST_ITERS):
+        ws, wd = _wind_at_arrival(series, now_epoch, t_prev)
+        rate = _rate_toward(segment_bearing, ws, wd, moisture_factor)
+        if rate_modifier is not None:
+            rate = rate_modifier(rate, t_prev)
+        t_new = best_dist / rate if rate > 0 else float("inf")
+        if not math.isfinite(t_new) or abs(t_new - t_prev) < 1e-9:
+            return t_new, ws, wd, True
+        tier_new = _risk_tier(t_new)
+        if tier_new == seen_tiers[-1]:
+            return t_new, ws, wd, True  # tier stable across consecutive iterations
+        if tier_new in seen_tiers[:-1]:
+            # The tier repeated an EARLIER value → a 2+ cycle between
+            # forecast-hour buckets, not convergence. Fall back to the
+            # current-wind estimate below.
+            break
+        seen_tiers.append(tier_new)
+        t_prev = t_new
+    # Never stabilized → current-wind-only fallback.
+    return t_cur, wind_speed, wind_dir_deg, False
+
+
 def compute_road_risk(
     grid: BayesianFireGrid,
     road_segments: list[list[tuple[float, float]]],
@@ -1224,6 +1338,8 @@ def compute_road_risk(
     contour_level: float = 0.3,
     contour: list[list[list[float]]] | None = None,
     moisture_factor: float = 1.0,
+    forecast_series: list[dict] | None = None,
+    rate_modifier: Any | None = None,
 ) -> list[dict]:
     """
     Assess risk to road segments from a spreading fire using the same
@@ -1236,6 +1352,16 @@ def compute_road_risk(
       3. effective_rate(φ) = closed-form radial spread rate.
       4. t_arrival = d / effective_rate(φ) — minutes.
       5. Bucket into risk tiers, weighted by grid probability.
+
+    When ``forecast_series`` (hourly wind/precip from weather.get_forecast_series)
+    is provided, step 4 becomes a wind-at-arrival fixed point: the ellipse is
+    rebuilt with the forecast wind at the current arrival time and iterated
+    until the risk tier is stable (see ``_converged_arrival``). Roads reached
+    in <30 min (critical tier) and roads whose iteration oscillates fall back
+    to the current-wind estimate unchanged. ``rate_modifier`` is an optional
+    ``(rate_m_min, t_arrival_min) -> rate_m_min`` hook evaluated inside the
+    loop (None = identity) — designed for a future precipitation dampener so
+    wind and precip converge together.
 
     Parameters
     ----------
@@ -1251,6 +1377,15 @@ def compute_road_risk(
         Probability level defining the "established fire edge" (default 0.30).
     contour : list of list of [lat, lon], optional
         Pre-computed contour from grid.export_contour(). Computed if None.
+    moisture_factor : float
+        Spread-rate multiplier from EFFIS fuel moisture (1.0 = neutral).
+    forecast_series : list of dict, optional
+        Hourly forecast (ts, speed, dir, precip_mm, ...) for this fire's
+        ~55 km cell; enables the wind-at-arrival correction. None = the
+        pre-forecast current-wind-only behavior.
+    rate_modifier : callable, optional
+        ``(rate_m_min, t_arrival_min) -> rate_m_min`` hook for future
+        dampening (e.g. precip). None = identity.
 
     Returns
     -------
@@ -1258,14 +1393,8 @@ def compute_road_risk(
         segment, risk_tier, t_arrival_min, nearest_distance_m,
         nearest_contour_point, nearest_road_point, bearing_from_wind_deg,
         effective_spread_rate_m_min, probability_at_contour,
-        head_rate_m_min, back_rate_m_min, flank_rate_m_min
+        head_rate_m_min, back_rate_m_min, flank_rate_m_min, wind_source
     """
-    kernel = SpreadKernel(
-        wind_speed=wind_speed,
-        wind_dir_deg=wind_dir_deg,
-        moisture_factor=moisture_factor,
-    )
-
     if contour is None:
         contour = grid.export_contour(level=contour_level)
 
@@ -1317,21 +1446,32 @@ def compute_road_risk(
             nearest_road_pt[0], nearest_road_pt[1],
         )
 
-        # Bearing relative to wind direction
-        phi_deg = (bearing - wind_dir_deg + 360) % 360
+        # Wind-at-arrival correction (forecast present): rebuild the ellipse
+        # with the wind that will actually be blowing when the fire reaches
+        # this road. Falls back to current wind on oscillation / no forecast.
+        if forecast_series:
+            t_arrival, ws_used, wd_used, converged = _converged_arrival(
+                bearing, best_dist, wind_speed, wind_dir_deg,
+                moisture_factor, forecast_series, rate_modifier, time.time(),
+            )
+        else:
+            ws_used, wd_used, converged = wind_speed, wind_dir_deg, False
 
-        # Effective spread rate in this direction (m/min)
-        rate = effective_spread_rate(phi_deg, kernel.head, kernel.back, kernel.flank)
-
-        # Time to arrival (minutes)
-        t_arrival = best_dist / rate if rate > 0 else float("inf")
+        # Ellipse under the WIND ACTUALLY USED (forecast-corrected or current)
+        # so the reported rates and t_arrival agree with the same kernel.
+        used_kernel = SpreadKernel(
+            wind_speed=ws_used,
+            wind_dir_deg=wd_used,
+            moisture_factor=moisture_factor,
+        )
+        phi_deg = (bearing - wd_used + 360) % 360
+        rate = effective_spread_rate(phi_deg, used_kernel.head, used_kernel.back, used_kernel.flank)
+        if not forecast_series:
+            # Pre-forecast behavior: current wind, no iteration.
+            t_arrival = best_dist / rate if rate > 0 else float("inf")
 
         # Risk tier
-        risk_tier = "low"
-        for tier_name, tier_minutes in ROAD_RISK_TIERS:
-            if t_arrival < tier_minutes:
-                risk_tier = tier_name
-                break
+        risk_tier = _risk_tier(t_arrival)
 
         # Grid probability at nearest contour point
         ci, cj = grid.latlon_to_cell(best_contour_pt[0], best_contour_pt[1])
@@ -1349,10 +1489,11 @@ def compute_road_risk(
             "nearest_road_point": [round(nearest_road_pt[0], 6), round(nearest_road_pt[1], 6)],
             "bearing_from_wind_deg": round(phi_deg, 1),
             "effective_spread_rate_m_min": round(rate, 2),
-            "head_rate_m_min": round(kernel.head, 2),
-            "back_rate_m_min": round(kernel.back, 2),
-            "flank_rate_m_min": round(kernel.flank, 2),
+            "head_rate_m_min": round(used_kernel.head, 2),
+            "back_rate_m_min": round(used_kernel.back, 2),
+            "flank_rate_m_min": round(used_kernel.flank, 2),
             "probability_at_contour": round(prob, 4),
+            "wind_source": "forecast" if converged else "current",
         })
 
     return results

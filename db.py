@@ -1512,6 +1512,18 @@ def kv_get(key: str, default: Any = None) -> Any:
     return row["value"] if row else default
 
 
+def kv_get_many(keys: list[str]) -> dict[str, Any]:
+    """Batch kv_store read in ONE query; returns ``{key: value}`` for the keys
+    that exist (missing keys are simply absent). Empty input → {}."""
+    if not keys:
+        return {}
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT key, value FROM kv_store WHERE key = ANY(%s)", (keys,)
+        ).fetchall()
+    return {row["key"]: row["value"] for row in rows}
+
+
 def kv_set(key: str, value: Any) -> None:
     with _conn() as conn:
         with conn.transaction():
