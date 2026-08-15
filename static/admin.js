@@ -220,10 +220,15 @@
     els.autoCount.textContent = `${rows.length} — reject any that look wrong`;
 
     rows.forEach((r) => {
-      const src =
-        r.approval_source === "satellite" ? "satellite (FIRMS)" :
-        r.approval_source === "cluster" ? "nearby confirmed report" :
-        "satellite + cluster";
+      const SRC_LABELS = {
+        "satellite": "satellite (FIRMS)",
+        "cluster": "nearby fire report",
+        "confidence": "model confidence",
+        "confidence+cluster": "model + nearby report",
+        "confidence+satellite": "model + FIRMS",
+        "satellite+cluster": "satellite + cluster",
+      };
+      const src = SRC_LABELS[r.approval_source] || r.approval_source || "—";
       const clsTag =
         r.approval_class === "flame" ? "🔥" :
         r.approval_class === "smoke" ? "💨" : "🤖";
@@ -480,6 +485,7 @@
             : `<div class="card-no-photo"><span>📸</span><p>No photo</p></div>`
           }
           ${aiBadge(r.ai_analysis)}
+          ${gateBadge(r.client_gate)}
         </div>
         <div class="card-info">
           <div class="card-info-row">
@@ -571,6 +577,18 @@
           : `AI verdict: ${verdict} — certainty ${confPct}`;
 
     return `<span class="ai-badge ${cls}" title="${title}">${label} ${confPct}</span>`;
+  }
+
+  // -----------------------------------------------------------------------
+  // Client-side pre-filter gate badge (MobileNetV3, runs in the browser)
+  // -----------------------------------------------------------------------
+  function gateBadge(gate) {
+    if (!gate || typeof gate.prob !== "number") {
+      return '<span class="gate-badge gate-unknown" title="No client-side pre-filter verdict (gate didn\'t run in the browser)">🧿 Gate: n/a</span>';
+    }
+    const pct = `${Math.round(Math.min(Math.max(gate.prob, 0), 1) * 100)}%`;
+    const fire = gate.verdict === "fire";
+    return `<span class="gate-badge ${fire ? "gate-fire" : "gate-nofire"}" title="Client-side pre-filter (MobileNetV3): ${gate.verdict} at ${pct}">🧿 Gate: ${fire ? "Fire" : "No fire"} ${pct}</span>`;
   }
 
   // -----------------------------------------------------------------------

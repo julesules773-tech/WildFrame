@@ -127,7 +127,10 @@ ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
 # independent source corroborates it (a confirmed report within 500 m / 2 h,
 # or a live FIRMS hotspot within 3 km / 12 h). Photo confidence alone never
 # auto-approves. Set WILDFRAME_AUTO_APPROVE=0 to keep every report in the
-# human-review queue.
+# human-review queue. (Local-only WILDFRAME_AUTO_APPROVE_RELAXED=1 relaxes
+# this: above-floor fires auto-confirm with no corroboration, and nearby
+# pending positive-AI reports corroborate like confirmed ones — see the
+# config block below.)
 AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
 # Class-specific confidence floors, tuned via sweep_yolo.py over the
 # fire_dataset (755 fire / 244 clean) for the LOCAL ENSEMBLE — YOLOv26
@@ -140,6 +143,33 @@ AUTO_APPROVE_ENABLED = os.environ.get("WILDFRAME_AUTO_APPROVE", "1") != "0"
 # auto-approves; recall is the direction that matters here.
 AUTO_APPROVE_FLAME_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_FLAME_CONF", "0.60"))
 AUTO_APPROVE_SMOKE_MIN_CONF = float(os.environ.get("WILDFRAME_AUTO_APPROVE_SMOKE_CONF", "0.70"))
+
+# Client-side pre-filter gate (MobileNetV3, static/app.js) — a soft veto.
+# The gate's "no fire" verdict alone never blocks a report (it's a
+# progressive enhancement and can be wrong), but under the relaxed flag it
+# RAISES the flame floor so a low-confidence scan can't breeze through on
+# the confidence tier alone. GATE_MIN_PROB mirrors the model's min_prob
+# (train_gate.py threshold; the client warns the user below it).
+GATE_MIN_PROB = float(os.environ.get("WILDFRAME_GATE_MIN_PROB", "0.4"))
+GATE_VETO_FLAME_FLOOR = float(os.environ.get("WILDFRAME_GATE_VETO_FLAME_FLOOR", "0.85"))
+
+# --- Local-only auto-approval relaxations (default OFF — production keeps
+# corroboration-gated approval exactly as before) ---
+# WILDFRAME_AUTO_APPROVE_RELAXED=1 (enabled in local .env, NOT the VM)
+# relaxes two things, justified by the ensemble's benchmark (99.7% F1,
+# 100% recall at 0.60/0.70 over 755 fire / 244 clean):
+#   1. Above-floor fires auto-confirm with NO corroboration — the model
+#      tier alone is enough, so high-confidence reports never sit in the
+#      human review queue.
+#   2. A nearby *pending* report with a positive AI verdict (from a
+#      DIFFERENT session id) corroborates like a confirmed report or a
+#      FIRMS hotspot — two independent observers are evidence, so reports
+#      auto-accept when another fire report is nearby, not just on FIRMS.
+#   3. The client-side pre-filter gate (MobileNetV3) gets a soft veto: a
+#      "no-fire" verdict raises the flame floor to GATE_VETO_FLAME_FLOOR,
+#      so a low-confidence scan can't confirm on the confidence tier alone.
+AUTO_APPROVE_RELAXED = os.environ.get("WILDFRAME_AUTO_APPROVE_RELAXED", "0") != "0"
+
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 DATA_DIR.mkdir(exist_ok=True)
@@ -346,18 +376,33 @@ def _request_mode() -> str:
 # ---------------------------------------------------------------------------
 
 def _cluster_corroborated(report: dict, reports: list[dict]) -> bool:
-    """True if a *confirmed* report exists within the cluster radius AND the
-    2h time window of ``report``. Pending/rejected reports don't corroborate,
-    and the candidate itself is excluded by id."""
+    """True if an independent report exists within the cluster radius AND the
+    2h time window of ``report``.
+
+    Independent means: a *confirmed* report (any source), or — when
+    AUTO_APPROVE_RELAXED=1 — a *pending* report whose own AI scan is
+    positive (flame/smoke/both). Same-session submissions never corroborate
+    (a phone re-submitting the same fire isn't independent evidence), and
+    the candidate itself is excluded by id."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(minutes=CLUSTER_TIME_WINDOW_MINUTES)
     for other in reports:
         if other.get("id") == report.get("id"):
             continue
-        if other.get("status") != "confirmed":
-            continue
         ts = _parse_ts(other.get("captured_at", ""))
         if ts < cutoff:
+            continue
+        if (other.get("session_id") and report.get("session_id")
+                and other.get("session_id") == report.get("session_id")):
+            continue
+        status = other.get("status")
+        if status == "confirmed":
+            pass
+        elif AUTO_APPROVE_RELAXED and status == "pending":
+            verdict = (other.get("ai_analysis") or {}).get("verdict")
+            if verdict not in ("flame", "smoke", "both"):
+                continue
+        else:
             continue
         d = _haversine(report["lat"], report["lon"], other["lat"], other["lon"])
         if d <= CLUSTER_RADIUS_M:
@@ -398,34 +443,53 @@ def _auto_approval_decision(
     smoke_conf: float,
     cluster_ok: bool,
     sat_ok: bool,
+    gate_prob: Optional[float] = None,
+    relaxed: bool = False,
 ) -> tuple[bool, Optional[str]]:
     """Decide auto-approval from an AI verdict plus corroboration.
 
     Rules:
       - verdict must be positive (flame/smoke/both); nothing/error/None never
         auto-approve, even with high confidence.
-      - class-specific confidence floor: fire >= AUTO_APPROVE_FLAME_MIN_CONF
-        OR smoke >= AUTO_APPROVE_SMOKE_MIN_CONF (with the YOLOv26 engine,
-        fire is the reliable class and smoke the noisy one).
-      - at least one independent corroboration (cluster or satellite).
-    Returns (approved, source) with source "satellite+cluster" / "cluster" /
-    "satellite", or (False, None).
+      - default (AUTO_APPROVE_RELAXED=0): the confidence floor AND at least
+        one independent corroboration (cluster or satellite) are both
+        required — the classic corroboration-gated rule.
+      - relaxed (AUTO_APPROVE_RELAXED=1): EITHER is enough — above-floor
+        fires auto-confirm with no corroboration (no human review), and a
+        corroboration (nearby report or FIRMS) auto-confirms even a
+        positive-but-below-floor scan.
+      - client pre-filter gate soft veto (relaxed only): when the client-side
+        gate says "no fire" (gate_prob below GATE_MIN_PROB), the flame floor
+        RAISES to GATE_VETO_FLAME_FLOOR — a low-confidence scan can't ride
+        the confidence tier alone. Corroboration (cluster/satellite) still
+        wins. Absent/None gate_prob (gate not loaded client-side) vetoes
+        nothing.
+    Returns (approved, source) with sources like "confidence", "cluster",
+    "satellite", "confidence+cluster", ... or (False, None).
     """
     if verdict not in ("flame", "smoke", "both"):
         return False, None
-    above_floor = (
-        fire_conf >= AUTO_APPROVE_FLAME_MIN_CONF
-        or smoke_conf >= AUTO_APPROVE_SMOKE_MIN_CONF
-    )
-    if not above_floor:
+    flame_floor = AUTO_APPROVE_FLAME_MIN_CONF
+    if relaxed and gate_prob is not None and gate_prob < GATE_MIN_PROB:
+        # Client pre-filter found no fire — demand much more from the server
+        # scan before the confidence tier alone can confirm.
+        flame_floor = GATE_VETO_FLAME_FLOOR
+    above_floor = fire_conf >= flame_floor or smoke_conf >= AUTO_APPROVE_SMOKE_MIN_CONF
+    corr_ok = cluster_ok or sat_ok
+    if relaxed:
+        approved = above_floor or corr_ok
+    else:
+        approved = above_floor and corr_ok
+    if not approved:
         return False, None
-    if cluster_ok and sat_ok:
-        return True, "satellite+cluster"
+    sources = []
+    if above_floor:
+        sources.append("confidence")
     if cluster_ok:
-        return True, "cluster"
+        sources.append("cluster")
     if sat_ok:
-        return True, "satellite"
-    return False, None
+        sources.append("satellite")
+    return True, "+".join(sources)
 
 
 # ---------------------------------------------------------------------------
@@ -579,36 +643,72 @@ def create_report():
             "error": "AI scan failed — report created for manual review",
         }
 
-    # --- Corroboration-gated auto-approval ---
-    # A positive AI verdict never auto-confirms on its own (the model's
-    # confidence is miscalibrated). Auto-approve only with independent
-    # corroboration: an existing confirmed report nearby, or a live FIRMS
-    # hotspot. Everything else stays "pending" for human moderation.
+    # --- Client-side pre-filter gate (soft veto input) ---
+    # static/app.js sends the MobileNetV3 fire probability it computed at
+    # submit time (0..1, absent if the gate never loaded client-side). It
+    # never blocks the upload — only the auto-approval floor reacts to it.
+    gate_prob = None
+    raw_gate = request.form.get("gate_prob")
+    if raw_gate:
+        try:
+            gate_prob = float(raw_gate)
+            gate_prob = max(0.0, min(1.0, gate_prob))
+        except (TypeError, ValueError):
+            gate_prob = None
+    if gate_prob is not None:
+        report["client_gate"] = {
+            "prob": round(gate_prob, 4),
+            "verdict": "fire" if gate_prob >= GATE_MIN_PROB else "no-fire",
+        }
+
+    # --- Auto-approval ---
+    # Default (production): corroboration-gated — a positive AI verdict
+    # auto-confirms only with independent corroboration (a nearby confirmed
+    # report, or a live FIRMS hotspot); everything else stays "pending" for
+    # human moderation. With WILDFRAME_AUTO_APPROVE_RELAXED=1 (local only):
+    # above-floor fires auto-confirm with no corroboration, and nearby
+    # pending reports with positive AI verdicts corroborate like confirmed
+    # ones. The client gate's "no fire" verdict raises the flame floor
+    # (soft veto) under the relaxed flag.
     if AUTO_APPROVE_ENABLED and ai_verdict in ("flame", "smoke", "both"):
-        cluster_ok = _cluster_corroborated(report, _load_reports())
-        sat = None
-        if not cluster_ok:
-            # Cluster corroboration is enough — only hit FIRMS otherwise.
-            sat = _satellite_corroboration(report)
-            report["satellite_confirmation"] = sat
         fire_conf = ai_result.get("fire_confidence", 0.0) if ai_result else 0.0
         smoke_conf = ai_result.get("smoke_confidence", 0.0) if ai_result else 0.0
+        # Mirror the decision's soft veto so "above_floor" for the FIRMS
+        # skip-check and the approval_class label use the same floor.
+        flame_floor = AUTO_APPROVE_FLAME_MIN_CONF
+        if (AUTO_APPROVE_RELAXED and gate_prob is not None
+                and gate_prob < GATE_MIN_PROB):
+            flame_floor = GATE_VETO_FLAME_FLOOR
+        above_floor = fire_conf >= flame_floor or smoke_conf >= AUTO_APPROVE_SMOKE_MIN_CONF
+        cluster_ok = _cluster_corroborated(report, _load_reports())
+        sat = None
+        # Skip the FIRMS lookup when the decision is already reachable: a
+        # relaxed above-floor scan, or an existing cluster corroboration.
+        if not cluster_ok and not (AUTO_APPROVE_RELAXED and above_floor):
+            sat = _satellite_corroboration(report)
+            report["satellite_confirmation"] = sat
         auto_approved, approval_source = _auto_approval_decision(
             ai_verdict, fire_conf, smoke_conf,
             cluster_ok, bool(sat and sat.get("confirmed")),
+            gate_prob=gate_prob, relaxed=AUTO_APPROVE_RELAXED,
         )
         if auto_approved:
             report["status"] = "confirmed"
             report["auto_approved"] = True
             report["approval_source"] = approval_source
             report["approval_class"] = (
-                "flame" if fire_conf >= AUTO_APPROVE_FLAME_MIN_CONF else "smoke"
+                "flame" if fire_conf >= flame_floor else "smoke"
             )
             report["approval_confidence"] = round(max(fire_conf, smoke_conf), 4)
+            veto_note = (
+                " (gate soft-veto: flame floor raised to "
+                f"{GATE_VETO_FLAME_FLOOR:.2f})" if flame_floor > AUTO_APPROVE_FLAME_MIN_CONF else ""
+            )
             print(f"[auto-approve] {report['id']} auto-confirmed via {approval_source} "
                   f"(class={report['approval_class']} "
                   f"@{report['approval_confidence']:.2f}, "
-                  f"fire={fire_conf:.2f} smoke={smoke_conf:.2f})")
+                  f"fire={fire_conf:.2f} smoke={smoke_conf:.2f}, "
+                  f"gate={gate_prob}{veto_note})")
         else:
             report["auto_approved"] = False
 

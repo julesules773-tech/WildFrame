@@ -2614,6 +2614,12 @@
 
       const formData = new FormData(els.form);
       formData.set("session_id", STATE.sessionId);
+      // Pass the pre-filter gate's verdict to the server — it raises the
+      // auto-approval flame floor when it found no fire (soft veto). Only
+      // sent when the gate actually ran; absent = no veto.
+      if (FIRE_GATE.ready && FIRE_GATE.lastProb != null) {
+        formData.set("gate_prob", String(FIRE_GATE.lastProb));
+      }
 
       try {
         const res = await fetch("/api/reports", { method: "POST", body: formData });
