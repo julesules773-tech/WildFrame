@@ -457,6 +457,160 @@ class SpreadKernel:
 # Marching squares contour extraction
 # ---------------------------------------------------------------------------
 
+# Cells of gap bridged by the display-level merge (binary closing) in
+# export_contour: two fire pockets up to ~2*r cells apart fuse into one
+# perimeter (100 m cells -> ~600 m of bridged gap), so a cluster of small
+# shapes renders as one continuous ring. Display-level only; the stored
+# probabilities and road-risk math are untouched. Fires closer than this are
+# visually one incident; the 0.3 contour of a genuinely fragmented fire
+# still splits into several rings once gaps exceed it.
+CONTOUR_MERGE_RADIUS_CELLS = 3
+
+
+def _shift_mask(mask: np.ndarray, dx: int, dy: int) -> np.ndarray:
+    """Shift a boolean mask by (dx, dy) cells, zero-filling at the edges."""
+    out = np.zeros_like(mask)
+    h, w = mask.shape
+    if abs(dx) >= h or abs(dy) >= w:
+        return out
+    if dx >= 0:
+        sx0, sx1, tx0, tx1 = 0, h - dx, dx, h
+    else:
+        sx0, sx1, tx0, tx1 = -dx, h, 0, h + dx
+    if dy >= 0:
+        sy0, sy1, ty0, ty1 = 0, w - dy, dy, w
+    else:
+        sy0, sy1, ty0, ty1 = -dy, w, 0, w + dy
+    out[tx0:tx1, ty0:ty1] = mask[sx0:sx1, sy0:sy1]
+    return out
+
+
+def _dilate(mask: np.ndarray, r: int) -> np.ndarray:
+    """Grow a boolean mask by a Chebyshev (square) disk of radius ``r`` cells."""
+    out = mask.copy()
+    for dx in range(-r, r + 1):
+        for dy in range(-r, r + 1):
+            if dx == 0 and dy == 0:
+                continue
+            out |= _shift_mask(mask, dx, dy)
+    return out
+
+
+def _binary_closing(mask: np.ndarray, r_dilate: int, r_erode: int | None = None) -> np.ndarray:
+    """Morphological closing (dilate then erode) of a boolean mask.
+
+    Bridges gaps of up to ~2*r_dilate cells between separate regions (so a
+    cluster of small fire pockets renders as one continuous perimeter
+    instead of many near-identical rings) and fills holes smaller than the
+    structuring element. ``r_erode`` defaults to ``r_dilate`` (a symmetric
+    closing). Peak-preserving: it operates on the mask, not the probability
+    values, so established fires are never diluted away.
+    """
+    if r_erode is None:
+        r_erode = r_dilate
+    dilated = _dilate(mask, r_dilate)
+    return ~_dilate(~dilated, r_erode)
+
+
+def _point_in_ring(x: float, y: float, ring: list[tuple[float, float]]) -> bool:
+    """Ray-casting point-in-polygon test against a closed ring (first point
+    repeated at the end). Points exactly on the boundary count as outside."""
+    inside = False
+    n = len(ring) - 1
+    j = n - 1
+    for i in range(n):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if (yi > y) != (yj > y):
+            x_cross = (xj - xi) * (y - yi) / (yj - yi) + xi
+            if x < x_cross:
+                inside = not inside
+        j = i
+    return inside
+
+
+def _ring_inside(inner: list[tuple[float, float]], outer: list[tuple[float, float]]) -> bool:
+    """True when every vertex of ``inner`` lies strictly inside ``outer``."""
+    if len(outer) < 3:
+        return False
+    return all(_point_in_ring(x, y, outer) for x, y in inner)
+
+
+def _ring_interior_signal(
+    ring: list[tuple[float, float]],
+    values: np.ndarray,
+    level: float,
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+    cell_m: float,
+) -> int:
+    """Classify what a closed ring encloses by sampling the field inside it.
+
+    Returns +1 when the enclosed cells are mostly ABOVE the level (a fire
+    boundary), -1 when mostly BELOW (a hole boundary — an unburned gap
+    inside a larger fire), 0 when indeterminate. Samples every grid cell
+    centre inside the ring's bounding box that passes the point-in-ring
+    test and takes the majority, so a fire sitting inside a donut's hole is
+    correctly read as a fire (its own cells are above level), not as part of
+    the hole."""
+    xs = [p[0] for p in ring]
+    ys = [p[1] for p in ring]
+    if cell_m <= 0:
+        return 0
+    x0 = float(grid_x[0, 0])
+    y0 = float(grid_y[0, 0])
+    i0 = max(0, int(round((min(xs) - x0) / cell_m)))
+    i1 = min(values.shape[0] - 1, int(round((max(xs) - x0) / cell_m)))
+    j0 = max(0, int(round((min(ys) - y0) / cell_m)))
+    j1 = min(values.shape[1] - 1, int(round((max(ys) - y0) / cell_m)))
+    above = below = 0
+    for i in range(i0, i1 + 1):
+        for j in range(j0, j1 + 1):
+            if _point_in_ring(float(grid_x[i, j]), float(grid_y[i, j]), ring):
+                if values[i, j] >= level:
+                    above += 1
+                else:
+                    below += 1
+    if above + below == 0:
+        return 0
+    return 1 if above >= below else -1
+
+
+def _drop_nested_rings(
+    chains: list[list[tuple[float, float]]],
+    values: np.ndarray,
+    level: float,
+    grid_x: np.ndarray,
+    grid_y: np.ndarray,
+    cell_m: float,
+) -> list[list[tuple[float, float]]]:
+    """Drop contours inside contours.
+
+    A closed ring fully inside another ring is either a HOLE boundary (its
+    enclosed area is mostly below the level — an unburned gap inside the
+    fire, which renders as an inner outline that reads as a bug) or a
+    separate fire (enclosed area above the level, e.g. a fire sitting in a
+    donut's hole). Hole boundaries are dropped; separate fires are kept.
+    Open chains are never dropped (they reach the grid edge, so they cannot
+    be nested)."""
+    closed = [(i, c) for i, c in enumerate(chains) if len(c) > 2 and c[0] == c[-1]]
+    if len(closed) < 2:
+        return chains
+    drop: set[int] = set()
+    for i, ci in closed:
+        for j, cj in closed:
+            if i == j or i in drop:
+                continue
+            if _ring_inside(ci, cj) and _ring_interior_signal(
+                ci, values, level, grid_x, grid_y, cell_m
+            ) < 0:
+                drop.add(i)
+                break
+    if not drop:
+        return chains
+    return [c for k, c in enumerate(chains) if k not in drop]
+
+
 def marching_squares_contour(
     values: np.ndarray,
     level: float,
@@ -632,6 +786,12 @@ def marching_squares_contour(
             else:
                 stitched.append(c)
         chained = stitched
+
+    # Drop contours inside contours: a donut's hole ring (its enclosed area
+    # is below the level) renders as an inner outline that reads as a bug.
+    # A separate fire inside a hole keeps its ring. Open chains (grid-edge
+    # regions) are never nested and stay.
+    chained = _drop_nested_rings(chained, values, level, grid_x, grid_y, cell_m)
 
     return chained
 
@@ -1071,10 +1231,11 @@ class BayesianFireGrid:
         # only apply it to well-established fires (peak well above the
         # contour level). Borderline fires keep their raw field — chaining +
         # micro-fragment filtering still clean those up.
-        if (
+        established = (
             probs.shape[0] >= 3 and probs.shape[1] >= 3
             and float(np.max(probs)) > 2.0 * level
-        ):
+        )
+        if established:
             p = np.asarray(probs, dtype=np.float64)
             p = (p[:-2, :] + 2.0 * p[1:-1, :] + p[2:, :]) / 4.0
             p = (p[:, :-2] + 2.0 * p[:, 1:-1] + p[:, 2:]) / 4.0
@@ -1086,8 +1247,27 @@ class BayesianFireGrid:
             padded[1:-1, 1:-1] = p
             probs = padded
 
+        contour_level = level
+        if established:
+            # Merge nearby shapes into one perimeter: binary closing on the
+            # above-level mask bridges gaps of up to ~2*r cells, so a cluster
+            # of small fire pockets renders as one continuous ring instead of
+            # many near-identical small shapes. Peak-preserving (works on the
+            # mask, not the probabilities). Display-level only. The closed
+            # mask is re-marched at 0.5 with a light smoothing pass so the
+            # outline follows the fused boundary instead of a staircase.
+            mask = probs > level
+            closed = _binary_closing(mask, CONTOUR_MERGE_RADIUS_CELLS)
+            field = closed.astype(np.float64)
+            field = (field[:-2, :] + 2.0 * field[1:-1, :] + field[2:, :]) / 4.0
+            field = (field[:, :-2] + 2.0 * field[:, 1:-1] + field[:, 2:]) / 4.0
+            padded = np.zeros_like(field, shape=probs.shape)
+            padded[1:-1, 1:-1] = field
+            probs = padded
+            contour_level = 0.5
+
         segments_xy = marching_squares_contour(
-            probs, level, self.grid_x, self.grid_y,
+            probs, contour_level, self.grid_x, self.grid_y,
         )
 
         result = []
