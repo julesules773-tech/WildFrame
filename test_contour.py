@@ -78,9 +78,11 @@ seg5 = marching_squares_contour(vals5, 0.5, gx, gy)
 check("donut -> outer ring only (no inner contour)",
       len(seg5) == 1 and ring(seg5[0]), str([len(s) for s in seg5]))
 
-# 6. fire inside a donut's hole stays (genuinely separate from the outer ring)
+# 6. fire inside a donut's hole stays (genuinely separate from the outer
+# ring) — sized so its ring survives the micro-contour filter and sits
+# strictly inside the hole (not touching its edge)
 vals6 = np.zeros((nx, ny))
-vals6[8:22, 8:22] = 1.0; vals6[13:17, 13:17] = 0.0; vals6[14:16, 14:16] = 1.0
+vals6[8:22, 8:22] = 1.0; vals6[12:18, 12:18] = 0.0; vals6[14:17, 14:17] = 1.0
 seg6 = marching_squares_contour(vals6, 0.5, gx, gy)
 check("fire in donut hole kept (2 rings)",
       len(seg6) == 2 and all(ring(s) for s in seg6), str([len(s) for s in seg6]))
@@ -94,7 +96,8 @@ check("single-cell pocket dropped (micro contour)", len(seg7) == 0,
 
 # 8. interpolation-noise gap stitching: two blobs diagonally touching produce
 # a contour whose pieces are ~0.5 cell apart; they must be stitched closed.
-vals8 = np.zeros((nx, ny)); vals8[14:16, 14:16] = 1.0; vals8[16:18, 16:18] = 1.0
+# Sized so the resulting rings survive the micro-contour filter.
+vals8 = np.zeros((nx, ny)); vals8[13:16, 13:16] = 1.0; vals8[16:19, 16:19] = 1.0
 seg8 = marching_squares_contour(vals8, 0.5, gx, gy)
 check("diagonal blobs stitch into closed rings",
       len(seg8) >= 1 and all(ring(s) for s in seg8), str([len(s) for s in seg8]))
@@ -102,7 +105,8 @@ check("diagonal blobs stitch into closed rings",
 
 # 9. export_contour merges nearby shapes into ONE big perimeter. Two 5x5
 # blobs 3 cells apart would render as two small rings without the merge;
-# binary closing (r=2 cells) bridges the 3-cell gap so they fuse into one.
+# the binary closing (r=5 cells, ~1 km of bridged gap at 100 m cells)
+# bridges the 3-cell gap so they fuse into one.
 def _grid_with_blobs(blobs):
     g = BayesianFireGrid(0.0, 0.0, cell_size_m=100.0, nx=40, ny=40)
     g.logits[:] = g._prob_to_logit(0.01)
@@ -117,9 +121,9 @@ check("nearby blobs merged into ONE ring",
       len(cont_close) == 1 and cont_close[0][0] == cont_close[0][-1],
       f"{len(cont_close)} rings")
 
-# 10. far-apart blobs (gap > 2*r) stay separate — merging must not fuse
-# genuinely distinct fires.
-g_far = _grid_with_blobs([(10, 15, 10, 15), (25, 30, 10, 15)])   # 10-cell gap
+# 10. far-apart blobs (gap well beyond the ~1 km merge radius) stay
+# separate — merging must not fuse genuinely distinct fires.
+g_far = _grid_with_blobs([(10, 15, 10, 15), (29, 34, 10, 15)])   # 14-cell gap
 cont_far = g_far.export_contour(level=0.3)
 check("far-apart blobs stay separate (2 rings)",
       len(cont_far) == 2 and all(c[0] == c[-1] for c in cont_far),

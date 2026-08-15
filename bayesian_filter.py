@@ -459,12 +459,12 @@ class SpreadKernel:
 
 # Cells of gap bridged by the display-level merge (binary closing) in
 # export_contour: two fire pockets up to ~2*r cells apart fuse into one
-# perimeter (100 m cells -> ~600 m of bridged gap), so a cluster of small
-# shapes renders as one continuous ring. Display-level only; the stored
-# probabilities and road-risk math are untouched. Fires closer than this are
-# visually one incident; the 0.3 contour of a genuinely fragmented fire
-# still splits into several rings once gaps exceed it.
-CONTOUR_MERGE_RADIUS_CELLS = 3
+# perimeter (100 m cells -> ~1 km of bridged gap), so fires that are
+# clearly one incident render as a single continuous ring instead of many
+# small shapes. Display-level only; the stored probabilities and road-risk
+# math are untouched. The 0.3 contour of a genuinely fragmented fire still
+# splits into several rings once gaps exceed it.
+CONTOUR_MERGE_RADIUS_CELLS = 5
 
 
 def _shift_mask(mask: np.ndarray, dx: int, dy: int) -> np.ndarray:
@@ -754,15 +754,16 @@ def marching_squares_contour(
 
     # Drop micro contours: the discrete spread kernel leaves isolated
     # single-cell probability pockets (a lone p>0.3 cell among ~10%
-    # neighbours) whose contours are tiny rings (~5-8 points, a few cells
-    # of perimeter) that render as absurdly small shapes on the map. A fire
-    # that small isn't meaningful to display (and the road-risk / contour
-    # math never relied on it), so anything below a few cells of perimeter
-    # is dropped — open or closed.
+    # neighbours) whose contours are tiny rings that render as absurdly
+    # small shapes on the map. With the display-level merge bridging ~1 km
+    # gaps, any contour below 8 cells of perimeter is a fragment — a
+    # pocket the merge should have absorbed or a neck-split artifact — so
+    # it is dropped (open or closed). A fire that small isn't meaningful to
+    # display and the road-risk / contour math never relied on it.
     if cell_m > 0:
         chained = [
             c for c in chained
-            if _chain_perimeter(c) >= 6.0 * cell_m
+            if _chain_perimeter(c) >= 8.0 * cell_m
         ]
 
     # Stitch open chains whose endpoints are within ~1 cell of each other.
