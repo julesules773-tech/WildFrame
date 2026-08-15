@@ -1518,7 +1518,8 @@ def _parse_bbox_param(raw: Optional[str]) -> Optional[tuple[float, float, float,
 # How many stale-wind grids in the visible viewport one poll may hand to
 # the background wind-refresh thread. Covers the full-detail cap (120) and
 # most of the meta-dot cap (600); repeat polls cost nothing once the
-# shared per-cell weather cache is warm.
+# shared per-cell weather cache is warm (24h TTL, ~55 km cells — see
+# weather.py's sizing note: a finer grid would blow the free-tier budget).
 VIEWPORT_WIND_LIMIT = 600
 
 # How many stale grids ONE refresh thread refreshes before it exits. The

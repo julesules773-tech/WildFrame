@@ -27,9 +27,12 @@ SpreadKernel in bayesian_filter.py). This module flips the direction by
 
 Caching & budget
 ----------------
-- Coordinates are bucketed into ~0.25° (~28 km) cells and cached for 30
-  minutes, both in-process and in the shared ``kv_store`` (so the web
-  process and the worker share one cache).
+- Coordinates are bucketed into ~0.5° (~55 km) cells and cached for 24
+  hours, both in-process and in the shared ``kv_store`` (so the web
+  process and the worker share one cache). The coarse cell + long TTL
+  keep the free tier's ~10k/day budget from being exhausted by the
+  ~15k production grids — see the ``CELL_DEG``/``CACHE_TTL_S`` notes
+  below for the sizing math.
 - A hard per-day request budget (default 9500, under the 10k free tier)
   is enforced via a kv_store counter so the free tier is never blown, no
   matter how many grids exist.
@@ -39,7 +42,7 @@ Caching & budget
 - Failed fetches refund their budget slot (a timeout storm must not eat
   the daily quota), and after a few consecutive failures a short backoff
   pauses live fetches instead of hammering a dead endpoint.
-- Concurrent callers wanting the same ~28 km cell serialize on one
+- Concurrent callers wanting the same ~55 km cell serialize on one
   in-flight lock, so the map's on-demand viewport refresh can't fire
   duplicate requests for the same cell.
 """
@@ -67,9 +70,17 @@ ENABLED = os.environ.get("WILDFRAME_WEATHER", "1") != "0"
 API_BASE = "https://api.open-meteo.com/v1/forecast"
 TIMEOUT_S = 3.0
 
-# Cache geometry: ~0.25° cells (~28 km) reused for 30 minutes.
-CELL_DEG = 0.25
-CACHE_TTL_S = 30 * 60
+# Cache geometry: ~0.5° cells (~55 km) reused for 24 hours.
+#
+# Sized for the free tier: with ~15.7k production grids across ~6k unique
+# 0.5° cells, a 24h TTL means at most one fetch per cell per day (~6.1k
+# requests/day, ~64% of the 9.5k daily budget) with headroom left for
+# on-demand viewport refreshes. A finer 0.25° grid or a shorter TTL would
+# need ~24k+ requests/day and exhaust the budget before noon — the
+# "everything blows West" failure mode. On a paid Open-Meteo plan, drop
+# CELL_DEG to 0.25 and CACHE_TTL_S to ~6h for fresher, finer wind.
+CELL_DEG = 0.5
+CACHE_TTL_S = 24 * 60 * 60
 
 # Hard daily request budget (free tier ~10k/day; leave headroom for the
 # shared counter racing slightly over across processes). Overridable via
@@ -92,14 +103,14 @@ _fail_since = 0.0
 
 # --- Per-cell in-flight dedup ------------------------------------------
 # The web process (map viewport refresh) and the worker (global sweep) can
-# ask for the same ~28 km cell at the same moment. Serializing per cell
+# ask for the same ~55 km cell at the same moment. Serializing per cell
 # means one live fetch populates the shared cache instead of N duplicates.
 _inflight_lock = threading.Lock()
 _inflight: dict[str, threading.Lock] = {}
 
 
 def _cell_key(lat: float, lon: float) -> str:
-    """Bucket key for a ~0.25° (~28 km) cell — nearby fires share a fetch."""
+    """Bucket key for a ~0.5° (~55 km) cell — nearby fires share a fetch."""
     return f"{round(lat / CELL_DEG) * CELL_DEG:.2f},{round(lon / CELL_DEG) * CELL_DEG:.2f}"
 
 
@@ -267,14 +278,14 @@ def get_wind_full(lat: float, lon: float) -> tuple[float, float, float]:
 def refresh_grids_wind(
     mode: str,
     limit: int = 200,
-    max_age_s: float = 30 * 60,
+    max_age_s: float = 24 * 60 * 60,
 ) -> int:
     """Refresh wind for up to ``limit`` grids whose stored wind is older
     than ``max_age_s``. Returns how many grids got a fresh value.
 
     Called by the worker's periodic ``grids.advance`` job so long-lived
     fires track changing weather. Because get_wind_full() caches per
-    ~28 km cell, a slice of 200 grids usually costs a handful of real
+    ~55 km cell, a slice of 200 grids usually costs a handful of real
     API calls, and the daily budget guards the free tier regardless.
     """
     if not ENABLED:

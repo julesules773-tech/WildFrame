@@ -176,11 +176,11 @@ def advance_grids_job(**kwargs):
         if n:
             logger.info("[grids-advance] Checkpointed %d production grid(s).", n)
         # Keep long-lived fires on real, current wind: refresh a bounded
-        # slice of grids whose wind is stale. Self-budgeting + ~28 km cell
-        # caching inside weather.py keep this far under the API free tier.
+        # slice of grids whose wind is stale. Self-budgeting + ~55 km cell
+        # caching inside weather.py keep this under the API free tier.
         try:
             refreshed = weather.refresh_grids_wind(
-                "production", limit=200, max_age_s=30 * 60,
+                "production", limit=200, max_age_s=24 * 60 * 60,
             )
         except Exception as exc:
             logger.error("[grids-advance] Wind refresh error: %s", exc)

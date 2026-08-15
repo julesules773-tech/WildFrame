@@ -869,7 +869,7 @@ def find_or_create_grid(
 def list_grids_needing_wind(
     mode: str,
     limit: int = 200,
-    max_age_s: float = 1800.0,
+    max_age_s: float = 24 * 60 * 60,
 ) -> list[dict]:
     """Return the oldest-refreshed grids whose wind is stale (or was never
     set — ``wind_updated_at = 0`` covers grids created before weather
