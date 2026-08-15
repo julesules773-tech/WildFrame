@@ -644,8 +644,9 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* Legend gradient bar — ABSOLUTE color scale (see _lavaColor in app.js).
    Stops at 30% / 60% / 85% are the fixed ramp thresholds 0.3 / 0.6 / 0.85
-   (yellow→orange, orange→red, red→crimson); colors are the ramp's exact
-   piecewise-linear RGB path, so the legend matches the heatmap 1:1. */
+   and the 92% ember tier (yellow→orange, orange→warm red, warm→bright
+   red, bright red→ember); colors are the ramp's exact piecewise-linear
+   RGB path, so the legend matches the heatmap 1:1. */
 .bayesian-legend { margin-bottom: 10px; }
 .bayesian-legend-gradient {
   position: relative; height: 8px; margin: 4px 12px 16px;
@@ -653,8 +654,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
     rgb(255, 200, 40) 0%,
     rgb(255, 140, 0) 30%,
     rgb(255, 60, 0) 60%,
-    rgb(255, 0, 0) 85%,
-    rgb(255, 0, 40) 100%);
+    rgb(255, 15, 0) 85%,
+    rgb(255, 30, 40) 100%);
   border-radius: 4px;
 }
 .legend-grad-label {

@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js" charset="utf-8"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="/style.css?v=20260814b" />
+  <link rel="stylesheet" href="/style.css?v=20260816a" />
 </head>
 <body>
 
@@ -180,12 +180,14 @@
     <div class="bayesian-legend">
       <!-- Absolute color scale: the same probability always maps to the
            same color (see _lavaColor in app.js). Ticks mark the fixed
-           ramp stops: 0.3 yellow→orange, 0.6 orange→red, 0.85 red→crimson. -->
+           ramp stops: 0.3 yellow→orange, 0.6 orange→warm red, 0.85
+           warm→bright red, 0.92 bright red→ember. -->
       <div class="bayesian-legend-gradient">
         <span class="legend-grad-label" style="left:0%">0</span>
         <span class="legend-grad-label" style="left:30%">0.3</span>
         <span class="legend-grad-label" style="left:60%">0.6</span>
         <span class="legend-grad-label" style="left:85%">0.85</span>
+        <span class="legend-grad-label" style="left:92%">0.92</span>
         <span class="legend-grad-label" style="left:100%">1</span>
       </div>
     </div>
@@ -259,7 +261,7 @@
 
   <!-- ======== Scripts ======== -->
   <script src="/vendor/tf.min.js?v=20260814" defer></script>
-  <script src="/app.js?v=20260815d"></script>
+  <script src="/app.js?v=20260816a"></script>
   <!-- Page Pulse Tracking Script -->
   <script>
     (function () {

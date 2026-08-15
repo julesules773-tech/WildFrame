@@ -1551,12 +1551,20 @@
     /**
      * Certainty color ramp.
      * Maps an ABSOLUTE probability (t = p, 0..1) to a fixed
-     * yellow→orange→red→crimson gradient — the same color always means the
+     * yellow→orange→red→ember gradient — the same color always means the
      * same probability, independent of what else is on screen:
-     *   yellow       = low probability  (< 0.3)
-     *   orange       = moderate         (0.3 – 0.6)
-     *   red          = high             (0.6 – 0.85)
-     *   deep crimson = very high        (≥ 0.85)
+     *   yellow      = low probability  (< 0.3)
+     *   orange      = moderate         (0.3 – 0.6)
+     *   warm red    = high             (0.6 – 0.85)
+     *   bright red  = very high        (0.85 – 0.92)
+     *   ember       = certain          (≥ 0.92)
+     *
+     * The top tier was raised from 0.85 → 0.92 and the deepest tone changed
+     * from near-black crimson to a brighter coral "ember": with the FIRMS
+     * fleet saturated at max_p ≥ 0.85, the old ramp rendered the whole map
+     * as a wall of dark maroon. Now the saturated zone differentiates
+     * (0.85–0.92 = bright red, ≥0.92 = ember) and the hottest color is
+     * vivid instead of ominous.
      */
     _lavaColor: function (t) {
       t = Math.min(1, Math.max(0, t));
@@ -1577,19 +1585,31 @@
         b = 0;
         a = 0.50 + 0.25 * s;
       } else if (t < 0.85) {
-        // Orange → red (high certainty)
+        // Orange → warm red (high certainty) — softer than before: never
+        // quite reaches pure red, and the alpha stays lower so blobs read
+        // less heavy.
         const s = (t - 0.6) / 0.25;
         r = 255;
-        g = Math.round(60 - 60 * s);    // 60 → 0
+        g = Math.round(60 - 45 * s);    // 60 → 15
         b = 0;
-        a = 0.75 + 0.12 * s;
-      } else {
-        // Red → deep crimson (very high certainty)
-        const s = (t - 0.85) / 0.15;
+        a = 0.75 + 0.07 * s;            // 0.75 → 0.82
+      } else if (t < 0.92) {
+        // Warm red → bright red (very high certainty) — new tier: the old
+        // ramp lumped everything ≥ 0.85 into one dark crimson.
+        const s = (t - 0.85) / 0.07;
         r = 255;
-        g = 0;
-        b = Math.round(40 * s);         // 0 → 40 (deepens to crimson)
-        a = 0.87 + 0.08 * s;
+        g = Math.round(15 - 10 * s);    // 15 → 5
+        b = 0;
+        a = 0.82 + 0.03 * s;            // 0.82 → 0.85
+      } else {
+        // Bright red → ember (certain): a vivid, lighter coral-red instead
+        // of the old near-black crimson, so the hottest cells glow rather
+        // than go dark.
+        const s = (t - 0.92) / 0.08;
+        r = 255;
+        g = Math.round(5 + 25 * s);     // 5 → 30
+        b = Math.round(15 + 25 * s);    // 15 → 40
+        a = 0.85 + 0.03 * s;            // 0.85 → 0.88
       }
       return { r, g, b, a: Math.min(0.95, a) };
     },
@@ -2419,12 +2439,13 @@
   }
 
   function _metaDotColor(p) {
-    // Same absolute stops as the heatmap lava ramp (0.85 / 0.6 / 0.3) so the
-    // low-zoom dots and the full heatmap agree on what a color means.
-    if (p >= 0.85) return "#ff1a1a";
-    if (p >= 0.6) return "#ff6600";
-    if (p >= 0.3) return "#ffaa00";
-    return "#ffd633";
+    // Same absolute stops as the heatmap lava ramp (0.92 / 0.85 / 0.6 / 0.3)
+    // so the low-zoom dots and the full heatmap agree on what a color means.
+    if (p >= 0.92) return "#ff1e28";  // ember
+    if (p >= 0.85) return "#ff0f00";  // bright red
+    if (p >= 0.6) return "#ff3c00";   // warm red
+    if (p >= 0.3) return "#ff8c00";   // orange
+    return "#ffc828";                  // amber
   }
 
   function renderGridWindLabels(grids, regions) {
