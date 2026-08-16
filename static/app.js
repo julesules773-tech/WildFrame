@@ -941,6 +941,19 @@
 
         STATE.markers.clusters.push(marker, ring);
         marker.bindPopup(renderClusterPopup(c, color));
+
+        // Zoomed-out clusters are just dots — clicking one should fly into
+        // the fire and show the full heatmap blob (not just the cluster
+        // popup). Target CLUSTER_POLYGON_ZOOM so the hull + triangulation
+        // also appear; aim at the triangulated origin when we have one.
+        marker.on("click", () => {
+          const t = c.triangulation;
+          _flyToFire(
+            t ? t.fire_lat : c.centroid_lat,
+            t ? t.fire_lon : c.centroid_lon,
+            Math.max(STATE.map.getZoom(), CLUSTER_POLYGON_ZOOM)
+          );
+        });
       }
 
       // --- Triangulation overlay (only at high zoom) ---
@@ -2398,6 +2411,21 @@
    * zooming to full detail immediately clears the meta-dot layer — a bound
    * popup would be destroyed with it.
    */
+  /**
+   * Fly the map to a fire and nudge the full-detail grid fetch so the
+   * heatmap blob renders as soon as the flyTo lands. The poll loop alone
+   * could wait up to the backed-off interval (5-30s), so the explicit
+   * 900ms nudge (just past the 0.8s flyTo) is what makes the blob appear
+   * "immediately" instead of on the next poll.
+   */
+  function _flyToFire(lat, lon, targetZoom) {
+    if (!STATE.map) return;
+    STATE.map.flyTo([lat, lon], targetZoom, { duration: 0.8 });
+    setTimeout(() => {
+      if (STATE.bayesian.active) fetchBayesianState();
+    }, 900);
+  }
+
   function openFireDotPopup(d) {
     if (!STATE.map) return;
 
@@ -2438,14 +2466,7 @@
       .openOn(STATE.map);
 
     // Fly in so the full heatmap + reports render (above the meta-dot LOD).
-    const targetZoom = Math.max(STATE.map.getZoom(), 10);
-    STATE.map.flyTo([d.lat, d.lon], targetZoom, { duration: 0.8 });
-
-    // The map only re-fetches grid state on its 5s poll; nudge it so the
-    // full-detail heatmap appears as soon as the flyTo lands.
-    setTimeout(() => {
-      if (STATE.bayesian.active) fetchBayesianState();
-    }, 900);
+    _flyToFire(d.lat, d.lon, Math.max(STATE.map.getZoom(), 10));
   }
 
   function _metaDotColor(p) {
