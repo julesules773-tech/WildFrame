@@ -1097,6 +1097,50 @@
    * original bbox pixel has its full [±r, ±r] context inside the crop,
    * so the result is bit-identical to running on the whole canvas.
    */
+  /**
+   * Chaikin corner-cutting (1974) on a contour polyline — display-only
+   * rounding of the sharp ~90° corners that marching squares leaves on
+   * the fire boundary (the probability field is a per-cell step function
+   * on a 100 m lattice, so contour segments run along cell edges). Each
+   * vertex is replaced by two points at 25%/75% along its adjacent
+   * edges; repeated iterations round the corners further. Closed rings
+   * are smoothed cyclically (the seam corner is cut too); open chains (a
+   * fire touching the grid edge) keep their endpoints. The grid
+   * probabilities are untouched — this only changes what gets stroked.
+   */
+  function _chaikinSmooth(seg, iterations) {
+    const it = iterations || 2;
+    if (seg.length < 3) return seg;
+    const closed = seg.length >= 4 &&
+      Math.abs(seg[0][0] - seg[seg.length - 1][0]) < 1e-6 &&
+      Math.abs(seg[0][1] - seg[seg.length - 1][1]) < 1e-6;
+    let pts = closed ? seg.slice(0, -1) : seg.slice();
+    if (closed && pts.length < 3) return seg;
+    for (let n = 0; n < it; n++) {
+      const out = [];
+      if (closed) {
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i];
+          const b = pts[(i + 1) % pts.length];
+          out.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+          out.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+        }
+      } else {
+        out.push(pts[0]);
+        for (let i = 0; i < pts.length - 1; i++) {
+          const a = pts[i];
+          const b = pts[i + 1];
+          out.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+          out.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+        }
+        out.push(pts[pts.length - 1]);
+      }
+      pts = out;
+    }
+    if (closed) pts.push(pts[0]);
+    return pts;
+  }
+
   function _grayDilateErodeBBox(data, w, h, r, isMax) {
     // 1. Find the bounding box of non-zero (hot) pixels.
     let x0 = w, y0 = h, x1 = -1, y1 = -1;
@@ -1818,12 +1862,14 @@
 
       // Each grid is one physically separate fire (its own cluster), with
       // its own cell size / reference origin. Build one "region" per grid
-      // for the heatmap layer to render in a single pass.
+      // for the heatmap layer to render in a single pass. Contours are
+      // corner-rounded here (once per payload) so the render loop strokes
+      // the smoothed polylines on every redraw without re-smoothing.
       const regions = grids.map((g) => {
         const st = g.state || {};
         return {
           cells: st.cells || [],
-          contour: g.contour || [],
+          contour: (g.contour || []).map((seg) => _chaikinSmooth(seg, 2)),
           cellSizeM: st.cell_size_m || 100,
           refLat: st.ref_lat,
           refLon: st.ref_lon,
