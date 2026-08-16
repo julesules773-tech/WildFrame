@@ -70,6 +70,13 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-icon { font-size: 24px; }
 .brand-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #7c7c72, #eee9e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+/* Tagline under the brand name — muted eyebrow that matches the version
+   pill's quiet styling instead of rendering as plain body text. */
+.brand-tagline {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--text-muted);
+  white-space: nowrap;
+}
 /* Version pill next to the brand name — matches the muted, bordered style
    of the search input / top-bar controls so it doesn't fight for attention. */
 .version-badge {
@@ -1044,6 +1051,9 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   #top-menu .search-box { width: 100%; max-width: none; margin: 0 0 4px; }
   #top-menu .search-results { position: static; z-index: auto; }
   .brand-text { font-size: 17px; }
+  /* Keep the top bar from crowding on narrow screens: the tagline is
+     decorative, the version pill still marks the beta. */
+  .brand-tagline { display: none; }
   .top-menu-btn { display: flex; }
   /* Fire Grid card: collapsed by default on mobile (JS boot) so the map
      stays visible; when opened via the Fire Grid menu button, fit it to

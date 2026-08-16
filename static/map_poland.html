@@ -22,17 +22,89 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
   <style>
-    /* Keep the embedded map compact but useful. */
-    #poland-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; }
-    .map-note { font-size: 13px; color: var(--text-muted, #666); text-align: center; margin-bottom: 12px; }
-    .live-badge {
-      display: inline-block; background: #e11d48; color: #fff; font-size: 13px;
-      font-weight: 600; border-radius: 999px; padding: 4px 12px; margin-bottom: 10px;
+    /* --- Embedded map: dark chrome to match the app --- */
+    #poland-map {
+      width: 100%; height: 460px;
+      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
-    .stat-row { display: flex; gap: 18px; flex-wrap: wrap; margin: 10px 0 22px; }
-    .stat { background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 12px 18px; }
-    .stat b { font-size: 26px; display: block; }
-    .stat span { font-size: 13px; color: #666; }
+    /* Dark Leaflet controls (zoom, attribution, popup) */
+    #poland-map .leaflet-control-zoom a {
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    #poland-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
+    #poland-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    #poland-map .leaflet-control-attribution {
+      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
+    }
+    #poland-map .leaflet-control-attribution a { color: var(--text-secondary); }
+    #poland-map .leaflet-popup-content-wrapper, #poland-map .leaflet-popup-tip {
+      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
+    }
+    #poland-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+
+    .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
+    .map-cta { text-align: center; margin: 0 0 30px; }
+
+    /* --- Live badge --- */
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(225, 29, 72, 0.15); color: #fda4af;
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
+      margin-bottom: 18px;
+    }
+    .live-badge .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
+      animation: live-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    /* --- Stat cards: dark theme tokens --- */
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
+    .stat {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
+      box-shadow: var(--shadow);
+    }
+    .stat b {
+      font-size: 30px; display: block; letter-spacing: -0.5px;
+      color: var(--text-primary); line-height: 1.1; margin-bottom: 4px;
+    }
+    .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
+
+    /* --- Color legend: mirrors the app's absolute lava ramp --- */
+    .map-legend {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin: 14px auto 4px; font-size: 11px; color: var(--text-muted);
+    }
+    .legend-gradient {
+      width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0;
+      background: linear-gradient(90deg,
+        rgb(255,200,40) 0%,   /* 0.0  yellow */
+        rgb(255,140,0) 30%,   /* 0.3  amber */
+        rgb(255,60,0) 60%,    /* 0.6  orange */
+        rgb(255,15,0) 85%,    /* 0.85 warm red */
+        rgb(255,5,15) 92%,    /* 0.92 bright red */
+        rgb(255,30,40) 100%); /* 1.0  ember */
+      border: 1px solid var(--border);
+    }
+    .legend-tick { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .legend-tick b { font-weight: 700; color: var(--text-secondary); }
+    .legend-tick i {
+      width: 1px; height: 5px; background: var(--text-muted);
+      font-style: normal; opacity: 0.6;
+    }
+    .legend-tick span { white-space: nowrap; }
+
+    @media (max-width: 600px) {
+      .legend-gradient { width: 160px; }
+    }
   </style>
 </head>
 <body class="contact-page">
@@ -60,7 +132,7 @@
         hotspots, AI-screened citizen photo reports, and a predictive Fire
         Grid showing where active fires are most likely to spread.
       </p>
-      <span class="live-badge">● LIVE</span>
+      <span class="live-badge"><span class="live-dot"></span> Live</span>
       <div class="stat-row">
         <div class="stat"><b id="fire-count">{{ACTIVE_FIRES}}</b><span>active fires tracked</span></div>
         <div class="stat"><b>{{COVERAGE}}</b><span>coverage</span></div>
@@ -69,8 +141,20 @@
     </section>
 
     <div id="poland-map" aria-label="Live wildfire map of Poland"></div>
-    <p class="map-note">Dots show currently tracked fires. Probability shown is the Fire Grid's burn probability for each location. Zoom in for the full heatmap.</p>
-    <p style="text-align:center; margin: 0 0 30px;"><a href="/" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+
+    <!-- Color legend — same absolute scale as the main map (0.3 / 0.6 / 0.85 stops). -->
+    <div class="map-legend" aria-hidden="true">
+      <span>burn probability</span>
+      <div class="legend-gradient"></div>
+      <div class="legend-tick"><b>0</b><i></i><span>low</span></div>
+      <div class="legend-tick"><b>0.3</b><i></i><span></span></div>
+      <div class="legend-tick"><b>0.6</b><i></i><span></span></div>
+      <div class="legend-tick"><b>0.85</b><i></i><span></span></div>
+      <div class="legend-tick"><b>1</b><i></i><span>high</span></div>
+    </div>
+
+    <p class="map-note">Dots show currently tracked fires; colour and size reflect the Fire Grid's burn probability for each location. Zoom in for the full heatmap.</p>
+    <p class="map-cta"><a href="/" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
 
     <!-- ======== SEO body copy ======== -->
     <section class="section">
@@ -150,6 +234,30 @@
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
+      // Absolute lava ramp — mirrors _lavaColor in the main app so the dots
+      // use exactly the same colour as the heatmap blob they represent.
+      function lavaColor(t) {
+        t = Math.min(1, Math.max(0, t));
+        var r, g, b;
+        if (t < 0.3) {            // yellow → amber
+          var s1 = t / 0.3;
+          r = 255; g = Math.round(200 - 60 * s1); b = Math.round(40 - 40 * s1);
+        } else if (t < 0.6) {     // amber → orange
+          var s2 = (t - 0.3) / 0.3;
+          r = 255; g = Math.round(140 - 80 * s2); b = 0;
+        } else if (t < 0.85) {    // orange → warm red
+          var s3 = (t - 0.6) / 0.25;
+          r = 255; g = Math.round(60 - 45 * s3); b = 0;
+        } else if (t < 0.92) {    // warm red → bright red
+          var s4 = (t - 0.85) / 0.07;
+          r = 255; g = Math.round(15 - 10 * s4); b = 0;
+        } else {                  // bright red → ember
+          var s5 = (t - 0.92) / 0.08;
+          r = 255; g = Math.round(5 + 25 * s5); b = Math.round(15 + 25 * s5);
+        }
+        return "rgb(" + r + "," + g + "," + b + ")";
+      }
+
       var bbox = "14.07,49.00,24.15,54.84"; // Poland
       var visibleP = 0.1;
 
@@ -161,15 +269,14 @@
           if (el && dots.length > 0) el.textContent = dots.length;
           var bounds = [];
           dots.forEach(function (g) {
-            var colour = g.max_p >= 0.85 ? "#dc2626" : g.max_p >= 0.6 ? "#ea580c" : "#f59e0b";
             L.circleMarker([g.lat, g.lon], {
               radius: 4 + Math.round(g.max_p * 8),
-              color: "#7f1d1d",
+              color: "rgba(0,0,0,0.35)",
               weight: 1,
-              fillColor: colour,
-              fillOpacity: 0.85,
+              fillColor: lavaColor(g.max_p),
+              fillOpacity: 0.9,
             }).addTo(map)
-              .bindPopup("<b>Fire</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
+              .bindPopup("<b>Active fire</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
                 + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "°" : ""));
             bounds.push([g.lat, g.lon]);
           });
