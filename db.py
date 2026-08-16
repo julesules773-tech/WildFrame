@@ -1661,6 +1661,36 @@ def delete_feedback(feedback_id: str) -> bool:
     return cur.rowcount > 0
 
 
+def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optional[str]]:
+    """Look up the CORINE land-cover class (``Code_18``) at each point.
+
+    ``points`` is a list of ``(lat, lon)``. Returns ``{index: code_18}``
+    for points that fall on a loaded ``land_cover`` polygon; points outside
+    CORINE coverage (or on the sea) are simply absent from the result.
+
+    One batched query with a GiST-indexed join instead of N round trips.
+    """
+    if not points:
+        return {}
+    values_sql = ", ".join(
+        "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in points
+    )
+    params: list[Any] = []
+    for i, (lat, lon) in enumerate(points):
+        params.extend([i, lon, lat])
+    with _conn() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
+            FROM (VALUES {values_sql}) AS hs(idx, geom)
+            JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
+            ORDER BY hs.idx, lc.code_18
+            """,
+            params,
+        ).fetchall()
+    return {int(r["idx"]): str(r["code_18"]) for r in rows}
+
+
 def kv_set(key: str, value: Any) -> None:
     with _conn() as conn:
         with conn.transaction():

@@ -46,6 +46,7 @@ from bayesian_filter import (
 
 from fire_vision import scan_photo
 import nasa_firms
+import corine
 import db
 import photo_storage
 import weather
@@ -3376,6 +3377,28 @@ def _fuse_firms_hotspots(grid: "BayesianFireGrid", hotspots: list) -> int:
     return injected
 
 
+def _gate_firms_by_land_cover(hotspots: list) -> list:
+    """Drop FIRMS detections that fall on non-burnable CORINE classes.
+
+    Batched PostGIS lookup against the ``land_cover`` table (CLC2018,
+    loaded by corine_import.py). Points outside CORINE coverage pass
+    through — the gate is permissive where we have no data so it can
+    never silently delete fires in uncovered regions.
+    """
+    if not hotspots:
+        return hotspots
+    codes = db.land_cover_codes_batch(
+        [(h.latitude, h.longitude) for h in hotspots]
+    )
+    kept: list = []
+    for i, h in enumerate(hotspots):
+        code = codes.get(i)
+        if code is not None and not corine.is_burnable(code):
+            continue
+        kept.append(h)
+    return kept
+
+
 def _fetch_nasa_firms_pass(
     min_confidence: str = "nominal",
 ) -> dict:
@@ -3454,6 +3477,34 @@ def _fetch_nasa_firms_pass(
         return {
             "injected": 0, "grids_hit": 0, "grids_considered": 0,
             "firms_hotspots": 0, "new_grids": 0,
+            "stale_grids_purged": stale_purged,
+        }
+
+    # --- CORINE land-cover gate (Step 1 of the filtering plan) ---
+    # Drop detections on non-burnable land: industrial sites, urban
+    # reflections, water glare and bare ground are not wildfires. One
+    # batched PostGIS lookup against the loaded CLC2018 layer; hotspots
+    # outside CORINE coverage (non-European fires) pass through untouched.
+    raw_hotspots = len(all_hotspots)
+    all_hotspots = _gate_firms_by_land_cover(all_hotspots)
+    land_cover_dropped = raw_hotspots - len(all_hotspots)
+    if land_cover_dropped:
+        logger.info(
+            "[firms] Land-cover gate dropped %d hotspot(s) on non-burnable CORINE classes (%d kept)",
+            land_cover_dropped, len(all_hotspots),
+        )
+
+    if not all_hotspots:
+        # Everything was industrial/urban noise — still run the expiry sweep
+        # so old fires fade, mirroring the empty-fetch path above.
+        print("[firms] All hotspots filtered out by the land-cover gate")
+        stale_purged = db.purge_stale_grids("production", max_age_hours=24.0)
+        if stale_purged:
+            logger.info("[firms] Expired %d stale production grid(s) (no evidence in 24h)", stale_purged)
+        return {
+            "injected": 0, "grids_hit": 0, "grids_considered": 0,
+            "firms_hotspots": 0, "new_grids": 0,
+            "land_cover_dropped": land_cover_dropped,
             "stale_grids_purged": stale_purged,
         }
 
@@ -3537,6 +3588,7 @@ def _fetch_nasa_firms_pass(
         "grids_hit": grids_hit,
         "grids_considered": post_count,
         "firms_hotspots": total_hotspots,
+        "land_cover_dropped": land_cover_dropped,
         "new_grids": new_grids,
         "stale_grids_purged": stale_purged,
         "reports_confirmed": reports_confirmed,
