@@ -617,7 +617,41 @@ def list_grid_meta(
             "geom && ST_Expand(ST_MakeEnvelope(%s, %s, %s, %s, 4326), 0.3)"
         )
         params.extend([w, s, e, n])
-    order = "(ffmc > 0) DESC, max_p DESC" if fwi_first else "max_p DESC"
+        if not fwi_first:
+            # Visible-first ordering: grids whose CELL EXTENT reaches the
+            # actual viewport always rank above margin-only grids (those
+            # whose centroid is within the 0.3° margin but whose cells are
+            # off-screen). The caller applies a LIMIT cap to bound the
+            # payload — with a plain "max_p DESC" order, the cap could
+            # drop a fire whose cells are ON SCREEN in favour of an
+            # off-screen fire (in dense regions ~700 of ~800 visible fires
+            # were silently dropped, rendering blobs "cut" / in parts).
+            # The half-extent is read from each candidate row's state JSONB
+            # AFTER the indexed geom filter — the same pattern as the
+            # last_predict_time extraction below — so only the ~hundreds of
+            # filtered rows pay the JSONB read, never a full-table scan.
+            half_m = (
+                "((state->>'nx')::float "
+                "* COALESCE(NULLIF(state->>'cell_size_m','')::float, 100)) / 2.0"
+            )
+            half_lon = f"({half_m}) / (111320.0 * cos(radians(centroid_lat)))"
+            half_lat = f"({half_m}) / 111320.0"
+            visible = (
+                f"(centroid_lon + ({half_lon}) >= {w!r} "
+                f"AND centroid_lon - ({half_lon}) <= {e!r} "
+                f"AND centroid_lat + ({half_lat}) >= {s!r} "
+                f"AND centroid_lat - ({half_lat}) <= {n!r})"
+            )
+            order = f"CASE WHEN {visible} THEN 0 ELSE 1 END, max_p DESC"
+        else:
+            # fwi_first with a viewport: keep the admin's fuel-moisture
+            # ordering (no current caller combines the two).
+            order = "(ffmc > 0) DESC, max_p DESC"
+    elif fwi_first:
+        # Admin dashboard path: fuel-moisture-bearing grids first, always.
+        order = "(ffmc > 0) DESC, max_p DESC"
+    else:
+        order = "max_p DESC"
     sql = (
         "SELECT id, centroid_lat, centroid_lon, wind_speed, wind_dir_deg, "
         "max_p, updated_at, wind_updated_at, last_evidence_at, "

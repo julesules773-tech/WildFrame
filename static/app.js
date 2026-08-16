@@ -1774,8 +1774,11 @@
         return;
       }
 
-      // Full detail — clear any low-zoom dots.
-      renderMetaDots([]);
+      // Full detail — show any overflow dots: fires beyond the server's
+      // full+coarse serialization budget (the strongest N ship as blobs,
+      // the rest as cheap clickable dots) so a dense viewport never
+      // renders with holes. Cleared automatically when empty.
+      renderMetaDots(data.overflow || []);
 
       // Skip the entire render pass when the payload is unchanged since
       // the last poll (the common case between worker checkpoints).
@@ -1785,7 +1788,14 @@
       // next poll happens later (up to 30s), so an idle browser stops
       // hammering the server with identical 300KB payloads. Any change
       // resets the cadence back to 5s.
-      const sig = _gridSignature(grids);
+      // Overflow dots are part of the payload too — fold them into the
+      // change detection so a fire drifting in/out of the overflow tier
+      // re-renders instead of showing stale dots.
+      let oh = 0;
+      for (const d of data.overflow || []) {
+        oh = (oh * 31 + d.id.length + ((d.max_p * 10000) | 0)) | 0;
+      }
+      const sig = (_gridSignature(grids) * 31 + oh) | 0;
       if (sig === STATE.bayesian.fullSig) {
         STATE.bayesian.pollMs = Math.min((STATE.bayesian.pollMs || 5000) * 2, 30000);
         return;

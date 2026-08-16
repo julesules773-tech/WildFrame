@@ -1447,6 +1447,25 @@ def _find_or_create_grid_for_point(lat: float, lon: float, demo: bool = False) -
 # serializes ~30s of contours.
 MAX_STATE_GRIDS = 120
 
+# Overflow tier: grids ranked beyond MAX_STATE_GRIDS (up to this many
+# more) still ship, but COARSE — only cells above COARSE_CELL_THRESHOLD
+# and no contour — so a dense viewport renders ~2x the fires in roughly
+# the same payload budget. Without it, the 120-grid cap silently dropped
+# ~700 of ~800 visible fires in the Africa fire belt (blobs rendered "in
+# parts" / cut on zoom). The client culls cells it can't see, so shipping
+# a coarse core for the overflow fires is strictly better than dropping
+# them.
+COARSE_GRID_OVERFLOW = 120
+COARSE_CELL_THRESHOLD = 0.10
+
+# Total candidates considered per full-detail request: the top
+# MAX_STATE_GRIDS ship full resolution, the next COARSE_GRID_OVERFLOW ship
+# coarse, and any beyond that are returned as cheap "overflow" dots (meta
+# shape) so a dense viewport never shows holes — every fire is represented
+# (blob, coarse blob, or dot) instead of silently vanishing. Capped at the
+# same budget as the meta-dot view.
+STATE_CANDIDATE_CAP = 600
+
 # detail=meta (low-zoom dot view) only ships id/centroid/max_p/wind — no
 # state loading, no contour extraction — so it can afford a larger cap.
 META_MAX_GRIDS = 600
@@ -1632,7 +1651,12 @@ def _grid_to_json(
     """
     mode = "demo" if demo else "production"
     meta_only = detail == "meta"
-    effective_max = META_MAX_GRIDS if meta_only else max_grids
+    # Full-detail path: MAX_STATE_GRIDS grids at full resolution PLUS
+    # COARSE_GRID_OVERFLOW more at coarse resolution (see the constants).
+    # The ordering from list_grid_meta is visible-first, so the overflow
+    # tier is always filled with on-screen fires before any off-screen
+    # margin-only grid is considered.
+    effective_max = META_MAX_GRIDS if meta_only else STATE_CANDIDATE_CAP
 
     # Candidates come straight from Postgres: viewport-filtered via PostGIS
     # and ordered by peak probability (denormalized max_p column), capped so
@@ -1670,8 +1694,17 @@ def _grid_to_json(
     # loading/deserializing any numpy state. Only the grids that missed the
     # cache are batch-loaded below (one query, not one per grid).
     missing = []
-    for row in items:
+    for idx, row in enumerate(items):
+        # Rows beyond the full+coarse budget are only used as overflow dots
+        # (see below) — never serialized.
+        if idx >= max_grids + COARSE_GRID_OVERFLOW:
+            continue
         grid_id = row["id"]
+        # Ranks beyond MAX_STATE_GRIDS ship coarse (fewer cells, no contour)
+        # so the cap never silently drops an on-screen fire in dense areas.
+        coarse = idx >= max_grids
+        eff_threshold = COARSE_CELL_THRESHOLD if coarse else threshold
+        eff_contour = include_contour and not coarse
         # Full microsecond precision (TIMESTAMPTZ) so two writes to one grid
         # within the same second still invalidate the cache.
         updated_epoch = row["updated_at"].timestamp() if row.get("updated_at") else 0.0
@@ -1686,18 +1719,18 @@ def _grid_to_json(
 
         key = (
             mode, grid_id, updated_epoch, bucket,
-            round(threshold, 4), round(contour_level, 4), include_contour,
+            round(eff_threshold, 4), round(contour_level, 4), eff_contour,
         )
         cached = _export_cache_get(key)
         if cached is not None:
             grids_out.append(cached)
             continue
-        missing.append((row, key))
+        missing.append((row, key, coarse))
 
     # Batch-load only the grids that missed the cache (one query total).
     if missing:
-        entries = db.get_grid_entries_batch(mode, [row["id"] for row, _ in missing])
-        for row, key in missing:
+        entries = db.get_grid_entries_batch(mode, [row["id"] for row, _, _ in missing])
+        for row, key, coarse in missing:
             entry = entries.get(row["id"])
             if entry is None:
                 continue  # grid deleted between queries
@@ -1727,22 +1760,41 @@ def _grid_to_json(
 
             # Null (not a fake 3.0/270) until the grid has real weather.
             has_wind = (entry.get("wind_updated_at") or 0) > 0
+            eff_threshold = COARSE_CELL_THRESHOLD if coarse else threshold
+            eff_contour = include_contour and not coarse
             out = {
                 "id": row["id"],
-                "state": _round_export_state(grid.export_state(threshold=threshold)),
+                "state": _round_export_state(grid.export_state(threshold=eff_threshold)),
                 "statistics": grid.get_statistics(),
                 "wind_speed": round(entry["wind_speed"], 1) if has_wind else None,
                 "wind_dir_deg": round(entry["wind_dir_deg"], 0) if has_wind else None,
             }
-            if include_contour:
+            if eff_contour:
                 out["contour"] = _round_contour(grid.export_contour(level=contour_level))
 
             _export_cache_set(key, out)
             grids_out.append(out)
 
+    # Overflow dots: candidates beyond the full+coarse budget ship as cheap
+    # meta-shaped dots (id/centroid/max_p — no state loads) so the client
+    # can still represent every fire in a dense viewport instead of leaving
+    # a hole. The visible-first ordering means these are always the
+    # weakest / most marginal fires, never an on-screen one.
+    overflow = [
+        {
+            "id": row["id"],
+            "lat": round(row["centroid_lat"], 5),
+            "lon": round(row["centroid_lon"], 5),
+            "max_p": round(row["max_p"], 4),
+        }
+        for row in items[max_grids + COARSE_GRID_OVERFLOW:]
+    ]
+
     return {
         "grids": grids_out,
+        "overflow": overflow,
         "returned_grids": len(grids_out),
+        "capped": bool(overflow),
         "detail": "full",
     }
 
