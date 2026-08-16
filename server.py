@@ -3175,6 +3175,23 @@ def satellite_poller_stop():
 _FIRMS_CLUSTER_RADIUS_M = float(os.environ.get("WILDFRAME_FIRMS_CLUSTER_RADIUS_M", "3000.0"))
 
 # ---------------------------------------------------------------------------
+# Static-source downweight (Step 2 of the filtering plan)
+# ---------------------------------------------------------------------------
+# A FIRMS hotspot on a persistent industrial cell (refinery flare, steel
+# mill — the `static_sources` mask built by build_static_mask.py) is real
+# heat but almost certainly not a wildfire. Instead of dropping it (the
+# mask is derived from detection persistence, not an authoritative
+# inventory, so it can misfire), inject it at reduced evidence weight:
+# weight 0.1 scales the satellite LR from ln(50) ≈ 3.91 down to ln(5) ≈
+# 1.61, so a static source can never push a grid toward the auto-approval
+# floor on its own — it renders as a low-confidence dot, not a crimson
+# blob. The same reduced-weight path is what the agricultural-burning
+# downweight (Step 3) will reuse.
+STATIC_SOURCE_EVIDENCE_WEIGHT = float(
+    os.environ.get("WILDFRAME_STATIC_SOURCE_WEIGHT", "0.1")
+)
+
+# ---------------------------------------------------------------------------
 # Satellite confirmation of crowdsourced reports
 # ---------------------------------------------------------------------------
 # A crowdsourced report is considered "satellite-confirmed" if a FIRMS
@@ -3369,8 +3386,15 @@ def _fuse_firms_hotspots(grid: "BayesianFireGrid", hotspots: list) -> int:
             ci, cj = grid.latlon_to_cell(hs.latitude, hs.longitude)
             if ts <= grid.last_updated[ci, cj]:
                 continue  # already fused this detection
+        # Hotspots tagged by the static-source mask (Step 2) are injected at
+        # reduced weight: real heat, but not a wildfire — a refinery flare
+        # must not push a grid toward the auto-approval floor on its own.
+        weight = (
+            STATIC_SOURCE_EVIDENCE_WEIGHT
+            if getattr(hs, "_static_source", False) else 1.0
+        )
         grid.update(
-            Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude),
+            Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude, weight=weight),
             at=ts,
         )
         injected += 1
@@ -3508,6 +3532,26 @@ def _fetch_nasa_firms_pass(
             "stale_grids_purged": stale_purged,
         }
 
+    # --- Static-source mask (Step 2 of the filtering plan) ---
+    # Tag hotspots that land on a persistent industrial cell (refinery
+    # flare, steel mill) so the fusion step below injects them at reduced
+    # evidence weight instead of full ln(50). Fail-open: if the mask table
+    # isn't built yet, nothing is tagged and everything flows at full
+    # weight — the gate can never accidentally starve real fires.
+    static_hits = db.static_source_hits_batch(
+        [(h.latitude, h.longitude) for h in all_hotspots]
+    )
+    static_downweighted = 0
+    for i, h in enumerate(all_hotspots):
+        if static_hits.get(i):
+            h._static_source = True
+            static_downweighted += 1
+    if static_downweighted:
+        logger.info(
+            "[firms] Static-source mask downweighted %d hotspot(s) on persistent industrial cells (%d at full weight)",
+            static_downweighted, len(all_hotspots) - static_downweighted,
+        )
+
     # --- Cluster hotspots into candidate fires ---
     # O(n) spatial-hash clustering (see _cluster_firms_hotspots): hotspots
     # within _FIRMS_CLUSTER_RADIUS_M of each other are grouped as one fire.
@@ -3573,7 +3617,12 @@ def _fetch_nasa_firms_pass(
 
     # --- Cross-check crowdsourced reports against this pass's hotspots ---
     # Reuses the hotspot list already fetched above — no extra API call.
-    reports_confirmed = _confirm_reports_against_hotspots(all_hotspots)
+    # Static-source detections (refinery flares) must not confirm citizen
+    # reports: the heat is real, but it is not a wildfire, so it should not
+    # lend satellite corroboration to a crowdsourced report.
+    reports_confirmed = _confirm_reports_against_hotspots(
+        [h for h in all_hotspots if not getattr(h, "_static_source", False)]
+    )
 
     # Expire fires that have stopped being detected: any production grid
     # whose newest evidence is older than 24h is deleted so old fires
@@ -3589,6 +3638,7 @@ def _fetch_nasa_firms_pass(
         "grids_considered": post_count,
         "firms_hotspots": total_hotspots,
         "land_cover_dropped": land_cover_dropped,
+        "static_downweighted": static_downweighted,
         "new_grids": new_grids,
         "stale_grids_purged": stale_purged,
         "reports_confirmed": reports_confirmed,
@@ -3659,6 +3709,10 @@ def _firms_fetch_message(result: dict) -> str:
         parts.append(f"Injected {result['injected']} evidence items across {result['grids_hit']} grid(s)")
     if result.get("firms_hotspots"):
         parts.append(f"from {result['firms_hotspots']} FIRMS hotspot(s)")
+    if result.get("static_downweighted"):
+        parts.append(
+            f"downweighted {result['static_downweighted']} static-source hotspot(s)"
+        )
     if result.get("stale_grids_purged"):
         parts.append(f"Expired {result['stale_grids_purged']} stale fire(s) (>24h no evidence)")
     if not parts:

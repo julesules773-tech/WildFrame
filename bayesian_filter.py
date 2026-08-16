@@ -168,14 +168,24 @@ class Evidence:
     source: str = "unknown"
 
     @classmethod
-    def satellite_hotspot(cls, lat: float, lon: float) -> "Evidence":
-        """VIIRS/FIRMS hotspot — high confidence, known false-positive rate ~2%."""
+    def satellite_hotspot(
+        cls, lat: float, lon: float, weight: float = 1.0,
+    ) -> "Evidence":
+        """VIIRS/FIRMS hotspot — high confidence, known false-positive rate ~2%.
+
+        ``weight`` scales the likelihood ratio: 1.0 is the full-strength
+        ln(50) ≈ 3.91; 0.1 reduces it to ln(5) ≈ 1.61. Used to downweight
+        detections that are real heat but not wildfires — e.g. a hotspot on
+        a static-source cell (refinery flare, steel mill) gets ``weight=0.1``
+        so it can never push a grid toward the auto-approval floor on its
+        own.
+        """
         # Modern VIIRS thermal anomaly detection has >98% probability of
         # detecting an active fire when a fire is present → LR ≈ 50:1
         # ln(50) ≈ 3.91
         return cls(
             lat=lat, lon=lon,
-            log_likelihood_ratio=math.log(50.0),
+            log_likelihood_ratio=math.log(50.0 * weight),
             spatial_radius_m=DEFAULT_CELL_SIZE_M / 2.0,  # 50m — tight concentration
             source="viirs",
         )

@@ -1678,17 +1678,58 @@ def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optio
     params: list[Any] = []
     for i, (lat, lon) in enumerate(points):
         params.extend([i, lon, lat])
-    with _conn() as conn:
-        rows = conn.execute(
-            f"""
-            SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
-            FROM (VALUES {values_sql}) AS hs(idx, geom)
-            JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
-            ORDER BY hs.idx, lc.code_18
-            """,
-            params,
-        ).fetchall()
+    try:
+        with _conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
+                FROM (VALUES {values_sql}) AS hs(idx, geom)
+                JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
+                ORDER BY hs.idx, lc.code_18
+                """,
+                params,
+            ).fetchall()
+    except psycopg.errors.UndefinedTable:
+        # Fail-open: land_cover not loaded on this environment (the CORINE
+        # import hasn't run yet) — every point is treated as burnable rather
+        # than crashing the FIRMS pass.
+        return {}
     return {int(r["idx"]): str(r["code_18"]) for r in rows}
+
+
+def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
+    """Return ``{index: True}`` for points landing on a flagged static-source
+    cell (the ``static_sources`` mask built by ``build_static_mask.py``).
+
+    Same batched GiST join shape as ``land_cover_codes_batch``. Fail-open:
+    if the mask table is missing (not built yet on this environment), every
+    point is absent from the result, so callers treat all hotspots as
+    normal wildfire candidates.
+    """
+    if not points:
+        return {}
+    values_sql = ", ".join(
+        "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in points
+    )
+    params: list[Any] = []
+    for i, (lat, lon) in enumerate(points):
+        params.extend([i, lon, lat])
+    try:
+        with _conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT DISTINCT ON (hs.idx) hs.idx
+                FROM (VALUES {values_sql}) AS hs(idx, geom)
+                JOIN static_sources ss ON ss.is_static
+                    AND ST_Intersects(ss.geom, hs.geom)
+                ORDER BY hs.idx
+                """,
+                params,
+            ).fetchall()
+    except psycopg.errors.UndefinedTable:
+        # Fail-open: static_sources not built yet — no downweighting.
+        return {}
+    return {int(r["idx"]): True for r in rows}
 
 
 def kv_set(key: str, value: Any) -> None:
