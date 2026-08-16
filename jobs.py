@@ -179,8 +179,12 @@ def advance_grids_job(**kwargs):
         # slice of grids whose wind is stale. Self-budgeting + ~55 km cell
         # caching inside weather.py keep this under the API free tier.
         try:
+            # Wall-clock capped: a degraded weather API must never hold the
+            # single worker queue (it starves firms.fetch / cap_poll). The
+            # sweep resumes next run from the still-stale grids.
             refreshed = weather.refresh_grids_wind(
                 "production", limit=200, max_age_s=24 * 60 * 60,
+                max_wall_s=15.0,
             )
         except Exception as exc:
             logger.error("[grids-advance] Wind refresh error: %s", exc)
@@ -190,8 +194,12 @@ def advance_grids_job(**kwargs):
         # Cached per ~55 km cell per day; grids outside EFFIS coverage are
         # stamped once and skipped.
         try:
+            # Wall-clock capped (see refresh_grids_fwi): the EFFIS WMS is
+            # intermittently down and each hang used to stretch this job to
+            # ~250s, blocking FIRMS/cap/expire behind it.
             refreshed_fwi = effis_fwi.refresh_grids_fwi(
                 "production", limit=200, max_age_s=12 * 3600,
+                max_wall_s=25.0,
             )
         except Exception as exc:
             logger.error("[grids-advance] EFFIS refresh error: %s", exc)

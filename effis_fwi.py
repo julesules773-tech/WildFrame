@@ -88,7 +88,10 @@ logger = logging.getLogger(__name__)
 ENABLED = os.environ.get("WILDFRAME_EFFIS", "1") != "0"
 
 WMS_BASE = "https://maps.effis.emergency.copernicus.eu/effis"
-TIMEOUT_S = 10.0
+# The server normally replies in ~0.4s; 5s is ample headroom and halves
+# the queue-blocking hang when the public WMS is flaky (it intermittently
+# returns 503 / read-timeouts — measured live Aug 2026).
+TIMEOUT_S = 5.0
 
 # EMNA coverage box (Europe, Middle East, North Africa) — approx bounds.
 COVERAGE_BBOX = (-18.5, 26.5, 44.5, 72.5)  # (min_lon, min_lat, max_lon, max_lat)
@@ -148,7 +151,9 @@ _mem_lock = threading.Lock()
 
 # --- Failure backoff (mirrors weather.py) ---
 FAIL_BACKOFF_THRESHOLD = 3   # consecutive failures before pausing
-FAIL_BACKOFF_WINDOW_S = 60.0
+# 5 min instead of 60s: the WMS flakiness comes in multi-minute stretches,
+# and a 60s window made each retry cycle re-burn 3x TIMEOUT_S of queue time.
+FAIL_BACKOFF_WINDOW_S = 300.0
 _fail_lock = threading.Lock()
 _fail_count = 0
 _fail_since = 0.0
@@ -422,6 +427,7 @@ def refresh_grids_fwi(
     mode: str,
     limit: int = 200,
     max_age_s: float = 12 * 3600,
+    max_wall_s: float = 25.0,
 ) -> int:
     """Refresh fuel-moisture for up to ``limit`` grids whose stored values
     are older than ``max_age_s``. Returns how many grids got fresh values.
@@ -430,12 +436,22 @@ def refresh_grids_fwi(
     grids usually costs a handful of real WMS requests. Grids outside the
     EMNA coverage box are stamped as "checked" (fwi_updated_at) so the
     daily sweep doesn't rescan them forever.
+
+    ``max_wall_s`` is a hard wall-clock cap: when the WMS is flaky each
+    in-coverage grid can hang up to TIMEOUT_S, and this runs INSIDE the
+    single worker's ``grids.advance`` job — without the cap a degraded
+    EFFIS stretched that job to ~250s and starved every other periodic
+    job (firms.fetch, cap_poll, expire_stale) behind it. The sweep simply
+    resumes next run from the still-stale grids.
     """
     if not ENABLED:
         return 0
     rows = db.list_grids_needing_fwi(mode, limit=limit, max_age_s=max_age_s)
     updated = 0
+    deadline = time.monotonic() + max_wall_s
     for row in rows:
+        if time.monotonic() >= deadline:
+            break
         lat, lon = row["centroid_lat"], row["centroid_lon"]
         if not in_coverage(lat, lon):
             # Permanent no-data (EFFIS doesn't cover this region) — stamp so

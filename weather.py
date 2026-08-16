@@ -464,6 +464,7 @@ def refresh_grids_wind(
     mode: str,
     limit: int = 200,
     max_age_s: float = 24 * 60 * 60,
+    max_wall_s: float = 15.0,
 ) -> int:
     """Refresh wind for up to ``limit`` grids whose stored wind is older
     than ``max_age_s``. Returns how many grids got a fresh value.
@@ -472,12 +473,20 @@ def refresh_grids_wind(
     fires track changing weather. Because get_wind_full() caches per
     ~55 km cell, a slice of 200 grids usually costs a handful of real
     API calls, and the daily budget guards the free tier regardless.
+
+    ``max_wall_s`` is a hard wall-clock cap so a degraded weather API
+    (network hangs / slow responses) can never stretch the single
+    worker's ``grids.advance`` job and starve the other periodic jobs
+    behind it (same pattern as effis_fwi.refresh_grids_fwi).
     """
     if not ENABLED:
         return 0
     rows = db.list_grids_needing_wind(mode, limit=limit, max_age_s=max_age_s)
     updated = 0
+    deadline = time.monotonic() + max_wall_s
     for row in rows:
+        if time.monotonic() >= deadline:
+            break
         speed, dir_, fetched = get_wind_full(row["centroid_lat"], row["centroid_lon"])
         if fetched > 0 and db.update_grid_wind(mode, row["id"], speed, dir_):
             updated += 1
