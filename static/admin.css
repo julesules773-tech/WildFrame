@@ -246,14 +246,17 @@
 .collapse-toggle.collapsed .chevron { transform: rotate(-90deg); }
 
 .fires-section.collapsed .fires-list,
-.auto-approved-section.collapsed .auto-approved-list { display: none; }
+.auto-approved-section.collapsed .auto-approved-list,
+.feedback-section.collapsed .feedback-list { display: none; }
 
 /* A collapsed section is just its header — reclaim the vertical space for
    the reports grid (they were being squeezed off-screen before). */
 .fires-section.collapsed,
-.auto-approved-section.collapsed { margin-bottom: 8px; padding-bottom: 10px; }
+.auto-approved-section.collapsed,
+.feedback-section.collapsed { margin-bottom: 8px; padding-bottom: 10px; }
 .fires-section.collapsed .fires-header,
-.auto-approved-section.collapsed .auto-approved-header { margin-bottom: 0; }
+.auto-approved-section.collapsed .auto-approved-header,
+.feedback-section.collapsed .feedback-header { margin-bottom: 0; }
 
 /* ---------- Live fires (active grids + EFFIS fuel moisture) ---------- */
 .fires-section {
@@ -399,6 +402,68 @@
 }
 .auto-reject-btn {
   flex: 0 0 auto; width: auto; padding: 7px 12px;
+  font-size: 12px;
+}
+
+/* ---------- User feedback (FAQ page) ---------- */
+.feedback-section {
+  flex-shrink: 0;
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: var(--radius);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.05);
+}
+.feedback-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.feedback-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.feedback-count {
+  font-size: 11.5px; color: var(--text-muted); font-weight: 500;
+}
+.feedback-list {
+  max-height: 340px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-right: 4px;
+}
+.feedback-list::-webkit-scrollbar { width: 6px; }
+.feedback-list::-webkit-scrollbar-track { background: transparent; }
+.feedback-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.feedback-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: opacity 0.3s ease, background 0.2s ease;
+}
+.feedback-row:hover { background: rgba(255, 255, 255, 0.05); }
+.feedback-body { flex: 1; min-width: 0; }
+.feedback-head {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.feedback-cat {
+  font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap;
+}
+.feedback-cat--suggestion { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+.feedback-cat--bug { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+.feedback-cat--question { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; }
+.feedback-cat--other { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+.feedback-from { font-size: 12px; color: var(--text-secondary); }
+.feedback-time { font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.feedback-msg {
+  font-size: 13px; line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap; word-break: break-word;
+  margin-top: 4px;
+}
+.feedback-del-btn {
+  flex: 0 0 auto; width: auto; padding: 7px 10px;
   font-size: 12px;
 }
 

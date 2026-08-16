@@ -5,8 +5,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WildFrame — Admin Dashboard</title>
-  <link rel="stylesheet" href="/style.css?v=20260814b" />
-  <link rel="stylesheet" href="/admin.css?v=20260815a" />
+  <link rel="stylesheet" href="/style.css?v=20260816c" />
+  <link rel="stylesheet" href="/admin.css?v=20260816c" />
 </head>
 
 <body>
@@ -92,11 +92,24 @@
       <div id="auto-approved-list" class="auto-approved-list"></div>
     </div>
 
+    <!-- User feedback (FAQ page suggestions / bug reports / questions) -->
+    <div id="feedback-section" class="feedback-section hidden">
+      <div class="feedback-header">
+        <button id="feedback-toggle" class="collapse-toggle" title="Collapse / expand user feedback"
+          aria-expanded="true">
+          <span class="chevron">▾</span>
+        </button>
+        <span class="feedback-title">💬 User feedback</span>
+        <span id="feedback-count" class="feedback-count"></span>
+      </div>
+      <div id="feedback-list" class="feedback-list"></div>
+    </div>
+
     <!-- Toast container (reuse same style) -->
     <div id="admin-toast-container"></div>
   </div>
 
-  <script src="/admin.js?v=20260815a"></script>
+  <script src="/admin.js?v=20260816c"></script>
   
 </body>
 

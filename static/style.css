@@ -274,7 +274,29 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .privacy-link:hover { background: rgba(167, 139, 250, 0.2); border-color: rgba(167, 139, 250, 0.45); color: #c4b5fd; }
 .privacy-link:active { transform: scale(0.97); }
-#top-menu .contact-link, #top-menu .privacy-link {
+
+/* About button — same pattern with its own teal tone */
+.about-link {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(45, 212, 191, 0.1); border: 1px solid rgba(45, 212, 191, 0.25);
+  color: #5eead4; border-radius: 8px; padding: 6px 10px;
+  font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
+  transition: var(--transition); white-space: nowrap;
+}
+.about-link:hover { background: rgba(45, 212, 191, 0.18); border-color: rgba(45, 212, 191, 0.42); color: #99f6e4; }
+.about-link:active { transform: scale(0.97); }
+
+/* FAQ button — same pattern with its own amber tone */
+.faq-link {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fcd34d; border-radius: 8px; padding: 6px 10px;
+  font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
+  transition: var(--transition); white-space: nowrap;
+}
+.faq-link:hover { background: rgba(251, 191, 36, 0.18); border-color: rgba(251, 191, 36, 0.42); color: #fde68a; }
+.faq-link:active { transform: scale(0.97); }
+#top-menu .contact-link, #top-menu .privacy-link, #top-menu .about-link, #top-menu .faq-link {
   width: 100%;
   justify-content: flex-start;
   font-size: 13px;

@@ -32,6 +32,7 @@ import json
 import math
 import os
 import time
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Iterator, Optional
 
@@ -190,6 +191,20 @@ CREATE TABLE IF NOT EXISTS kv_store (
     key    TEXT PRIMARY KEY,
     value  JSONB
 );
+
+-- Public feedback / suggestions / bug reports submitted from the FAQ page.
+-- Unauthenticated by design (anyone can submit); rate-limited per IP in
+-- the endpoint. Messages are reviewed by the operator in the admin flow.
+CREATE TABLE IF NOT EXISTS feedback (
+    id          TEXT PRIMARY KEY,
+    category    TEXT NOT NULL,          -- suggestion | bug | question | other
+    name        TEXT,
+    email       TEXT,
+    message     TEXT NOT NULL,
+    page        TEXT,                   -- which page the form was on ('faq')
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback (created_at DESC);
 """
 
 
@@ -1582,6 +1597,68 @@ def kv_get_many(keys: list[str]) -> dict[str, Any]:
             "SELECT key, value FROM kv_store WHERE key = ANY(%s)", (keys,)
         ).fetchall()
     return {row["key"]: row["value"] for row in rows}
+
+
+def submit_feedback(
+    category: str,
+    message: str,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    page: Optional[str] = None,
+) -> str:
+    """Persist a user-submitted suggestion / bug report / question.
+
+    Returns the new feedback row id.
+    """
+    fid = uuid.uuid4().hex
+    with _conn() as conn:
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO feedback (id, category, name, email, message, page)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (fid, category, name, email, message, page),
+            )
+    return fid
+
+
+def list_feedback(limit: int = 100) -> list[dict]:
+    """List recent feedback submissions, newest first (admin review)."""
+    with _conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, category, name, email, message, page, created_at
+            FROM feedback
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        ).fetchall()
+    out: list[dict] = []
+    for row in rows:
+        out.append({
+            "id": row["id"],
+            "category": row["category"],
+            "name": row["name"],
+            "email": row["email"],
+            "message": row["message"],
+            "page": row["page"],
+            "created_at": (
+                row["created_at"].isoformat() if row["created_at"] else None
+            ),
+        })
+    return out
+
+
+def delete_feedback(feedback_id: str) -> bool:
+    """Delete one feedback submission. Returns True if a row was removed."""
+    with _conn() as conn:
+        with conn.transaction():
+            cur = conn.execute(
+                "DELETE FROM feedback WHERE id = %s", (feedback_id,)
+            )
+    return cur.rowcount > 0
 
 
 def kv_set(key: str, value: Any) -> None:

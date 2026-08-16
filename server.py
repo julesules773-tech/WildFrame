@@ -973,6 +973,67 @@ def privacy_page():
     return send_from_directory(str(STATIC_DIR), "privacy.html")
 
 
+@app.route("/about")
+def about_page():
+    """Public "Who we are" page."""
+    return send_from_directory(str(STATIC_DIR), "about.html")
+
+
+@app.route("/faq")
+def faq_page():
+    """Public FAQ page with a suggestion / bug-report submission form."""
+    return send_from_directory(str(STATIC_DIR), "faq.html")
+
+
+# ---------------------------------------------------------------------------
+# Public feedback endpoint (FAQ page form)
+# ---------------------------------------------------------------------------
+
+FEEDBACK_CATEGORIES = {"suggestion", "bug", "question", "other"}
+FEEDBACK_MAX_MESSAGE = 4000
+FEEDBACK_THROTTLE_S = 30.0  # per-IP cooldown between submissions
+
+
+@app.route("/api/feedback", methods=["POST"])
+def feedback_submit():
+    """Store a suggestion / bug report / question from the FAQ page.
+
+    Light anti-abuse: per-IP cooldown via kv_store (30 s), category
+    whitelist, and length caps. No auth — the page is public by design.
+    """
+    body = request.get_json(silent=True) or {}
+    category = str(body.get("category", "")).strip().lower()
+    message = str(body.get("message", "")).strip()
+
+    if category not in FEEDBACK_CATEGORIES:
+        return jsonify({
+            "error": "category must be one of: " + ", ".join(sorted(FEEDBACK_CATEGORIES))
+        }), 400
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+    if len(message) > FEEDBACK_MAX_MESSAGE:
+        return jsonify({"error": f"message must be under {FEEDBACK_MAX_MESSAGE} characters"}), 400
+
+    ip = request.remote_addr or "unknown"
+    throttle_key = f"feedback_throttle:{ip}"
+    last = db.kv_get(throttle_key) or {}
+    if last.get("at") and time.time() - last.get("at") < FEEDBACK_THROTTLE_S:
+        return jsonify({"error": "please wait a moment before submitting again"}), 429
+    db.kv_set(throttle_key, {"at": time.time()})
+
+    name = str(body.get("name", "")).strip()[:120] or None
+    email = str(body.get("email", "")).strip()[:200] or None
+    fid = db.submit_feedback(
+        category=category,
+        message=message,
+        name=name,
+        email=email,
+        page="faq",
+    )
+    logger.info("Feedback submitted id=%s category=%s from %s", fid, category, ip)
+    return jsonify({"ok": True, "id": fid}), 201
+
+
 # ---------------------------------------------------------------------------
 # Admin Helpers & Routes
 # ---------------------------------------------------------------------------
@@ -1048,6 +1109,25 @@ def admin_list_pending():
         return jsonify({"error": "Unauthorized"}), 401
     pending = db.list_reports("production", status="pending")
     return jsonify({"reports": pending, "count": len(pending)})
+
+
+@app.route("/api/admin/feedback", methods=["GET"])
+def admin_list_feedback():
+    """List user feedback submissions (FAQ page form), newest first."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    items = db.list_feedback(limit=100)
+    return jsonify({"feedback": items, "count": len(items)})
+
+
+@app.route("/api/admin/feedback/<feedback_id>", methods=["DELETE"])
+def admin_delete_feedback(feedback_id: str):
+    """Delete one feedback submission."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    if not db.delete_feedback(feedback_id):
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"ok": True}), 200
 
 
 @app.route("/api/admin/auto-approved", methods=["GET"])

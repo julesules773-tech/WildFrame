@@ -3483,6 +3483,8 @@
       document.querySelector(".admin-link"),
       document.querySelector(".contact-link"),
       document.querySelector(".privacy-link"),
+      document.querySelector(".about-link"),
+      document.querySelector(".faq-link"),
       document.getElementById("bayesian-toggle"),
       document.getElementById("users-only-toggle"),
       document.getElementById("status-badge"),

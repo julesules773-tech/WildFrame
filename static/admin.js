@@ -12,6 +12,7 @@
     secret: sessionStorage.getItem("wildframe_admin_secret") || "",
     reports: [],
     autoApproved: [],
+    feedback: [],
     fires: [],
     processing: new Set(),  // report IDs currently being processed
   };
@@ -42,6 +43,10 @@
     firesList: $("#fires-list"),
     firesCount: $("#fires-count"),
     firesToggle: $("#fires-toggle"),
+    feedbackSection: $("#feedback-section"),
+    feedbackList: $("#feedback-list"),
+    feedbackCount: $("#feedback-count"),
+    feedbackToggle: $("#feedback-toggle"),
     toastContainer: $("#admin-toast-container"),
   };
 
@@ -52,11 +57,12 @@
   // primary moderation workspace — gets the full height instead of being
   // squeezed by the fires / auto-approved panels. The choice sticks.
   const SECTION_UI_KEY = "wf.admin.sectionsCollapsed";
-  let uiState = { firesCollapsed: true, autoCollapsed: true };
+  let uiState = { firesCollapsed: true, autoCollapsed: true, feedbackCollapsed: true };
   try {
     const saved = JSON.parse(localStorage.getItem(SECTION_UI_KEY) || "{}");
     if (typeof saved.firesCollapsed === "boolean") uiState.firesCollapsed = saved.firesCollapsed;
     if (typeof saved.autoCollapsed === "boolean") uiState.autoCollapsed = saved.autoCollapsed;
+    if (typeof saved.feedbackCollapsed === "boolean") uiState.feedbackCollapsed = saved.feedbackCollapsed;
   } catch (e) { /* ignore malformed storage */ }
 
   function applySectionState() {
@@ -68,8 +74,10 @@
     };
     if (els.firesSection) els.firesSection.classList.toggle("collapsed", uiState.firesCollapsed);
     if (els.autoSection) els.autoSection.classList.toggle("collapsed", uiState.autoCollapsed);
+    if (els.feedbackSection) els.feedbackSection.classList.toggle("collapsed", uiState.feedbackCollapsed);
     toggle(els.firesToggle, uiState.firesCollapsed);
     toggle(els.autoToggle, uiState.autoCollapsed);
+    toggle(els.feedbackToggle, uiState.feedbackCollapsed);
   }
 
   function toggleSection(key) {
@@ -283,6 +291,107 @@
       renderAutoApproved();
     } catch (err) {
       toast(err.message || "Failed to reject report", "error");
+      if (row) row.style.opacity = "";
+    } finally {
+      STATE.processing.delete(id);
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // User feedback — FAQ page suggestions / bug reports / questions
+  // -----------------------------------------------------------------------
+  const FEEDBACK_CATS = {
+    suggestion: { emoji: "💡", label: "Suggestion" },
+    bug: { emoji: "🐞", label: "Bug report" },
+    question: { emoji: "❓", label: "Question" },
+    other: { emoji: "🗂️", label: "Other" },
+  };
+
+  function esc(str) {
+    // User-supplied text — never interpolate raw into innerHTML.
+    return String(str == null ? "" : str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  async function loadFeedback() {
+    if (!STATE.secret) return;
+    try {
+      const res = await adminFetch("/api/admin/feedback");
+      const data = await res.json();
+      STATE.feedback = data.feedback || [];
+      renderFeedback();
+    } catch (err) {
+      if (err.message !== "Session expired. Please log in again.") {
+        console.error("Failed to load feedback:", err);
+      }
+    }
+  }
+
+  function renderFeedback() {
+    if (!els.feedbackSection || !els.feedbackList) return;
+    const rows = STATE.feedback || [];
+    els.feedbackList.innerHTML = "";
+
+    if (rows.length === 0) {
+      els.feedbackSection.classList.add("hidden");
+      return;
+    }
+
+    els.feedbackSection.classList.remove("hidden");
+    els.feedbackCount.textContent = `${rows.length} — newest first`;
+
+    rows.forEach((f) => {
+      const cat = FEEDBACK_CATS[f.category] || FEEDBACK_CATS.other;
+      const who = f.name || f.email
+        ? esc(f.name || f.email)
+        : "Anonymous";
+      const row = document.createElement("div");
+      row.className = "feedback-row";
+      row.id = `feedback-${f.id}`;
+      row.innerHTML = `
+        <div class="feedback-body">
+          <div class="feedback-head">
+            <span class="feedback-cat feedback-cat--${esc(f.category)}">${cat.emoji} ${cat.label}</span>
+            <span class="feedback-from">${who}</span>
+            ${f.email && f.email !== f.name ? `<span class="feedback-from">· ${esc(f.email)}</span>` : ""}
+            <span class="feedback-time">${new Date(f.created_at).toLocaleString()}</span>
+          </div>
+          <div class="feedback-msg">${esc(f.message)}</div>
+        </div>
+        <button class="card-btn reject-btn feedback-del-btn" data-id="${f.id}" title="Delete this feedback">
+          <span>🗑️</span>
+        </button>
+      `;
+      els.feedbackList.appendChild(row);
+    });
+
+    els.feedbackList.querySelectorAll(".feedback-del-btn").forEach((btn) => {
+      btn.addEventListener("click", () => deleteFeedback(btn.dataset.id));
+    });
+  }
+
+  async function deleteFeedback(id) {
+    if (STATE.processing.has(id)) return;
+    STATE.processing.add(id);
+    const row = document.getElementById(`feedback-${id}`);
+    if (row) row.style.opacity = "0.4";
+
+    try {
+      const res = await adminFetch(`/api/admin/feedback/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+      toast("🗑️ Feedback deleted", "info");
+      STATE.feedback = (STATE.feedback || []).filter((f) => f.id !== id);
+      if (row) row.remove();
+      renderFeedback();
+    } catch (err) {
+      toast(err.message || "Failed to delete feedback", "error");
       if (row) row.style.opacity = "";
     } finally {
       STATE.processing.delete(id);
@@ -731,6 +840,7 @@
       if (STATE.secret && els.dashboard.classList.contains("hidden") === false) {
         loadPending();
         loadAutoApproved();
+        loadFeedback();
       }
     }, ms);
   }
@@ -775,6 +885,7 @@
     // Section collapse toggles
     if (els.firesToggle) els.firesToggle.addEventListener("click", () => toggleSection("firesCollapsed"));
     if (els.autoToggle) els.autoToggle.addEventListener("click", () => toggleSection("autoCollapsed"));
+    if (els.feedbackToggle) els.feedbackToggle.addEventListener("click", () => toggleSection("feedbackCollapsed"));
     applySectionState();
 
     // Start polling
