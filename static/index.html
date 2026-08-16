@@ -3,7 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pyrae — Wildfire Detection</title>
+  <title>Pyrae — Live Wildfire Map &amp; Early Detection</title>
+  <meta name="description" content="Live wildfire map with real-time satellite detection (NASA FIRMS), AI fire & smoke analysis of citizen photos, and predictive spread modelling. Report a fire, see confirmed hotspots, and check road risk near active fires." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="Pyrae — Live Wildfire Map &amp; Early Detection" />
+  <meta property="og:description" content="Real-time wildfire detection from satellite data and citizen photo reports, with predictive spread modelling and road risk assessment." />
+  <meta property="og:url" content="https://pyrae.co/" />
+  <meta property="og:locale" content="en_US" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Pyrae — Live Wildfire Map &amp; Early Detection" />
+  <meta name="twitter:description" content="Real-time wildfire detection from satellite data and citizen photo reports, with predictive spread modelling and road risk assessment." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
   <!-- Leaflet CDN -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -12,7 +26,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js" charset="utf-8"></script>
   <!-- Styles -->
-  <link rel="stylesheet" href="/style.css?v=20260816c" />
+  <link rel="stylesheet" href="/style.css?v=20260816d" />
 </head>
 <body>
 
@@ -23,7 +37,8 @@
   <header id="top-bar">
     <div class="brand">
       <span class="brand-icon">🔥</span>
-      <span class="brand-text">Pyrae live wildfire map</span>
+      <span class="brand-text">Pyrae</span>
+      <p>live wildfire map</p>
       <span class="version-badge" title="Pyrae v0.0.15">beta v0.0.15</span>
     </div>
     <div class="search-box" id="search-box">
@@ -54,6 +69,10 @@
       <a href="/faq" class="faq-link" title="Frequently asked questions & feedback">
         <span class="contact-link-icon">❓</span>
         <span class="contact-link-text">FAQ</span>
+      </a>
+      <a href="/map/poland" class="poland-map-link" title="Live wildfire map of Poland">
+        <span class="contact-link-icon">🇵🇱</span>
+        <span class="contact-link-text">Poland map</span>
       </a>
       <button id="bayesian-toggle" class="bayesian-toggle-btn" title="Toggle fire grid probability heatmap">
         <span class="bayesian-icon">🌀</span>
@@ -118,7 +137,7 @@
     <!-- Collapsed trigger -->
     <button id="upload-trigger" class="upload-trigger" title="Report a fire">
       <span class="trigger-icon">+</span>
-      <span class="trigger-text">Report</span>
+      <span class="trigger-text">Report a Wildfire</span>
     </button>
 
     <!-- Expanded card -->
@@ -269,7 +288,7 @@
 
   <!-- ======== Scripts ======== -->
   <script src="/vendor/tf.min.js?v=20260814" defer></script>
-  <script src="/app.js?v=20260816c"></script>
+  <script src="/app.js?v=20260816d"></script>
   <!-- Page Pulse Tracking Script -->
   <script>
     (function () {

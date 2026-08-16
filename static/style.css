@@ -296,7 +296,18 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .faq-link:hover { background: rgba(251, 191, 36, 0.18); border-color: rgba(251, 191, 36, 0.42); color: #fde68a; }
 .faq-link:active { transform: scale(0.97); }
-#top-menu .contact-link, #top-menu .privacy-link, #top-menu .about-link, #top-menu .faq-link {
+
+/* Poland map button — same pattern with a red tone (fire theme) */
+.poland-map-link {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5; border-radius: 8px; padding: 6px 10px;
+  font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: none;
+  transition: var(--transition); white-space: nowrap;
+}
+.poland-map-link:hover { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.42); color: #fecaca; }
+.poland-map-link:active { transform: scale(0.97); }
+#top-menu .contact-link, #top-menu .privacy-link, #top-menu .about-link, #top-menu .faq-link, #top-menu .poland-map-link {
   width: 100%;
   justify-content: flex-start;
   font-size: 13px;

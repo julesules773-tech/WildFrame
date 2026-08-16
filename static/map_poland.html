@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Wildfire Map of Poland — Real-Time Fire Detection | Pyrae</title>
+  <meta name="description" content="Live wildfire map of Poland: real-time satellite fire detection from NASA FIRMS, AI-screened citizen photo reports, and predictive spread modelling. See active fires, hotspots and road risk near you." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/map/poland" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="Live Wildfire Map of Poland — Real-Time Fire Detection" />
+  <meta property="og:description" content="See active fires in Poland in real time — satellite hotspots, citizen reports and predicted spread." />
+  <meta property="og:url" content="https://pyrae.co/map/poland" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Live Wildfire Map of Poland" />
+  <meta name="twitter:description" content="Real-time wildfire detection across Poland from satellite data and citizen reports." />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/contact.css" />
+  <style>
+    /* Keep the embedded map compact but useful. */
+    #poland-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; }
+    .map-note { font-size: 13px; color: var(--text-muted, #666); text-align: center; margin-bottom: 12px; }
+    .live-badge {
+      display: inline-block; background: #e11d48; color: #fff; font-size: 13px;
+      font-weight: 600; border-radius: 999px; padding: 4px 12px; margin-bottom: 10px;
+    }
+    .stat-row { display: flex; gap: 18px; flex-wrap: wrap; margin: 10px 0 22px; }
+    .stat { background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 12px 18px; }
+    .stat b { font-size: 26px; display: block; }
+    .stat span { font-size: 13px; color: #666; }
+  </style>
+</head>
+<body class="contact-page">
+
+  <!-- ======== Header ======== -->
+  <header class="contact-header">
+    <div class="contact-brand">
+      <span class="brand-icon">🔥</span>
+      <span class="contact-brand-text">Pyrae</span>
+      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+    </div>
+    <a href="/" class="contact-back" title="Back to the live map">
+      <span class="contact-back-icon">←</span>
+      <span>Back to map</span>
+    </a>
+  </header>
+
+  <main class="contact-main" style="max-width: 860px;">
+
+    <section class="hero" style="text-align: center;">
+      <p class="hero-eyebrow">LIVE SATELLITE FIRE MONITORING</p>
+      <h1 class="hero-title">Live Wildfire Map of <span class="hero-accent">Poland</span></h1>
+      <p class="hero-sub">
+        Real-time wildfire detection across Poland — NASA FIRMS satellite
+        hotspots, AI-screened citizen photo reports, and a predictive Fire
+        Grid showing where active fires are most likely to spread.
+      </p>
+      <span class="live-badge">● LIVE</span>
+      <div class="stat-row">
+        <div class="stat"><b id="fire-count">{{ACTIVE_FIRES}}</b><span>active fires tracked</span></div>
+        <div class="stat"><b>{{COVERAGE}}</b><span>coverage</span></div>
+        <div class="stat"><b>24/7</b><span>satellite monitoring</span></div>
+      </div>
+    </section>
+
+    <div id="poland-map" aria-label="Live wildfire map of Poland"></div>
+    <p class="map-note">Dots show currently tracked fires. Probability shown is the Fire Grid's burn probability for each location. Zoom in for the full heatmap.</p>
+    <p style="text-align:center; margin: 0 0 30px;"><a href="/" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+
+    <!-- ======== SEO body copy ======== -->
+    <section class="section">
+      <h2 class="section-title">Wildfires in Poland — live situation</h2>
+      <p>
+        Every year, thousands of wildfires break out across Poland — from
+        spring grass and stubble fires to summer forest fires in regions such
+        as Bory Dolnośląskie, Puszcza Notecka, and the Augustów and Białowieża
+        forests. Early detection is the difference between a small burn and a
+        large one: the sooner a fire is reported, the sooner responders can
+        act.
+      </p>
+      <p>
+        Pyrae watches Poland in near real time using three independent
+        signals. First, <strong>NASA FIRMS satellite data</strong> (VIIRS
+        375&nbsp;m) detects thermal anomalies from space on every overpass.
+        Second, <strong>citizen photo reports</strong> — anyone on the ground
+        can upload a photo of a fire or smoke plume, which is screened
+        automatically by an AI model for visible fire and smoke before it
+        reaches the map. Third, a <strong>Bayesian Fire Grid</strong> fuses
+        all evidence into a probability surface that shows where each fire is
+        burning and how it is likely to spread given wind and fuel conditions.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">How to read the map</h2>
+      <p>
+        Each tracked fire appears as a dot whose size reflects its burn
+        probability. When you zoom in, the dot becomes a full heatmap blob:
+        the warmer the colour, the higher the model's confidence that the
+        area is burning. The Fire Grid also estimates the likely spread
+        direction from live wind data, so you can see which towns, roads and
+        forests are at risk as a fire grows.
+      </p>
+      <p>
+        Reports are shown with their source — citizen report, satellite
+        hotspot, or confirmed government alert — and each fire's probability
+        is displayed alongside live wind speed and direction. Road risk
+        assessment marks roads near an active fire by how soon the fire could
+        reach them.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Report a fire you can see</h2>
+      <p>
+        If you see smoke or flames, open the report panel on the map, attach a
+        photo and your location. The AI screen runs instantly and the report
+        is added to the Fire Grid, corroborated against satellite data where
+        available. You can also read our
+        <a href="/faq">FAQ</a>, learn
+        <a href="/about">who we are</a>, or
+        <a href="/contact">contact us</a> for partnerships with fire services,
+        forestry and government agencies.
+      </p>
+      <p style="font-size: 14px; color: #666; margin-top: 18px;">
+        Pyrae is an information tool, not an emergency service. If a fire
+        threatens life or property, call your local emergency number (112 in
+        Poland).
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="contact-footer">
+    <span class="contact-footer-brand">🔥 Pyrae</span>
+  </footer>
+
+  <script>
+    // Embedded live map of Poland — lightweight meta view (dots + probability),
+    // same data the main map uses, nothing extra fetched.
+    (function () {
+      var map = L.map("poland-map", { zoomControl: true }).setView([52.1, 19.4], 6);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      var bbox = "14.07,49.00,24.15,54.84"; // Poland
+      var visibleP = 0.1;
+
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production&bbox=" + encodeURIComponent(bbox))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var dots = (data.grids || []).filter(function (g) { return g.max_p >= visibleP; });
+          var el = document.getElementById("fire-count");
+          if (el && dots.length > 0) el.textContent = dots.length;
+          var bounds = [];
+          dots.forEach(function (g) {
+            var colour = g.max_p >= 0.85 ? "#dc2626" : g.max_p >= 0.6 ? "#ea580c" : "#f59e0b";
+            L.circleMarker([g.lat, g.lon], {
+              radius: 4 + Math.round(g.max_p * 8),
+              color: "#7f1d1d",
+              weight: 1,
+              fillColor: colour,
+              fillOpacity: 0.85,
+            }).addTo(map)
+              .bindPopup("<b>Fire</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
+                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "°" : ""));
+            bounds.push([g.lat, g.lon]);
+          });
+          if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+          else if (bounds.length === 1) map.setView(bounds[0], 8);
+        })
+        .catch(function () { /* map stays at Poland view if the API hiccups */ });
+    })();
+  </script>
+
+</body>
+</html>

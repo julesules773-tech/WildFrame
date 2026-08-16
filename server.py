@@ -986,6 +986,38 @@ def faq_page():
     return send_from_directory(str(STATIC_DIR), "faq.html")
 
 
+# Poland bbox for the /map/poland SEO landing page (west,south,east,north).
+POLAND_BBOX = (14.07, 49.00, 24.15, 54.84)
+
+
+@app.route("/map/poland")
+def map_poland_page():
+    """SEO landing page: "Live wildfire map of Poland".
+
+    Serves the static page with two server-side substitutions so the HTML
+    that crawlers see contains the live numbers (the page is otherwise
+    identical to the on-disk file):
+
+      {{ACTIVE_FIRES}} — number of currently-tracked fires in Poland
+                         (grids with max_p >= the map's 0.1 visibility floor)
+      {{COVERAGE}}     — coverage label
+
+    Falls back gracefully: if the DB query fails, the placeholders remain
+    and the page still renders (the client-side map also re-fetches the
+    live count).
+    """
+    html = (STATIC_DIR / "map_poland.html").read_text(encoding="utf-8")
+    try:
+        grids = db.list_grid_meta("production", bbox=POLAND_BBOX)
+        active = sum(1 for g in grids if (g.get("max_p") or 0) >= 0.1)
+    except Exception:  # noqa: BLE001 — landing page must never 500
+        active = None
+    if active is not None:
+        html = html.replace("{{ACTIVE_FIRES}}", str(active))
+    html = html.replace("{{COVERAGE}}", "Poland")
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
 # ---------------------------------------------------------------------------
 # Public feedback endpoint (FAQ page form)
 # ---------------------------------------------------------------------------

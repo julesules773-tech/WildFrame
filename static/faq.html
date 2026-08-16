@@ -3,7 +3,93 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pyrae — FAQ</title>
+  <title>FAQ — Pyrae Wildfire Detection</title>
+  <meta name="description" content="Answers about Pyrae's wildfire map: how to report a fire, how accurate the detection is, what the Fire Grid heatmap means, and how your photos and location are used." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/faq" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="FAQ — Pyrae Wildfire Detection" />
+  <meta property="og:description" content="How to report a fire, how accurate the detection is, and what the Fire Grid heatmap means." />
+  <meta property="og:url" content="https://pyrae.co/faq" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="FAQ — Pyrae Wildfire Detection" />
+  <meta name="twitter:description" content="How to report a fire, how accurate the detection is, and what the Fire Grid heatmap means." />
+  <!-- JSON-LD: FAQPage (eligible for Google rich results) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Pyrae?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pyrae is a live wildfire map that combines citizen photo reports, AI fire and smoke analysis, NASA FIRMS satellite corroboration and Bayesian predictive modelling to detect and track fires in near real time."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I report a fire?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Open the report panel on the map, attach a photo and your location, and submit. The photo is screened by AI for visible fire and smoke before it reaches the map."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How accurate is the detection?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Every citizen report is screened by a computer-vision model for fire and smoke, and fires can be corroborated against live NASA FIRMS satellite hotspots. The Fire Grid heatmap shows a probability estimate for each area."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are my photos and location public?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Report photos and location data are handled per our privacy policy. Only necessary information is shown publicly on the map; see /privacy for details."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why do some fires disappear from the map?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Fires are removed once they stop being detected — typically after no satellite hotspot or confirmed report for roughly 24 hours — so the map always reflects current activity."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What is the Fire Grid heatmap?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The Fire Grid is a Bayesian probability surface built from all evidence — satellite hotspots, citizen reports and agency alerts — showing how likely each area is to be burning and where a fire may spread."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Who is Pyrae for?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pyrae is for anyone who needs early awareness of wildfires: residents, landowners, fire services, forestry and government agencies."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Pyrae an emergency service?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Pyrae is an information tool, not an emergency service. Always call your local emergency number if you see a fire threatening life or property."
+        }
+      }
+    ]
+  }
+  </script>
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
 </head>
