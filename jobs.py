@@ -264,6 +264,14 @@ def firms_fetch_job(**kwargs):
             "firms_hotspots": result.get("firms_hotspots", 0),
             "new_grids": result.get("new_grids", 0),
             "reports_confirmed": result.get("reports_confirmed", 0),
+            # Filtering counters (Steps 1-4) — surfaced so the operator
+            # can see each gate bite without grepping the worker log.
+            "land_cover_dropped": result.get("land_cover_dropped", 0),
+            "static_downweighted": result.get("static_downweighted", 0),
+            "ag_downweighted": result.get("ag_downweighted", 0),
+            "volcanic_tagged": result.get("volcanic_tagged", 0),
+            "conflict_tagged": result.get("conflict_tagged", 0),
+            "source_dropped": result.get("source_dropped", 0),
         })
         if result.get("api_error"):
             logger.warning("[firms-poller] API error: %s", result["api_error"])
