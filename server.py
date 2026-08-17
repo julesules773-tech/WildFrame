@@ -3252,6 +3252,51 @@ AG_BURN_FRP_MAX_MW = float(
 )
 
 # ---------------------------------------------------------------------------
+# Source filter (Step 4 of the filtering plan): volcanic / conflict
+# ---------------------------------------------------------------------------
+# FIRMS reports *thermal anomalies*, not just wildfires. Two remaining
+# non-wildfire source classes can masquerade as spread-relevant fire:
+# volcanic/geothermal heat and conflict fires (settlements, strikes,
+# explosions in war zones). Neither is relevant for the Poland beta, so
+# this is a configurable per-source policy knob, off by default:
+#
+#   WILDFRAME_SOURCE_FILTER_VOLCANIC  = full | downweight | drop | passthrough
+#   WILDFRAME_SOURCE_FILTER_CONFLICT  = full | downweight | drop | passthrough
+#
+#   full         current behavior: no tag, full evidence weight (default)
+#   downweight   inject at reduced weight (volcanic: 0.1 like static —
+#                persistent heat, not spread)
+#   drop         exclude from injection entirely
+#   passthrough  skip the source tag AND skip the land-cover gate for
+#                these hotspots — the operator explicitly wants them shown
+#
+# Volcanic detections are cross-referenced against a volcano location table
+# (Smithsonian GVP Holocene database). The import script is DEFERRED until
+# geographic expansion — db.volcano_hits_batch is a fail-open stub that
+# returns no hits, so the wiring is live but inert today. Conflict zones
+# are operator-supplied geometry in kv_store (``conflict_zones``): a JSON
+# list of polygons/bboxes, editable without redeploy.
+#
+# Volcanic weight matches STATIC_SOURCE_EVIDENCE_WEIGHT (0.1): "known
+# persistent heat source, don't let it dominate". No escape hatch for
+# volcanic — unlike ag-burn there's no bimodality; a fumarole doesn't
+# "escape" into a wildfire, and if it ignites surrounding vegetation that
+# new hotspot falls outside the volcano radius and gets full weight on its
+# own.
+SOURCE_FILTER_VOLCANIC = os.environ.get(
+    "WILDFRAME_SOURCE_FILTER_VOLCANIC", "downweight"
+)
+SOURCE_FILTER_CONFLICT = os.environ.get(
+    "WILDFRAME_SOURCE_FILTER_CONFLICT", "full"
+)
+VOLCANIC_EVIDENCE_WEIGHT = float(
+    os.environ.get("WILDFRAME_VOLCANIC_WEIGHT", "0.1")
+)
+CONFLICT_EVIDENCE_WEIGHT = float(
+    os.environ.get("WILDFRAME_CONFLICT_WEIGHT", "0.1")
+)
+
+# ---------------------------------------------------------------------------
 # Satellite confirmation of crowdsourced reports
 # ---------------------------------------------------------------------------
 # A crowdsourced report is considered "satellite-confirmed" if a FIRMS
@@ -3476,6 +3521,20 @@ def _fuse_firms_hotspots(
         if getattr(hs, "_ag_burn", False) and is_new_grid:
             applicable.append(AG_BURN_EVIDENCE_WEIGHT)
             tags.append("ag")
+        # Step 4 source filter: volcanic and conflict detections, when the
+        # policy is ``downweight``, inject at reduced weight. Unlike ag-burn
+        # there is NO escape hatch: a volcano is always persistent, so the
+        # hatch would defeat the downweight entirely (a fumarole doesn't
+        # "escape" into a wildfire — if it ignites surrounding vegetation,
+        # that new hotspot lands outside the volcano radius and gets full
+        # weight on its own). ``passthrough``/``full`` never reach here with
+        # a tag set.
+        if getattr(hs, "_volcanic", False) and SOURCE_FILTER_VOLCANIC == "downweight":
+            applicable.append(VOLCANIC_EVIDENCE_WEIGHT)
+            tags.append("volcanic")
+        if getattr(hs, "_conflict", False) and SOURCE_FILTER_CONFLICT == "downweight":
+            applicable.append(CONFLICT_EVIDENCE_WEIGHT)
+            tags.append("conflict")
         weight = max(applicable) if applicable else 1.0
         if tags and tag_stats is not None:
             key = " + ".join(sorted(tags))
@@ -3507,6 +3566,13 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
     )
     kept: list = []
     for i, h in enumerate(hotspots):
+        # Step 4: passthrough-classified sources (volcanic/conflict) are
+        # exempt from the land-cover gate — the operator explicitly wants
+        # them shown regardless of the underlying land class.
+        if _is_source_passthrough(h):
+            h._clc_code = None
+            kept.append(h)
+            continue
         code = codes.get(i)
         if code is not None and not corine.is_burnable(code):
             continue
@@ -3537,6 +3603,105 @@ def _tag_ag_burn(hotspots: list) -> int:
         h._ag_burn = True
         tagged += 1
     return tagged
+
+
+def _is_source_passthrough(hotspot) -> bool:
+    """True if a tagged hotspot's policy is ``passthrough`` (exempt from
+    the land-cover gate — the operator explicitly wants it shown)."""
+    if getattr(hotspot, "_volcanic", False) and SOURCE_FILTER_VOLCANIC == "passthrough":
+        return True
+    if getattr(hotspot, "_conflict", False) and SOURCE_FILTER_CONFLICT == "passthrough":
+        return True
+    return False
+
+
+def _tag_volcanic(hotspots: list) -> int:
+    """Tag FIRMS detections near a volcano (Step 4 source filter).
+
+    Cross-references hotspots against the ``volcanoes`` table via
+    ``db.volcano_hits_batch`` — currently a fail-open stub (the GVP import
+    is deferred until geographic expansion), so nothing is tagged on
+    current deployments.
+
+    Runs under every non-``full`` policy: ``downweight`` and
+    ``passthrough`` need the tag set so the fuse/gate can act on it, and
+    ``drop`` needs it so the pass can exclude the hotspot.
+
+    Returns the number of hotspots tagged.
+    """
+    if SOURCE_FILTER_VOLCANIC == "full":
+        return 0
+    hits = db.volcano_hits_batch(
+        [(h.latitude, h.longitude) for h in hotspots]
+    )
+    tagged = 0
+    for i, h in enumerate(hotspots):
+        if hits.get(i):
+            h._volcanic = True
+            tagged += 1
+    return tagged
+
+
+def _tag_conflict(hotspots: list) -> int:
+    """Tag FIRMS detections inside operator-supplied conflict zones.
+
+    Reads ``conflict_zones`` from kv_store (editable without redeploy, same
+    pattern as the ``firms_poller`` config): a JSON list where each entry
+    is either ``{"type": "bbox", "w": .., "s": .., "e": .., "n": ..}`` or
+    ``{"type": "polygon", "points": [[lon,lat], ...]}``. Fail-open: no
+    zones stored (or malformed) → nothing tagged.
+
+    Returns the number of hotspots tagged.
+    """
+    if SOURCE_FILTER_CONFLICT == "full":
+        return 0
+    zones = db.kv_get("conflict_zones") or []
+    if not zones:
+        return 0
+    tagged = 0
+    for h in hotspots:
+        if _point_in_conflict_zones(h.longitude, h.latitude, zones):
+            h._conflict = True
+            tagged += 1
+    return tagged
+
+
+def _point_in_conflict_zones(lon: float, lat: float, zones: list) -> bool:
+    """Point-in-zone test for the kv_store ``conflict_zones`` geometry."""
+    for zone in zones:
+        if not isinstance(zone, dict):
+            continue
+        ztype = zone.get("type")
+        if ztype == "bbox":
+            try:
+                if (zone["w"] <= lon <= zone["e"]
+                        and zone["s"] <= lat <= zone["n"]):
+                    return True
+            except KeyError:
+                continue
+        elif ztype == "polygon":
+            pts = zone.get("points")
+            if not pts or len(pts) < 3:
+                continue
+            if _point_in_polygon(lon, lat, pts):
+                return True
+    return False
+
+
+def _point_in_polygon(lon: float, lat: float, pts: list) -> bool:
+    """Ray-casting point-in-polygon for a closed [[lon,lat], ...] ring."""
+    inside = False
+    n = len(pts)
+    j = n - 1
+    for i in range(n):
+        xi, yi = pts[i]
+        xj, yj = pts[j]
+        if ((yi > lat) != (yj > lat)) and (
+            lon < (xj - xi) * (lat - yi) / (yj - yi) + xi
+        ):
+            inside = not inside
+        j = i
+    return inside
 
 
 def _fetch_nasa_firms_pass(
@@ -3626,11 +3791,40 @@ def _fetch_nasa_firms_pass(
             "stale_grids_purged": stale_purged,
         }
 
+    # --- Source filter (Step 4 of the filtering plan): volcanic/conflict ---
+    # Tag non-wildfire source classes BEFORE the land-cover gate. Order
+    # matters: a volcano's slopes are often bare rock (CORINE 332 —
+    # non-burnable), so the gate would silently drop Etna before the
+    # volcanic policy could ever act. Tag first, then apply the policy:
+    #   drop        → exclude the tagged hotspots outright
+    #   passthrough → the gate below skips them (operator wants them shown)
+    #   downweight  → the tag flows to _fuse_firms_hotspots (reduced weight)
+    #   full        → no tag, current behavior
+    # Both are fail-open: volcano_hits_batch is a stub (GVP import deferred)
+    # and an absent/empty conflict_zones list tags nothing.
+    volcanic_tagged = _tag_volcanic(all_hotspots)
+    conflict_tagged = _tag_conflict(all_hotspots)
+    source_dropped = 0
+    if SOURCE_FILTER_VOLCANIC == "drop":
+        before = len(all_hotspots)
+        all_hotspots = [h for h in all_hotspots if not getattr(h, "_volcanic", False)]
+        source_dropped += before - len(all_hotspots)
+    if SOURCE_FILTER_CONFLICT == "drop":
+        before = len(all_hotspots)
+        all_hotspots = [h for h in all_hotspots if not getattr(h, "_conflict", False)]
+        source_dropped += before - len(all_hotspots)
+    if source_dropped:
+        logger.info(
+            "[firms] Source filter dropped %d hotspot(s) (volcanic/conflict 'drop' policy)",
+            source_dropped,
+        )
+
     # --- CORINE land-cover gate (Step 1 of the filtering plan) ---
     # Drop detections on non-burnable land: industrial sites, urban
     # reflections, water glare and bare ground are not wildfires. One
     # batched PostGIS lookup against the loaded CLC2018 layer; hotspots
     # outside CORINE coverage (non-European fires) pass through untouched.
+    # ``passthrough``-classified sources are exempt (kept unconditionally).
     raw_hotspots = len(all_hotspots)
     all_hotspots = _gate_firms_by_land_cover(all_hotspots)
     land_cover_dropped = raw_hotspots - len(all_hotspots)
@@ -3785,8 +3979,14 @@ def _fetch_nasa_firms_pass(
     # positive sighting, regardless of the reduced grid weight — report
     # confirmation answers "did a hotspot really happen here", which is
     # orthogonal to the spread-model evidence weight.
+    # Volcanic detections (a photo of lava is not a wildfire sighting) are
+    # excluded from confirmation, same as static sources; conflict fires DO
+    # confirm (fire is fire). passthrough volcanic flows through.
     reports_confirmed = _confirm_reports_against_hotspots(
-        [h for h in all_hotspots if not getattr(h, "_static_source", False)]
+        [h for h in all_hotspots
+         if not getattr(h, "_static_source", False)
+         and not (getattr(h, "_volcanic", False)
+                  and SOURCE_FILTER_VOLCANIC == "downweight")]
     )
 
     # Expire fires that have stopped being detected: any production grid
@@ -3805,6 +4005,9 @@ def _fetch_nasa_firms_pass(
         "land_cover_dropped": land_cover_dropped,
         "static_downweighted": static_downweighted,
         "ag_downweighted": ag_downweighted,
+        "volcanic_tagged": volcanic_tagged,
+        "conflict_tagged": conflict_tagged,
+        "source_dropped": source_dropped,
         "new_grids": new_grids,
         "stale_grids_purged": stale_purged,
         "reports_confirmed": reports_confirmed,

@@ -1810,6 +1810,23 @@ def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, boo
     return out
 
 
+def volcano_hits_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
+    """Return ``{index: True}`` for points near a volcano (Step 4 stub).
+
+    The real implementation joins points against a ``volcanoes`` table
+    built from the Smithsonian GVP Holocene volcano database (~1,400
+    entries) via a ``corine_import.py``-shaped import script, using the
+    same batched GiST join shape as ``static_source_hits_batch`` (with the
+    same 10k-row chunking and coverage-bbox pre-filter).
+
+    The GVP import is DEFERRED until geographic expansion — volcanic heat
+    is irrelevant for the Poland beta — so this stub always returns no
+    hits. Fail-open by construction: callers treat every point as
+    non-volcanic, exactly as they would before the table existed.
+    """
+    return {}
+
+
 def kv_set(key: str, value: Any) -> None:
     with _conn() as conn:
         with conn.transaction():
