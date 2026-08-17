@@ -66,6 +66,44 @@ GRID_MATCH_RADIUS_M = 10000.0
 # the fail-open path would otherwise never fire.
 _BATCH_LOOKUP_CHUNK = 10_000
 
+# Cached coverage bbox (minlon, minlat, maxlon, maxlat) per spatial lookup
+# table. The CORINE + static-source layers only cover the Poland beta
+# footprint, but the FIRMS pass now feeds them ~255k global hotspots —
+# gating every one of them is pure waste (and, with the batched VALUES
+# joins, enough transient memory to OOM the 1 GB production VM). Points
+# outside the layer's own extent fail open anyway (no polygon → burnable /
+# not static), so pre-filtering to the extent is behaviour-identical but
+# drops the query work by ~99%.
+_BATCH_EXTENT_CACHE: dict[str, Optional[tuple[float, float, float, float]]] = {}
+
+
+def _table_bbox(table: str) -> Optional[tuple[float, float, float, float]]:
+    """Coverage bbox of a spatial table, or None if missing/empty (fail-open)."""
+    if table in _BATCH_EXTENT_CACHE:
+        return _BATCH_EXTENT_CACHE[table]
+    try:
+        with _conn() as conn:
+            row = conn.execute(
+                f"SELECT ST_XMin(e) AS minlon, ST_YMin(e) AS minlat, "
+                f"ST_XMax(e) AS maxlon, ST_YMax(e) AS maxlat "
+                f"FROM (SELECT ST_Extent(geom) AS e FROM {table}) s"
+            ).fetchone()
+    except psycopg.errors.UndefinedTable:
+        _BATCH_EXTENT_CACHE[table] = None
+        return None
+    if not row or row["minlon"] is None:
+        _BATCH_EXTENT_CACHE[table] = None
+        return None
+    ext = (float(row["minlon"]), float(row["minlat"]),
+           float(row["maxlon"]), float(row["maxlat"]))
+    _BATCH_EXTENT_CACHE[table] = ext
+    return ext
+
+
+def _in_bbox(lat: float, lon: float, bbox: tuple[float, float, float, float]) -> bool:
+    minlon, minlat, maxlon, maxlat = bbox
+    return minlon <= lon <= maxlon and minlat <= lat <= maxlat
+
 _pool: Optional[ConnectionPool] = None
 
 
@@ -1686,38 +1724,40 @@ def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optio
     """
     if not points:
         return {}
-    # Chunked: each row is 3 bind params (idx, lon, lat), so a single
-    # VALUES list tops out at ~21.8k rows before Postgres's 65,535-param
-    # limit. The multi-satellite 48h pass fetches ~250k hotspots — one
-    # giant query would be rejected with "number of parameters must be
-    # between 0 and 65535" BEFORE the server even looks at the table, so
-    # the UndefinedTable fail-open below would never fire. 10k rows/chunk
-    # (30k params) stays safely under the limit.
+    bbox = _table_bbox("land_cover")
+    if bbox is None:
+        # Fail-open: land_cover not loaded on this environment (the CORINE
+        # import hasn't run yet) — every point is treated as burnable rather
+        # than crashing the FIRMS pass.
+        return {}
+    # Only points inside the layer's own coverage can hit a polygon — skip
+    # the rest (they fail open as burnable anyway). On the global pass this
+    # trims ~250k points to the Poland footprint: a handful of rows instead
+    # of 26 chunked VALUES joins, which is both faster and far lighter on
+    # memory (see _table_bbox). Chunked: each row is 3 bind params
+    # (idx, lon, lat), so a single VALUES list tops out at ~21.8k rows
+    # before Postgres's 65,535-param limit — 10k rows/chunk stays safe.
+    keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
+            if _in_bbox(lat, lon, bbox)]
     out: dict[int, Optional[str]] = {}
-    for start in range(0, len(points), _BATCH_LOOKUP_CHUNK):
-        chunk = points[start:start + _BATCH_LOOKUP_CHUNK]
+    for start in range(0, len(keep), _BATCH_LOOKUP_CHUNK):
+        chunk = keep[start:start + _BATCH_LOOKUP_CHUNK]
         values_sql = ", ".join(
             "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in chunk
         )
         params: list[Any] = []
-        for i, (lat, lon) in enumerate(chunk):
-            params.extend([start + i, lon, lat])
-        try:
-            with _conn() as conn:
-                rows = conn.execute(
-                    f"""
-                    SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
-                    FROM (VALUES {values_sql}) AS hs(idx, geom)
-                    JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
-                    ORDER BY hs.idx, lc.code_18
-                    """,
-                    params,
-                ).fetchall()
-        except psycopg.errors.UndefinedTable:
-            # Fail-open: land_cover not loaded on this environment (the
-            # CORINE import hasn't run yet) — every point is treated as
-            # burnable rather than crashing the FIRMS pass.
-            return {}
+        for idx, (lat, lon) in chunk:
+            params.extend([idx, lon, lat])
+        with _conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
+                FROM (VALUES {values_sql}) AS hs(idx, geom)
+                JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
+                ORDER BY hs.idx, lc.code_18
+                """,
+                params,
+            ).fetchall()
         for r in rows:
             out[int(r["idx"])] = str(r["code_18"])
     return out
@@ -1734,35 +1774,37 @@ def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, boo
     """
     if not points:
         return {}
-    # Same chunking rationale as land_cover_codes_batch: 3 bind params per
-    # row (idx, lon, lat) and a ~250k-point pass would exceed Postgres's
-    # 65,535-param limit in one query — and the server rejects the param
-    # count before it ever raises UndefinedTable, silently defeating the
-    # fail-open. 10k rows/chunk stays safely under.
+    bbox = _table_bbox("static_sources")
+    if bbox is None:
+        # Fail-open: static_sources not built yet — no downweighting.
+        return {}
+    # Same coverage pre-filter + chunking rationale as land_cover_codes_batch
+    # (see _table_bbox): the mask only covers the Poland footprint, so only
+    # points inside it can ever be flagged static — trimming the global
+    # ~250k-point pass to a handful of rows and keeping peak memory off the
+    # 1 GB production VM. 10k rows/chunk stays under the 65,535-param limit.
+    keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
+            if _in_bbox(lat, lon, bbox)]
     out: dict[int, bool] = {}
-    for start in range(0, len(points), _BATCH_LOOKUP_CHUNK):
-        chunk = points[start:start + _BATCH_LOOKUP_CHUNK]
+    for start in range(0, len(keep), _BATCH_LOOKUP_CHUNK):
+        chunk = keep[start:start + _BATCH_LOOKUP_CHUNK]
         values_sql = ", ".join(
             "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in chunk
         )
         params: list[Any] = []
-        for i, (lat, lon) in enumerate(chunk):
-            params.extend([start + i, lon, lat])
-        try:
-            with _conn() as conn:
-                rows = conn.execute(
-                    f"""
-                    SELECT DISTINCT ON (hs.idx) hs.idx
-                    FROM (VALUES {values_sql}) AS hs(idx, geom)
-                    JOIN static_sources ss ON ss.is_static
-                        AND ST_Intersects(ss.geom, hs.geom)
-                    ORDER BY hs.idx
-                    """,
-                    params,
-                ).fetchall()
-        except psycopg.errors.UndefinedTable:
-            # Fail-open: static_sources not built yet — no downweighting.
-            return {}
+        for idx, (lat, lon) in chunk:
+            params.extend([idx, lon, lat])
+        with _conn() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT DISTINCT ON (hs.idx) hs.idx
+                FROM (VALUES {values_sql}) AS hs(idx, geom)
+                JOIN static_sources ss ON ss.is_static
+                    AND ST_Intersects(ss.geom, hs.geom)
+                ORDER BY hs.idx
+                """,
+                params,
+            ).fetchall()
         for r in rows:
             out[int(r["idx"])] = True
     return out
