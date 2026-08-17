@@ -57,6 +57,15 @@ DATABASE_URL = os.environ.get(
 # server.py (which imported the same constant).
 GRID_MATCH_RADIUS_M = 10000.0
 
+# Rows per chunk for the batched point-in-polygon lookups
+# (land_cover_codes_batch / static_source_hits_batch). Each row is 3 bind
+# params (idx, lon, lat); 10k rows = 30k params, safely under Postgres's
+# 65,535-param statement limit so a full multi-satellite 48h pass (~250k
+# hotspots) never trips "number of parameters must be between 0 and 65535"
+# — which the server raises before it would ever raise UndefinedTable, so
+# the fail-open path would otherwise never fire.
+_BATCH_LOOKUP_CHUNK = 10_000
+
 _pool: Optional[ConnectionPool] = None
 
 
@@ -1677,29 +1686,41 @@ def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optio
     """
     if not points:
         return {}
-    values_sql = ", ".join(
-        "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in points
-    )
-    params: list[Any] = []
-    for i, (lat, lon) in enumerate(points):
-        params.extend([i, lon, lat])
-    try:
-        with _conn() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
-                FROM (VALUES {values_sql}) AS hs(idx, geom)
-                JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
-                ORDER BY hs.idx, lc.code_18
-                """,
-                params,
-            ).fetchall()
-    except psycopg.errors.UndefinedTable:
-        # Fail-open: land_cover not loaded on this environment (the CORINE
-        # import hasn't run yet) — every point is treated as burnable rather
-        # than crashing the FIRMS pass.
-        return {}
-    return {int(r["idx"]): str(r["code_18"]) for r in rows}
+    # Chunked: each row is 3 bind params (idx, lon, lat), so a single
+    # VALUES list tops out at ~21.8k rows before Postgres's 65,535-param
+    # limit. The multi-satellite 48h pass fetches ~250k hotspots — one
+    # giant query would be rejected with "number of parameters must be
+    # between 0 and 65535" BEFORE the server even looks at the table, so
+    # the UndefinedTable fail-open below would never fire. 10k rows/chunk
+    # (30k params) stays safely under the limit.
+    out: dict[int, Optional[str]] = {}
+    for start in range(0, len(points), _BATCH_LOOKUP_CHUNK):
+        chunk = points[start:start + _BATCH_LOOKUP_CHUNK]
+        values_sql = ", ".join(
+            "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in chunk
+        )
+        params: list[Any] = []
+        for i, (lat, lon) in enumerate(chunk):
+            params.extend([start + i, lon, lat])
+        try:
+            with _conn() as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
+                    FROM (VALUES {values_sql}) AS hs(idx, geom)
+                    JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
+                    ORDER BY hs.idx, lc.code_18
+                    """,
+                    params,
+                ).fetchall()
+        except psycopg.errors.UndefinedTable:
+            # Fail-open: land_cover not loaded on this environment (the
+            # CORINE import hasn't run yet) — every point is treated as
+            # burnable rather than crashing the FIRMS pass.
+            return {}
+        for r in rows:
+            out[int(r["idx"])] = str(r["code_18"])
+    return out
 
 
 def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
@@ -1713,28 +1734,38 @@ def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, boo
     """
     if not points:
         return {}
-    values_sql = ", ".join(
-        "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in points
-    )
-    params: list[Any] = []
-    for i, (lat, lon) in enumerate(points):
-        params.extend([i, lon, lat])
-    try:
-        with _conn() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT DISTINCT ON (hs.idx) hs.idx
-                FROM (VALUES {values_sql}) AS hs(idx, geom)
-                JOIN static_sources ss ON ss.is_static
-                    AND ST_Intersects(ss.geom, hs.geom)
-                ORDER BY hs.idx
-                """,
-                params,
-            ).fetchall()
-    except psycopg.errors.UndefinedTable:
-        # Fail-open: static_sources not built yet — no downweighting.
-        return {}
-    return {int(r["idx"]): True for r in rows}
+    # Same chunking rationale as land_cover_codes_batch: 3 bind params per
+    # row (idx, lon, lat) and a ~250k-point pass would exceed Postgres's
+    # 65,535-param limit in one query — and the server rejects the param
+    # count before it ever raises UndefinedTable, silently defeating the
+    # fail-open. 10k rows/chunk stays safely under.
+    out: dict[int, bool] = {}
+    for start in range(0, len(points), _BATCH_LOOKUP_CHUNK):
+        chunk = points[start:start + _BATCH_LOOKUP_CHUNK]
+        values_sql = ", ".join(
+            "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in chunk
+        )
+        params: list[Any] = []
+        for i, (lat, lon) in enumerate(chunk):
+            params.extend([start + i, lon, lat])
+        try:
+            with _conn() as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT DISTINCT ON (hs.idx) hs.idx
+                    FROM (VALUES {values_sql}) AS hs(idx, geom)
+                    JOIN static_sources ss ON ss.is_static
+                        AND ST_Intersects(ss.geom, hs.geom)
+                    ORDER BY hs.idx
+                    """,
+                    params,
+                ).fetchall()
+        except psycopg.errors.UndefinedTable:
+            # Fail-open: static_sources not built yet — no downweighting.
+            return {}
+        for r in rows:
+            out[int(r["idx"])] = True
+    return out
 
 
 def kv_set(key: str, value: Any) -> None:
