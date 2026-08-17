@@ -1110,8 +1110,12 @@ def bulk_find_or_create_grids(
       3. Bulk-inserts only the genuinely-new grids in ONE transaction
          (executemany + a single counter bump).
 
-    Returns grid ids aligned with ``clusters`` (same length, same order).
-    Matched grids keep their existing id; new grids get a fresh one.
+    Returns ``(grid_ids, new_ids)``: grid ids aligned with ``clusters``
+    (same length, same order; matched grids keep their existing id, new
+    grids get a fresh one) and the set of ids that were created by THIS
+    call. The new-ids set is what lets the FIRMS pass key the Step 3
+    escape hatch on "grid created this pass" (a fire whose grid pre-exists
+    has persisted → full weight).
 
     Unlike find_or_create_grid(), this does NOT take the per-bucket
     Postgres advisory lock. Duplicate creation is prevented instead by the
@@ -1241,7 +1245,8 @@ def bulk_find_or_create_grids(
     id_by_placeholder = {
         f"__new_{i}": real for i, real in enumerate(new_ids)
     }
-    return [id_by_placeholder.get(gid, gid) for gid in result]
+    resolved = [id_by_placeholder.get(gid, gid) for gid in result]
+    return resolved, set(new_ids)
 
 
 def bulk_mutate_grids(

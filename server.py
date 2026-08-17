@@ -3224,6 +3224,34 @@ STATIC_SOURCE_EVIDENCE_WEIGHT = float(
 )
 
 # ---------------------------------------------------------------------------
+# Agricultural-burning downweight (Step 3 of the filtering plan)
+# ---------------------------------------------------------------------------
+# A FIRMS detection on CORINE cropland (arable fields, orchards, vineyards)
+# is real fire but frequently agricultural burning — stubble/slash burns
+# that are short-lived and not the spread-relevant wildfire the Bayesian
+# grid models. Instead of dropping it, inject at reduced evidence weight
+# (0.3 → LR ln(50·0.3) ≈ 2.71 vs the full ln(50) ≈ 3.91): still real
+# positive evidence that "something is burning here", just less than a
+# full spread-relevant detection. The escape hatch promotes it back to
+# full weight: a fire that survives to a later FIRMS pass (its grid
+# pre-exists) is a persisting fire, not a one-off burn, so subsequent
+# detections fuse at full strength.
+#
+# FRP cap is OFF by default: the FIRMS-archive calibration (240 daily
+# files, 2024-01 → 2026-04, joined to CORINE classes) found NO bimodal
+# FRP split — cropland p50 = 2.8 MW vs forest-shrub p50 = 3.2 MW, with
+# ~92% of both classes below 10 MW, and day/night shows no separation
+# either (41.7% vs 42.4% daytime). A hard FRP threshold would wrongly
+# downweight ~92% of real forest fires. Land class is the signal; FRP is
+# an optional extra cap if a deployment wants it (0/absent disables).
+AG_BURN_EVIDENCE_WEIGHT = float(
+    os.environ.get("WILDFRAME_AG_BURN_WEIGHT", "0.3")
+)
+AG_BURN_FRP_MAX_MW = float(
+    os.environ.get("WILDFRAME_AG_BURN_FRP_MAX_MW", "0")  # 0 = disabled
+)
+
+# ---------------------------------------------------------------------------
 # Satellite confirmation of crowdsourced reports
 # ---------------------------------------------------------------------------
 # A crowdsourced report is considered "satellite-confirmed" if a FIRMS
@@ -3385,7 +3413,10 @@ def _cluster_firms_hotspots(hotspots: list) -> list[dict]:
     return clusters
 
 
-def _fuse_firms_hotspots(grid: "BayesianFireGrid", hotspots: list) -> int:
+def _fuse_firms_hotspots(
+    grid: "BayesianFireGrid", hotspots: list, is_new_grid: bool = False,
+    tag_stats: Optional[dict] = None,
+) -> int:
     """Fuse new FIRMS detections into a grid, skipping already-fused ones.
 
     FIRMS re-returns the FULL past-24h window on every pass, so without
@@ -3418,13 +3449,37 @@ def _fuse_firms_hotspots(grid: "BayesianFireGrid", hotspots: list) -> int:
             ci, cj = grid.latlon_to_cell(hs.latitude, hs.longitude)
             if ts <= grid.last_updated[ci, cj]:
                 continue  # already fused this detection
-        # Hotspots tagged by the static-source mask (Step 2) are injected at
-        # reduced weight: real heat, but not a wildfire — a refinery flare
-        # must not push a grid toward the auto-approval floor on its own.
-        weight = (
-            STATIC_SOURCE_EVIDENCE_WEIGHT
-            if getattr(hs, "_static_source", False) else 1.0
-        )
+        # Downweight composition. Two independent tags can land on one
+        # hotspot (e.g. an industrial flare on a cropland cell is both
+        # static-source AND ag-burn): take the most charitable weight — the
+        # MAX — and log which tag(s) fired so the composed weight is
+        # explainable; if the both-tags case turns out common, it's visible
+        # rather than inferable from the number alone.
+        #
+        #   static-source (Step 2): real heat, probably not fire at all → 0.1
+        #   ag-burn (Step 3): real fire, probably not *our* fire → 0.3,
+        #       and only when the grid was created this pass — a pre-existing
+        #       grid means the fire persisted, so it fuses at full weight
+        #       (the escape hatch).
+        #
+        # max() is the deliberate choice: when a cell is both, err toward
+        # treating it as a real fire (0.3) rather than dismissing it as
+        # industrial noise (0.1). Either reading is defensible; the tag log
+        # makes the decision auditable. Collect the applicable weights and
+        # take the max OF THEM (never vs the 1.0 baseline — that would
+        # nullify a lone ag-burn downweight).
+        applicable: list[float] = []
+        tags: list[str] = []
+        if getattr(hs, "_static_source", False):
+            applicable.append(STATIC_SOURCE_EVIDENCE_WEIGHT)
+            tags.append("static")
+        if getattr(hs, "_ag_burn", False) and is_new_grid:
+            applicable.append(AG_BURN_EVIDENCE_WEIGHT)
+            tags.append("ag")
+        weight = max(applicable) if applicable else 1.0
+        if tags and tag_stats is not None:
+            key = " + ".join(sorted(tags))
+            tag_stats[key] = tag_stats.get(key, 0) + 1
         grid.update(
             Evidence.satellite_hotspot(lat=hs.latitude, lon=hs.longitude, weight=weight),
             at=ts,
@@ -3440,6 +3495,10 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
     loaded by corine_import.py). Points outside CORINE coverage pass
     through — the gate is permissive where we have no data so it can
     never silently delete fires in uncovered regions.
+
+    Side effect: each kept hotspot gets ``h._clc_code`` set to its CLC
+    class (None when outside coverage), so the Step 3 ag-burn tagging
+    reuses this one lookup instead of hitting PostGIS again.
     """
     if not hotspots:
         return hotspots
@@ -3451,8 +3510,33 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
         code = codes.get(i)
         if code is not None and not corine.is_burnable(code):
             continue
+        h._clc_code = code
         kept.append(h)
     return kept
+
+
+def _tag_ag_burn(hotspots: list) -> int:
+    """Tag FIRMS detections on cropland as agricultural burning (Step 3).
+
+    The signal is the CORINE class alone: the archive calibration found no
+    FRP or day/night separation between cropland and forest detections, so
+    the land class is the discriminator. An optional FRP cap (0 = off)
+    still exists for deployments that want it.
+
+    Returns the number of hotspots tagged. Fail-open: hotspots without a
+    CLC code (outside coverage) are never tagged, so the mask can never
+    silently starve fires in uncovered regions.
+    """
+    tagged = 0
+    for h in hotspots:
+        code = getattr(h, "_clc_code", None)
+        if not corine.is_cropland(code):
+            continue
+        if AG_BURN_FRP_MAX_MW > 0 and h.frp >= AG_BURN_FRP_MAX_MW:
+            continue
+        h._ag_burn = True
+        tagged += 1
+    return tagged
 
 
 def _fetch_nasa_firms_pass(
@@ -3584,6 +3668,21 @@ def _fetch_nasa_firms_pass(
             static_downweighted, len(all_hotspots) - static_downweighted,
         )
 
+    # --- Agricultural-burning tag (Step 3 of the filtering plan) ---
+    # Hotspots on CORINE cropland (arable, orchards, vineyards) are real
+    # fire but frequently short-lived ag-burning, not spread-relevant
+    # wildfire. Tag them so fusion injects at reduced weight (0.3) — unless
+    # the fire persists to a later pass (escape hatch in _fuse_firms_hotspots).
+    # Reuses the CLC codes captured by _gate_firms_by_land_cover, so no
+    # extra DB roundtrips. Fail-open: outside CORINE coverage nothing is
+    # tagged.
+    ag_downweighted = _tag_ag_burn(all_hotspots)
+    if ag_downweighted:
+        logger.info(
+            "[firms] Agricultural-burn tag marked %d hotspot(s) on cropland (%d at full weight)",
+            ag_downweighted, len(all_hotspots) - ag_downweighted,
+        )
+
     # --- Cluster hotspots into candidate fires ---
     # O(n) spatial-hash clustering (see _cluster_firms_hotspots): hotspots
     # within _FIRMS_CLUSTER_RADIUS_M of each other are grouped as one fire.
@@ -3617,7 +3716,7 @@ def _fetch_nasa_firms_pass(
     #   db.bulk_mutate_grids        — chunked id=ANY() loads + one UPDATE batch
     # New grids start with the default wind and get real Open-Meteo values
     # on the next grids.advance wind sweep (wind_updated_at = 0 sorts first).
-    grid_ids = db.bulk_find_or_create_grids(mode, clusters)
+    grid_ids, new_grid_ids = db.bulk_find_or_create_grids(mode, clusters)
 
     # Merge clusters that map to the same grid (two FIRMS clusters can sit
     # within GRID_MATCH_RADIUS_M of the same existing grid) so each grid
@@ -3629,9 +3728,25 @@ def _fetch_nasa_firms_pass(
         hotspots_by_grid.setdefault(grid_id, []).extend(c["hotspots"])
 
     jobs = []
+    # Composition stats: which tag(s) fired into the composed weight (e.g.
+    # "static", "ag", "static + ag"). Logged once after the pass so the
+    # both-tags case is visible without per-hotspot log spam. Shared by all
+    # job closures — bulk_mutate_grids runs them sequentially in one process.
+    tag_stats: dict[str, int] = {}
     for grid_id, hotspots in hotspots_by_grid.items():
-        def _inject(grid: BayesianFireGrid, entry: dict, _hs=hotspots) -> int:
-            return _fuse_firms_hotspots(grid, _hs)
+        # Escape hatch: only ag-burn detections injected into a grid created
+        # THIS pass are downweighted. A grid that already existed means the
+        # fire survived a previous pass — it's persisting, not a one-off
+        # burn, so its ag-burn detections fuse at full weight. (A grid can't
+        # expire mid-burn: purge_stale_grids only deletes grids with no
+        # evidence for 24h, and an active fire is re-detected on every
+        # overpass, so recreation from expiry is a genuinely new episode.)
+        is_new = grid_id in new_grid_ids
+
+        def _inject(grid: BayesianFireGrid, entry: dict, _hs=hotspots,
+                    _new=is_new, _stats=tag_stats) -> int:
+            return _fuse_firms_hotspots(grid, _hs, is_new_grid=_new,
+                                        tag_stats=_stats)
 
         jobs.append((grid_id, _inject))
 
@@ -3647,11 +3762,23 @@ def _fetch_nasa_firms_pass(
         total_injected, grids_hit, new_grids,
     )
 
+    # Composition breakdown: which downweight tag(s) fired ("static",
+    # "ag", "static + ag"). Logged once per pass so the both-tags case is
+    # visible — if it turns out common, it's explainable rather than
+    # inferred from the weights alone.
+    if tag_stats:
+        summary = ", ".join(f"{k}={v}" for k, v in sorted(tag_stats.items()))
+        logger.info("[firms] Downweight composition: %s", summary)
+
     # --- Cross-check crowdsourced reports against this pass's hotspots ---
     # Reuses the hotspot list already fetched above — no extra API call.
     # Static-source detections (refinery flares) must not confirm citizen
     # reports: the heat is real, but it is not a wildfire, so it should not
-    # lend satellite corroboration to a crowdsourced report.
+    # lend satellite corroboration to a crowdsourced report. Ag-burn
+    # detections DO confirm: a citizen photographing a field fire is a true
+    # positive sighting, regardless of the reduced grid weight — report
+    # confirmation answers "did a hotspot really happen here", which is
+    # orthogonal to the spread-model evidence weight.
     reports_confirmed = _confirm_reports_against_hotspots(
         [h for h in all_hotspots if not getattr(h, "_static_source", False)]
     )
@@ -3671,6 +3798,7 @@ def _fetch_nasa_firms_pass(
         "firms_hotspots": total_hotspots,
         "land_cover_dropped": land_cover_dropped,
         "static_downweighted": static_downweighted,
+        "ag_downweighted": ag_downweighted,
         "new_grids": new_grids,
         "stale_grids_purged": stale_purged,
         "reports_confirmed": reports_confirmed,
@@ -3744,6 +3872,10 @@ def _firms_fetch_message(result: dict) -> str:
     if result.get("static_downweighted"):
         parts.append(
             f"downweighted {result['static_downweighted']} static-source hotspot(s)"
+        )
+    if result.get("ag_downweighted"):
+        parts.append(
+            f"downweighted {result['ag_downweighted']} ag-burn hotspot(s) on cropland"
         )
     if result.get("stale_grids_purged"):
         parts.append(f"Expired {result['stale_grids_purged']} stale fire(s) (>24h no evidence)")
