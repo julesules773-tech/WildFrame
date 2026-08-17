@@ -3658,16 +3658,65 @@ def _tag_conflict(hotspots: list) -> int:
     zones = db.kv_get("conflict_zones") or []
     if not zones:
         return 0
+    prepared = _prepare_conflict_zones(zones)
+    if not prepared:
+        return 0
     tagged = 0
     for h in hotspots:
-        if _point_in_conflict_zones(h.longitude, h.latitude, zones):
+        if _point_in_prepared_zones(h.longitude, h.latitude, prepared):
             h._conflict = True
             tagged += 1
     return tagged
 
 
+def _prepare_conflict_zones(zones: list) -> list:
+    """Precompute each zone's bounding box once so the per-hotspot hot loop
+    can reject with a 4-comparison bbox test instead of ray-casting every
+    polygon (a 651-point Ukraine ring × 400k+ hotspots was adding minutes
+    to each FIRMS pass). Returns ``[(ztype, (w, s, e, n), payload), ...]``
+    where ``payload`` is the point list for polygons (None for bboxes).
+    Malformed zones are skipped (same fail-open semantics as before).
+    """
+    prepared: list[tuple] = []
+    for zone in zones:
+        if not isinstance(zone, dict):
+            continue
+        ztype = zone.get("type")
+        if ztype == "bbox":
+            try:
+                bounds = (zone["w"], zone["s"], zone["e"], zone["n"])
+            except KeyError:
+                continue
+            prepared.append(("bbox", bounds, None))
+        elif ztype == "polygon":
+            pts = zone.get("points")
+            if not pts or len(pts) < 3:
+                continue
+            lons = [p[0] for p in pts]
+            lats = [p[1] for p in pts]
+            bounds = (min(lons), min(lats), max(lons), max(lats))
+            prepared.append(("polygon", bounds, pts))
+    return prepared
+
+
+def _point_in_prepared_zones(lon: float, lat: float, prepared: list) -> bool:
+    """Fast point-in-zone test against precomputed zones: bbox-reject first,
+    ray-cast a polygon only when the point is inside its bounds."""
+    for ztype, (w, s, e, n), payload in prepared:
+        if not (w <= lon <= e and s <= lat <= n):
+            continue
+        if ztype == "bbox" or _point_in_polygon(lon, lat, payload):
+            return True
+    return False
+
+
 def _point_in_conflict_zones(lon: float, lat: float, zones: list) -> bool:
-    """Point-in-zone test for the kv_store ``conflict_zones`` geometry."""
+    """Point-in-zone test for raw kv_store ``conflict_zones`` geometry.
+
+    Simple ad-hoc helper (used by validation/debug scripts); the FIRMS pass
+    itself uses the precomputed fast path (``_prepare_conflict_zones`` +
+    ``_point_in_prepared_zones``) to avoid per-hotspot bounds recomputation.
+    """
     for zone in zones:
         if not isinstance(zone, dict):
             continue
