@@ -3541,6 +3541,7 @@ def _tag_ag_burn(hotspots: list) -> int:
 
 def _fetch_nasa_firms_pass(
     min_confidence: str = "nominal",
+    day_range: int = 2,
 ) -> dict:
     """
     Fetch global NASA FIRMS hotspot data and inject into Bayesian grids.
@@ -3558,14 +3559,20 @@ def _fetch_nasa_firms_pass(
     from satellite data without requiring any user reports or seed data.  The
     newly created grids appear in /api/bayesian/state on the next poll.
 
-    The query is ALWAYS the past 24 hours: ``day_range=1`` is hard-wired
-    here (the minimum the FIRMS API accepts), so no caller — button,
-    poller, or queued job — can ever widen the window.
+    The query covers the past ``day_range`` days (default 2 / 48h, matching
+    NASA's map view) and merges every VIIRS 375m instrument
+    (``nasa_firms.DEFAULT_SOURCES``: Suomi-NPP + NOAA-20 + NOAA-21) so
+    fires any single satellite missed are still caught — the combined view
+    NASA's FIRMS map shows. Each satellite overpass is an independent
+    detection; the per-cell acquisition-time dedup in _fuse_firms_hotspots
+    prevents re-injection within a source across passes.
 
     Parameters
     ----------
     min_confidence : str
         Minimum FIRMS confidence: "low", "nominal", or "high".
+    day_range : int
+        Look-back window in days (1–5; the FIRMS API minimum is 1).
 
     Returns
     -------
@@ -3578,8 +3585,6 @@ def _fetch_nasa_firms_pass(
         "stale_grids_purged": int — production grids expired (>24h no evidence)
         "api_error"        : str | None — error message if the API call failed
     """
-    day_range = 1  # the 24h lock — FIRMS API minimum
-
     api_key = nasa_firms._get_api_key()
     if not api_key:
         return {
@@ -3597,6 +3602,7 @@ def _fetch_nasa_firms_pass(
             api_key=api_key,
             day_range=day_range,
             min_confidence=min_confidence,
+            sources=nasa_firms.DEFAULT_SOURCES,
         )
         print(f"[firms] Fetched {len(all_hotspots)} hotspots from FIRMS API")
     except (ConnectionError, ValueError) as exc:
@@ -3901,7 +3907,7 @@ def satellite_firms_fetch():
 
     JSON body (all optional):
       {
-        "day_range": 1,             // ignored beyond 1 — fetch is always 24h
+        "day_range": 2,             // look-back days (1-5); default 2 = 48h
         "min_confidence": "nominal"  // minimum confidence: low/nominal/high
       }
     """
@@ -3912,10 +3918,12 @@ def satellite_firms_fetch():
             "error": "NASA_FIRMS_API_KEY not set — cannot fetch FIRMS data.",
         }), 400
 
-    # The fetch is intentionally locked to the last 24 hours: no caller
-    # (button, API, future code) can widen it. day_range=1 = past 24h in
-    # the FIRMS API, and this is the minimum the API accepts anyway.
-    day_range = 1
+    # Look-back window, same as the poller: default 2 days (48h, matching
+    # NASA's map view), clamped to the FIRMS API's 1-5 day range. Every
+    # caller funnels through _fetch_nasa_firms_pass, which merges all VIIRS
+    # satellites, so this is the single knob for how far back we look.
+    day_range = int(data.get("day_range", 2))
+    day_range = max(1, min(day_range, 5))
     min_confidence = data.get("min_confidence", "nominal")
 
     # One manual fetch at a time: reject a second click while a fetch is
@@ -3963,9 +3971,10 @@ def satellite_firms_poller_start():
     endpoint flips the flag the job checks."""
     data = request.get_json(silent=True) or {}
     interval = data.get("interval_s", 600.0)  # default: 10 min
-    # Same 24h lock as the manual fetch — the poller can never ask the
-    # FIRMS API for more than the past day either.
-    day_range = 1
+    # Look-back window, same as the manual fetch: default 2 days (48h),
+    # clamped to the FIRMS API's 1-5 day range.
+    day_range = int(data.get("day_range", 2))
+    day_range = max(1, min(day_range, 5))
     min_confidence = data.get("min_confidence", "nominal")
 
     # Validate the API key early

@@ -245,10 +245,12 @@ def firms_fetch_job(**kwargs):
     import server
 
     try:
-        # The fetch is always the past 24 hours — day_range is hard-wired
-        # to 1 inside _fetch_nasa_firms_pass itself.
+        # Look-back window defaults to 2 days (48h, matching NASA's map
+        # view) inside _fetch_nasa_firms_pass; the poller config can
+        # override it via day_range (1-5, clamped there).
         result = server._fetch_nasa_firms_pass(
             min_confidence=str(kwargs.get("min_confidence", cfg.get("min_confidence", "nominal"))),
+            day_range=int(kwargs.get("day_range", cfg.get("day_range", 2))),
         )
         db.kv_set("firms_poller_heartbeat", {"at": time.time()})
         db.kv_set("firms_fetch_in_progress", False)

@@ -38,6 +38,13 @@ MODIS_NRT = "MODIS_NRT"  # Aqua/Terra, 1km resolution
 # Default source: VIIRS Suomi-NPP (highest resolution, most widely used)
 DEFAULT_SOURCE = VIIRS_SNPP_NRT
 
+# Default multi-satellite set: every VIIRS 375m instrument. NOAA-20 and
+# NOAA-21 have different overpass times than Suomi-NPP, so each catches
+# fires the others missed — NASA's FIRMS map combines them, and so do we.
+# (MODIS 1km is deliberately excluded: coarser pixels, more industrial
+# false-positives, and it would triple the fetch volume for marginal gain.)
+DEFAULT_SOURCES = [VIIRS_SNPP_NRT, VIIRS_NOAA20_NRT, VIIRS_NOAA21_NRT]
+
 # Max days the FIRMS API allows per request
 MAX_DAY_RANGE = 5
 
@@ -299,26 +306,37 @@ def fetch_global_fires(
     source: str = DEFAULT_SOURCE,
     day_range: int = 1,
     min_confidence: str = "nominal",
+    sources: Optional[list[str]] = None,
 ) -> list[FIRMSHotspot]:
-    """Fetch active fire hotspots worldwide.
+    """Fetch active fire hotspots worldwide, optionally from several satellites.
 
     Parameters
     ----------
     api_key : str
         NASA FIRMS API key.
     source : str
-        Satellite source.
+        Satellite source (used when ``sources`` is not given).
     day_range : int
         Days to look back (1–5).
     min_confidence : str
         Minimum confidence filter.
+    sources : list[str] | None
+        Satellite sources to fetch and merge. Defaults to ``[source]``;
+        the pass passes :data:`DEFAULT_SOURCES` (all VIIRS 375m) so fires
+        any single satellite missed are still caught — same combined view
+        NASA's FIRMS map shows. Detections from different instruments are
+        independent overpasses, so they are concatenated, not deduped.
 
     Returns
     -------
     list[FIRMSHotspot]
-        All global hotspot detections matching the criteria.
+        All global hotspot detections matching the criteria, across sources.
     """
-    all_hotspots = fetch_fire_data(api_key, "world", source, day_range)
+    if sources is None:
+        sources = [source]
+    all_hotspots: list[FIRMSHotspot] = []
+    for src in sources:
+        all_hotspots.extend(fetch_fire_data(api_key, "world", src, day_range))
 
     if min_confidence == "high":
         return [h for h in all_hotspots if h.is_high_confidence]
