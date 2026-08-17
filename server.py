@@ -4170,11 +4170,15 @@ def satellite_firms_fetch():
             "error": "NASA_FIRMS_API_KEY not set — cannot fetch FIRMS data.",
         }), 400
 
-    # Look-back window, same as the poller: default 2 days (48h, matching
-    # NASA's map view), clamped to the FIRMS API's 1-5 day range. Every
-    # caller funnels through _fetch_nasa_firms_pass, which merges all VIIRS
+    # Look-back window, same as the poller: default to the configured
+    # day_range (currently 1 = 24h; historically 2 = 48h, matching NASA's
+    # map view), clamped to the FIRMS API's 1-5 day range. Every caller
+    # funnels through _fetch_nasa_firms_pass, which merges all VIIRS
     # satellites, so this is the single knob for how far back we look.
-    day_range = int(data.get("day_range", 2))
+    day_range = int(data.get(
+        "day_range",
+        db.get_poller_config("firms", {}).get("day_range", 2),
+    ))
     day_range = max(1, min(day_range, 5))
     min_confidence = data.get("min_confidence", "nominal")
 
