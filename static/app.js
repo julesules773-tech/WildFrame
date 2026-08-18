@@ -1807,7 +1807,8 @@
       // at 0.3) — a 0.6 contour only rings the hot core and renders as
       // scattered segments. Same level the road-risk feature uses.
       const contour = STATE.bayesian.showContour ? 0.3 : 0;
-      const url = `/api/bayesian/state?threshold=${threshold}&contour=${contour}&mode=${STATE.mode}&bbox=${encodeURIComponent(bbox)}&detail=${meta ? "meta" : "full"}`;
+      const countryParam = location.pathname === "/map/poland" ? "&country=pl" : "";
+      const url = `/api/bayesian/state?threshold=${threshold}&contour=${contour}&mode=${STATE.mode}&bbox=${encodeURIComponent(bbox)}&detail=${meta ? "meta" : "full"}${countryParam}`;
 
       const res = await fetch(url);
       if (!res.ok) return;

@@ -1824,20 +1824,15 @@ def _grid_to_json(
                     )
                 ]
 
-    # Exclude grids outside Poland — the 0.3° viewport margin pulls in
-    # fires from neighbouring countries; use the simplified polygon
-    # boundary (not the bbox) so CZ/SK/DE fires near the border are
-    # correctly excluded.  Only apply when the viewport overlaps Poland
-    # so users zoomed out globally still see fires everywhere.
-    if bbox:
-        vw, vs, ve, vn = bbox  # viewport bounds
-        pw, ps, pe, pn = POLAND_BBOX
-        viewport_overlaps_poland = (vw < pe and ve > pw and vs < pn and vn > ps)
-        if viewport_overlaps_poland:
-            items = [
-                row for row in items
-                if _point_in_poland(row["centroid_lat"], row["centroid_lon"])
-            ]
+    # Optional country filter — only applied when the client sends
+    # ``country=pl`` (the /map/poland SEO page).  The main map has
+    # no country filter so fires everywhere are visible.
+    country = request.args.get("country", "")
+    if country == "pl":
+        items = [
+            row for row in items
+            if _point_in_poland(row["centroid_lat"], row["centroid_lon"])
+        ]
 
     if meta_only:
         # Cheap dot view — no state loads, no contour extraction.
