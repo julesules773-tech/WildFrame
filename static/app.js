@@ -4472,7 +4472,7 @@
     }
 
     // --- Single current perimeter: the fire edge (0.3 contour) —
-    //     one clean advancing line with a light fill.
+    //     one clean advancing white line with a light fill.
     if (f.contour_low && f.contour_low.length > 0) {
       for (const seg of f.contour_low) {
         if (seg.length < 3) continue;
@@ -4480,7 +4480,7 @@
         L.polygon(seg, {
           fillColor: "#ff3c00",
           fillOpacity: 0.15 + 0.1 * idx / Math.max(SIM.frames.length - 1, 1),
-          color: "#ff3c00",
+          color: "#ffffff",
           weight: 3,
           opacity: 0.95,
         }).addTo(SIM.contourLayer);
