@@ -2859,20 +2859,37 @@ def simulate_fire(grid_id: str):
     dmc = float(entry.get("dmc") or 0.0)
     mf = effis_fwi.moisture_factor(ffmc) if ffmc > 0 else 1.0
 
-    # Road segments: use the DB cache (already populated by the road-risk
-    # endpoint) to avoid blocking the simulation on a live Overpass fetch.
-    # On cache miss, roads are simply empty for this simulation — the
-    # heatmap + containment still render correctly.
+    # Road segments: cache-only lookup (no live Overpass fetch).
+    # The road-risk endpoint populates the cache; if the user hasn't
+    # viewed road risk for this fire yet, roads are simply empty —
+    # the heatmap + containment still render correctly.
     contour = grid.export_contour(level=contour_level)
     all_cpts = [pt for seg in contour for pt in seg]
     road_segments = []
     if all_cpts:
         clat = sum(p[0] for p in all_cpts) / len(all_cpts)
         clon = sum(p[1] for p in all_cpts) / len(all_cpts)
-        try:
-            road_segments = _fetch_osm_roads(clat, clon, radius_km)
-        except Exception as exc:
-            print(f"[simulate] road fetch skipped for {grid_id}: {exc}")
+        cache_key = _osm_cache_key(clat, clon, radius_km)
+        cached = db.osm_get(cache_key)
+        if cached and cached.get("segments"):
+            road_segments = cached["segments"]
+        else:
+            # Fuzzy lookup: same radius, centroid within 1.5 km
+            for k, v in db.osm_iter():
+                parsed_k = k.split(",")
+                if len(parsed_k) == 3:
+                    try:
+                        ck_lat, ck_lon, ck_rad = float(parsed_k[0]), float(parsed_k[1]), float(parsed_k[2])
+                    except ValueError:
+                        continue
+                    if abs(ck_rad - radius_km) > 0.01:
+                        continue
+                    d = _haversine(clat, clon, ck_lat, ck_lon)
+                    if d < 1500.0 and v.get("segments"):
+                        road_segments = v["segments"]
+                        break
+        if road_segments:
+            print(f"[simulate] road cache hit for {grid_id}: {len(road_segments)} segments")
 
     # Clone the grid so we never mutate the live state
     grid_copy = BayesianFireGrid.from_dict(grid.to_dict())
