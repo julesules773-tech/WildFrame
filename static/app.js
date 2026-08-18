@@ -4462,7 +4462,7 @@
     for (let gi = 0; gi < idx; gi++) {
       const gf = SIM.frames[gi];
       const opacity = 0.06 + 0.1 * (gi / Math.max(idx, 1));
-      const segs = gf.contour_low || [];
+      const segs = gf.contour_perimeter || [];
       for (const seg of segs) {
         if (seg.length < 2) continue;
         L.polyline(seg, {
@@ -4471,10 +4471,10 @@
       }
     }
 
-    // --- Single current perimeter: the fire edge (0.3 contour) —
+    // --- Single current perimeter: the outer spread boundary (0.05)
     //     one clean advancing white line with a light fill.
-    if (f.contour_low && f.contour_low.length > 0) {
-      for (const seg of f.contour_low) {
+    if (f.contour_perimeter && f.contour_perimeter.length > 0) {
+      for (const seg of f.contour_perimeter) {
         if (seg.length < 3) continue;
         // Filled area inside the perimeter
         L.polygon(seg, {

@@ -2892,9 +2892,12 @@ def simulate_fire(grid_id: str):
         # Sparse heatmap (threshold = 0.03 to keep payload small)
         state = grid_copy.export_state(threshold=0.03)
 
-        # Contours at two levels: fire edge (0.3) and hot core (0.6)
-        c_low = grid_copy.export_contour(level=contour_level)
-        c_high = grid_copy.export_contour(level=0.6)
+        # Perimeter contour: use a very low level (0.05) so the line
+        # wraps the OUTER boundary of the predicted spread area — not
+        # deep inside the fire body.  The 0.3 contour would sit inside
+        # because most cells are >0.9 probability.
+        c_perimeter = grid_copy.export_contour(level=0.05)
+        c_hot = grid_copy.export_contour(level=0.6)
 
         # Road risk at this timestep
         road_risk = []
@@ -2902,7 +2905,7 @@ def simulate_fire(grid_id: str):
             try:
                 risk = compute_road_risk(
                     grid_copy, road_segments, wind_speed, wind_dir_deg,
-                    contour_level=contour_level, contour=c_low,
+                    contour_level=0.05, contour=c_perimeter,
                     moisture_factor=mf,
                 )
                 # Only return non-low roads to keep payload small
@@ -2922,8 +2925,8 @@ def simulate_fire(grid_id: str):
             "t_min": t_min,
             "cells": state["cells"],
             "cell_count": state["count"],
-            "contour_low": c_low,
-            "contour_high": c_high,
+            "contour_perimeter": c_perimeter,
+            "contour_hot": c_hot,
             "road_risk": road_risk,
             "containment": round(containment, 3),
             "max_p": float(grid_copy.probabilities.max()),
