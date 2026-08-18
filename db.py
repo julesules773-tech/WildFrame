@@ -1299,7 +1299,7 @@ def bulk_find_or_create_grids(
 def bulk_mutate_grids(
     mode: str,
     jobs: list[tuple[str, Callable[[BayesianFireGrid, dict], Any]]],
-    chunk: int = 500,
+    chunk: int = 250,
 ) -> dict[str, Any]:
     """Run ``fn(grid, entry)`` for many grids, persisting all in bulk.
 
@@ -1720,7 +1720,10 @@ def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optio
     for points that fall on a loaded ``land_cover`` polygon; points outside
     CORINE coverage (or on the sea) are simply absent from the result.
 
-    One batched query with a GiST-indexed join instead of N round trips.
+    Uses a temp table with a GiST index for the spatial join — much faster
+    than the previous VALUES approach for large batches (>5k points), because
+    Postgres can optimize the join plan and avoid re-parsing a massive SQL
+    string with 30k+ bind parameters.
     """
     if not points:
         return {}
@@ -1731,35 +1734,38 @@ def land_cover_codes_batch(points: list[tuple[float, float]]) -> dict[int, Optio
         # than crashing the FIRMS pass.
         return {}
     # Only points inside the layer's own coverage can hit a polygon — skip
-    # the rest (they fail open as burnable anyway). On the global pass this
-    # trims ~250k points to the Poland footprint: a handful of rows instead
-    # of 26 chunked VALUES joins, which is both faster and far lighter on
-    # memory (see _table_bbox). Chunked: each row is 3 bind params
-    # (idx, lon, lat), so a single VALUES list tops out at ~21.8k rows
-    # before Postgres's 65,535-param limit — 10k rows/chunk stays safe.
+    # the rest (they fail open as burnable anyway).
     keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
             if _in_bbox(lat, lon, bbox)]
+    if not keep:
+        return {}
     out: dict[int, Optional[str]] = {}
-    for start in range(0, len(keep), _BATCH_LOOKUP_CHUNK):
-        chunk = keep[start:start + _BATCH_LOOKUP_CHUNK]
-        values_sql = ", ".join(
-            "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))" for _ in chunk
-        )
-        params: list[Any] = []
-        for idx, (lat, lon) in chunk:
-            params.extend([idx, lon, lat])
-        with _conn() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT DISTINCT ON (hs.idx) hs.idx, lc.code_18
-                FROM (VALUES {values_sql}) AS hs(idx, geom)
-                JOIN land_cover lc ON ST_Intersects(lc.geom, hs.geom)
-                ORDER BY hs.idx, lc.code_18
-                """,
-                params,
-            ).fetchall()
-        for r in rows:
-            out[int(r["idx"])] = str(r["code_18"])
+    with _conn() as conn:
+        # Temp table with a GiST index: Postgres can optimize the join plan
+        # and avoid re-parsing a massive VALUES SQL string.
+        conn.execute("CREATE TEMP TABLE _lc_pts (idx int, geom geometry) ON COMMIT DROP")
+        conn.execute("CREATE INDEX ON _lc_pts USING gist (geom)")
+        # Batch inserts (1k rows each) to stay under memory limits
+        for start in range(0, len(keep), 1000):
+            batch = keep[start:start + 1000]
+            conn.execute(
+                "INSERT INTO _lc_pts (idx, geom) VALUES "
+                + ", ".join(
+                    "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                    for _ in batch
+                ),
+                [p for idx, (lat, lon) in batch for p in (idx, lon, lat)],
+            )
+        rows = conn.execute(
+            """
+            SELECT DISTINCT ON (p.idx) p.idx, lc.code_18
+            FROM _lc_pts p
+            JOIN land_cover lc ON ST_Intersects(lc.geom, p.geom)
+            ORDER BY p.idx, lc.code_18
+            """
+        ).fetchall()
+    for r in rows:
+        out[int(r["idx"])] = str(r["code_18"])
     return out
 
 

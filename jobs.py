@@ -272,6 +272,7 @@ def firms_fetch_job(**kwargs):
             "volcanic_tagged": result.get("volcanic_tagged", 0),
             "conflict_tagged": result.get("conflict_tagged", 0),
             "source_dropped": result.get("source_dropped", 0),
+            "timed_out": result.get("timed_out", False),
         })
         if result.get("api_error"):
             logger.warning("[firms-poller] API error: %s", result["api_error"])
@@ -284,6 +285,15 @@ def firms_fetch_job(**kwargs):
         else:
             logger.info("[firms-poller] No FIRMS hotspots found.")
         return result
+    except TimeoutError as exc:
+        logger.error("[firms-poller] Pass timed out: %s", exc)
+        db.kv_set("firms_fetch_in_progress", False)
+        db.kv_set("firms_fetch_last_result", {
+            "finished_at": time.time(),
+            "error": str(exc),
+            "timed_out": True,
+        })
+        return {"error": str(exc), "timed_out": True}
     except Exception as exc:
         logger.error("[firms-poller] Error: %s", exc)
         db.kv_set("firms_fetch_in_progress", False)

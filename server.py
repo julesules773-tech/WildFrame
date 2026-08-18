@@ -3206,6 +3206,11 @@ def satellite_poller_stop():
 # (_FIRMS_CONFIRM_RADIUS_M = 3000.0).
 _FIRMS_CLUSTER_RADIUS_M = float(os.environ.get("WILDFRAME_FIRMS_CLUSTER_RADIUS_M", "3000.0"))
 
+# Hard wall-clock timeout for a FIRMS pass (seconds).  If the pass exceeds
+# this, we abort and let the next periodic run retry.  Prevents a stuck
+# pass from starving the worker queue indefinitely.
+_PASS_TIMEOUT_S = float(os.environ.get("WILDFRAME_PASS_TIMEOUT_S", "600"))  # 10 min
+
 # ---------------------------------------------------------------------------
 # Static-source downweight (Step 2 of the filtering plan)
 # ---------------------------------------------------------------------------
@@ -3799,6 +3804,18 @@ def _fetch_nasa_firms_pass(
         "stale_grids_purged": int — production grids expired (>24h no evidence)
         "api_error"        : str | None — error message if the API call failed
     """
+    pass_start = time.time()
+    pass_deadline = pass_start + _PASS_TIMEOUT_S
+
+    def _check_timeout(label: str = "") -> None:
+        """Raise if the pass has exceeded its wall-clock budget."""
+        if time.time() > pass_deadline:
+            elapsed = time.time() - pass_start
+            raise TimeoutError(
+                f"FIRMS pass exceeded {_PASS_TIMEOUT_S:.0f}s limit "
+                f"({elapsed:.0f}s elapsed at {label})"
+            )
+
     api_key = nasa_firms._get_api_key()
     if not api_key:
         return {
@@ -3936,6 +3953,7 @@ def _fetch_nasa_firms_pass(
     # O(n) spatial-hash clustering (see _cluster_firms_hotspots): hotspots
     # within _FIRMS_CLUSTER_RADIUS_M of each other are grouped as one fire.
     clusters = _cluster_firms_hotspots(all_hotspots)
+    _check_timeout("clustering")
 
     logger.info(
         "[firms] Clustered %d hotspots into %d candidate fires",
@@ -3966,6 +3984,7 @@ def _fetch_nasa_firms_pass(
     # New grids start with the default wind and get real Open-Meteo values
     # on the next grids.advance wind sweep (wind_updated_at = 0 sorts first).
     grid_ids, new_grid_ids = db.bulk_find_or_create_grids(mode, clusters)
+    _check_timeout("grid-matching")
 
     # Merge clusters that map to the same grid (two FIRMS clusters can sit
     # within GRID_MATCH_RADIUS_M of the same existing grid) so each grid
@@ -3999,7 +4018,9 @@ def _fetch_nasa_firms_pass(
 
         jobs.append((grid_id, _inject))
 
+    _check_timeout("before-fusion")
     results = db.bulk_mutate_grids(mode, jobs)
+    _check_timeout("fusion-complete")
     total_injected = sum(results.values())
     grids_hit = sum(1 for v in results.values() if v)
 
@@ -4060,6 +4081,7 @@ def _fetch_nasa_firms_pass(
         "new_grids": new_grids,
         "stale_grids_purged": stale_purged,
         "reports_confirmed": reports_confirmed,
+        "timed_out": False,
     }
 
 
