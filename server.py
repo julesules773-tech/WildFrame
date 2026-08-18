@@ -1927,6 +1927,35 @@ def _grid_to_json(
     }
 
 
+@app.route("/api/conflict-zones", methods=["GET"])
+def get_conflict_zones():
+    """Return conflict zone geometries for client-side rendering.
+
+    Public endpoint — no auth needed (the zones are informational).
+    The client renders these as hover overlays explaining why satellite
+    fires are hidden in conflict regions.
+    """
+    raw = db.kv_get("conflict_zones") or []
+    zones = []
+    for z in raw:
+        ztype = z.get("type")
+        if ztype == "bbox":
+            zones.append({
+                "type": "bbox",
+                "bounds": [z["s"], z["w"], z["n"], z["e"]],  # Leaflet LatLngBounds
+                "label": z.get("label", "Conflict zone"),
+            })
+        elif ztype == "polygon":
+            pts = z.get("points", [])
+            if pts:
+                zones.append({
+                    "type": "polygon",
+                    "points": [[p[1], p[0]] for p in pts],  # [lat,lon] for Leaflet
+                    "label": z.get("label", "Conflict zone"),
+                })
+    return jsonify({"zones": zones})
+
+
 @app.route("/api/bayesian/state", methods=["GET"])
 def bayesian_get_state():
     """

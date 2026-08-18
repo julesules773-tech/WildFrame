@@ -3971,6 +3971,9 @@
         toggleRoadRisk(e.target.checked);
       });
     }
+
+    // Load conflict zone overlays (non-blocking)
+    _loadConflictZones();
   }
 
   // -----------------------------------------------------------------------
@@ -4544,6 +4547,54 @@
       }, 1500);  // 1.5s per frame
     }
   };
+
+  // -----------------------------------------------------------------------
+  // Conflict-zone hover overlays
+  // -----------------------------------------------------------------------
+  // Render semi-transparent overlays for conflict zones with a hover
+  // popup explaining why satellite fires are hidden there.
+  async function _loadConflictZones() {
+    try {
+      const res = await fetch("/api/conflict-zones");
+      if (!res.ok) return;
+      const { zones } = await res.json();
+      if (!zones || !zones.length) return;
+
+      const conflictLayer = L.layerGroup().addTo(STATE.map);
+      const msg = "Satellite fire data is not shown in this region. " +
+        "Active conflict makes it impossible to distinguish wildfires from " +
+        "non-fire thermal sources (strikes, explosions, settlements).";
+
+      for (const z of zones) {
+        let layer;
+        if (z.type === "bbox") {
+          const b = z.bounds; // [south, west, north, east]
+          layer = L.rectangle([[b[0], b[1]], [b[2], b[3]]], {
+            color: "#ff4444", weight: 1, opacity: 0.3,
+            fillColor: "#ff4444", fillOpacity: 0.06,
+            interactive: true,
+          });
+        } else if (z.type === "polygon" && z.points.length >= 3) {
+          layer = L.polygon(z.points, {
+            color: "#ff4444", weight: 1, opacity: 0.3,
+            fillColor: "#ff4444", fillOpacity: 0.06,
+            interactive: true,
+          });
+        }
+        if (layer) {
+          layer.bindPopup(
+            `<div style="max-width:220px;font-size:12px;line-height:1.4;">` +
+            `<div style="font-weight:700;margin-bottom:4px;">⚠️ ${z.label}</div>` +
+            `<div>${msg}</div></div>`,
+            { closeButton: false, autoPan: false }
+          );
+          layer.on("mouseover", function(e) { this.openPopup(); });
+          layer.on("mouseout", function(e) { this.closePopup(); });
+          layer.addTo(conflictLayer);
+        }
+      }
+    } catch (_) { /* non-critical */ }
+  }
 
   // -----------------------------------------------------------------------
   // Boot
