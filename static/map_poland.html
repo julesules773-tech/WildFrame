@@ -261,7 +261,7 @@
       var bbox = "14.07,49.00,24.15,54.84"; // Poland
       var visibleP = 0.1;
 
-      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production&bbox=" + encodeURIComponent(bbox))
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production&country=pl&bbox=" + encodeURIComponent(bbox))
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var dots = (data.grids || []).filter(function (g) { return g.max_p >= visibleP; });
