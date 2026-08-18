@@ -4385,8 +4385,12 @@
   function _wfStopSim() {
     SIM.active = false;
     if (SIM.timer) { clearInterval(SIM.timer); SIM.timer = null; }
-    if (SIM.roadLayer) { STATE.map.removeLayer(SIM.roadLayer); SIM.roadLayer = null; }
-    if (SIM.contourLayer) { STATE.map.removeLayer(SIM.contourLayer); SIM.contourLayer = null; }
+    try {
+      if (SIM.roadLayer && STATE.map) { STATE.map.removeLayer(SIM.roadLayer); }
+      if (SIM.contourLayer && STATE.map) { STATE.map.removeLayer(SIM.contourLayer); }
+    } catch (_) { /* ignore */ }
+    SIM.roadLayer = null;
+    SIM.contourLayer = null;
     const el = document.getElementById("wf-sim-player");
     if (el) el.remove();
     const btn = document.getElementById("wf-sim-btn");
@@ -4422,7 +4426,7 @@
   }
 
   function _showSimFrame(idx) {
-    if (!SIM.active || idx < 0 || idx >= SIM.frames.length) return;
+    if (!SIM.active || !SIM.contourLayer || !SIM.roadLayer || idx < 0 || idx >= SIM.frames.length) return;
     SIM.idx = idx;
     const f = SIM.frames[idx];
 
@@ -4450,9 +4454,8 @@
     if (label) label.textContent = f.t_label;
 
     // Clear old overlays
-    SIM.layer.clearLayers();
-    SIM.roadLayer.clearLayers();
-    SIM.contourLayer.clearLayers();
+    if (SIM.roadLayer) SIM.roadLayer.clearLayers();
+    if (SIM.contourLayer) SIM.contourLayer.clearLayers();
 
     // --- Ghost perimeters: show outlines of previous steps so the
     //     user sees the fire advancing.  Earlier steps are dimmer.
