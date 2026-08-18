@@ -1776,6 +1776,21 @@ def _grid_to_json(
     # one request never serializes ~30s of contours.
     items = db.list_grid_meta(mode, bbox=bbox, limit=effective_max)
 
+    # Exclude grids whose centroid falls inside a conflict zone.
+    # The FIRMS pass already drops new hotspots in these zones, but grids
+    # created before the filter was activated remain in the DB.
+    if SOURCE_FILTER_CONFLICT in ("drop", "downweight"):
+        _czones = db.kv_get("conflict_zones") or []
+        if _czones:
+            _prepared_cz = _prepare_conflict_zones(_czones)
+            if _prepared_cz:
+                items = [
+                    row for row in items
+                    if not _point_in_prepared_zones(
+                        row["centroid_lon"], row["centroid_lat"], _prepared_cz
+                    )
+                ]
+
     if meta_only:
         # Cheap dot view — no state loads, no contour extraction.
         grids_out = [
