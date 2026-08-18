@@ -987,7 +987,40 @@ def faq_page():
 
 
 # Poland bbox for the /map/poland SEO landing page (west,south,east,north).
-POLAND_BBOX = (15.20, 49.00, 24.15, 54.84)  # tightened west to exclude CZ fires (known: clips tiny SW Poland corner)
+POLAND_BBOX = (14.07, 49.00, 24.15, 54.84)  # full bbox for SEO page / PostGIS pre-filter
+
+# Simplified Poland boundary polygon (~20 vertices) for accurate
+# centroid-in-country filtering.  Replaces the bbox check which
+# incorrectly includes CZ/SK/DE/BY/LT/RU territory.
+POLAND_POLYGON: list[tuple[float, float]] = [
+    (54.84, 18.95),   # north coast (Gdansk area)
+    (54.50, 22.80),   # NE — Kaliningrad border
+    (54.00, 23.50),   # Sejny
+    (53.50, 24.00),   # Grodno border
+    (52.10, 24.00),   # Brest border
+    (51.25, 24.00),   # Wlodawa
+    (50.40, 24.00),   # Lublin SE
+    (49.80, 23.50),   # Przemysl
+    (49.00, 22.50),   # Bieszczady
+    (49.00, 20.00),   # Tatras
+    (49.20, 18.50),   # Cieszyn
+    (49.50, 17.50),   # Jeseniky border
+    (50.10, 17.00),   # Glubczyce
+    (50.50, 16.50),   # Kłodzko
+    (51.10, 15.50),   # Zgorzelec
+    (51.80, 14.70),   # Słubice
+    (52.80, 14.30),   # Schwedt border
+    (53.80, 14.25),   # Świnoujście
+    (54.50, 16.50),   # Darłowo
+]
+
+
+def _point_in_poland(lat: float, lon: float) -> bool:
+    """Fast ray-cast point-in-polygon for the simplified Poland boundary."""
+    # POLAND_POLYGON is defined as (lat, lon) pairs; _point_in_polygon
+    # expects (lon, lat) pairs, so we swap each point.
+    pts = [(p[1], p[0]) for p in POLAND_POLYGON]
+    return _point_in_polygon(lon, lat, pts)
 
 
 @app.route("/map/poland")
@@ -1792,12 +1825,12 @@ def _grid_to_json(
                 ]
 
     # Exclude grids outside Poland — the 0.3° viewport margin pulls in
-    # fires from neighbouring countries; clip to Poland's bbox so only
-    # domestic fires are shown.
-    pw, ps, pe, pn = POLAND_BBOX
+    # fires from neighbouring countries; use the simplified polygon
+    # boundary (not the bbox) so CZ/SK/DE fires near the border are
+    # correctly excluded.
     items = [
         row for row in items
-        if ps <= row["centroid_lat"] <= pn and pw <= row["centroid_lon"] <= pe
+        if _point_in_poland(row["centroid_lat"], row["centroid_lon"])
     ]
 
     if meta_only:
