@@ -1791,6 +1791,15 @@ def _grid_to_json(
                     )
                 ]
 
+    # Exclude grids outside Poland — the 0.3° viewport margin pulls in
+    # fires from neighbouring countries; clip to Poland's bbox so only
+    # domestic fires are shown.
+    pw, ps, pe, pn = POLAND_BBOX
+    items = [
+        row for row in items
+        if ps <= row["centroid_lat"] <= pn and pw <= row["centroid_lon"] <= pe
+    ]
+
     if meta_only:
         # Cheap dot view — no state loads, no contour extraction.
         grids_out = [
