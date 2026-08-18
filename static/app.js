@@ -1859,6 +1859,7 @@
       }
       STATE.bayesian.fullSig = sig;
       STATE.bayesian.pollMs = 5000;
+      STATE.bayesian.rawGrids = grids;  // for simulate panel button
 
       // Each grid is one physically separate fire (its own cluster), with
       // its own cell size / reference origin. Build one "region" per grid
@@ -2501,9 +2502,6 @@
       <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
       ${windRow}
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
-      <div style="margin-top:8px;display:flex;gap:6px">
-        <button id="wf-sim-btn" onclick="window._wfStartSim('${d.id}', ${d.lat}, ${d.lon})" style="flex:1;padding:6px 0;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">▶ Simulate Spread</button>
-      </div>
       <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">🔍 Zooming in…</div>
     `;
 
@@ -4350,15 +4348,35 @@
 
   const SIM = { active: false, frames: [], meta: null, timer: null, idx: 0, roadLayer: null, contourLayer: null };
 
-  window._wfStartSim = async function(gridId, lat, lon) {
+  // Find the nearest grid to the viewport center from the raw grid data
+  function _nearestGridToViewport() {
+    const grids = STATE.bayesian && STATE.bayesian.rawGrids;
+    if (!grids || !grids.length || !STATE.map) return null;
+    const c = STATE.map.getCenter();
+    let best = null, bestDist = Infinity;
+    for (const g of grids) {
+      const lat = g.centroid_lat || (g.state && g.state.ref_lat);
+      const lon = g.centroid_lon || (g.state && g.state.ref_lon);
+      if (lat == null || lon == null) continue;
+      const dlat = lat - c.lat, dlon = (lon - c.lng) * Math.cos(c.lat * Math.PI / 180);
+      const dist = dlat * dlat + dlon * dlon;
+      if (dist < bestDist) { bestDist = dist; best = g; }
+    }
+    return best;
+  }
+
+  async function _wfStartSim() {
     if (SIM.active) { _wfStopSim(); return; }
-    const btn = document.getElementById("wf-sim-btn");
+    const btn = document.getElementById("wf-sim-panel-btn");
+    const grid = _nearestGridToViewport();
+    if (!grid) { toast("No fires visible — zoom into a fire first.", "warn"); return; }
+    const gridId = grid.id;
     if (btn) { btn.textContent = "⏳ Computing…"; btn.disabled = true; }
     try {
       const res = await fetch(`/api/simulate/${encodeURIComponent(gridId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ steps: 6 }),
+        body: JSON.stringify({ steps: 24 }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -4378,9 +4396,9 @@
     } catch (e) {
       console.error("[simulate] error:", e);
       toast(`Simulation failed: ${e.message}`, "error");
-      if (btn) { btn.textContent = "▶ Simulate Spread"; btn.disabled = false; }
+      if (btn) { btn.textContent = "▶ Simulate Spread (Beta)"; btn.disabled = false; }
     }
-  };
+  }
 
   function _wfStopSim() {
     SIM.active = false;
@@ -4393,10 +4411,13 @@
     SIM.contourLayer = null;
     const el = document.getElementById("wf-sim-player");
     if (el) el.remove();
-    const btn = document.getElementById("wf-sim-btn");
-    if (btn) { btn.textContent = "▶ Simulate Spread"; btn.disabled = false; }
+    const btn = document.getElementById("wf-sim-panel-btn");
+    if (btn) { btn.textContent = "▶ Simulate Spread (Beta)"; btn.disabled = false; }
   }
   window._wfStopSim = _wfStopSim;
+
+  // Wire up the panel simulate button (after _wfStartSim is defined)
+  document.getElementById("wf-sim-panel-btn").addEventListener("click", _wfStartSim);
 
   function _renderSimPlayer(data) {
     // Remove old player if any
