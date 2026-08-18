@@ -4348,7 +4348,7 @@
   // On-demand forecast: user clicks "Simulate Spread" → fetch N future
   // timesteps → animate heatmap, road risk, and containment probability.
 
-  const SIM = { active: false, frames: [], meta: null, timer: null, idx: 0, layer: null, roadLayer: null, contourLayer: null };
+  const SIM = { active: false, frames: [], meta: null, timer: null, idx: 0, roadLayer: null, contourLayer: null };
 
   window._wfStartSim = async function(gridId, lat, lon) {
     if (SIM.active) { _wfStopSim(); return; }
@@ -4369,7 +4369,6 @@
       SIM.timer = null;
 
       // Create overlay layers (below popups, above heatmap)
-      SIM.layer = L.layerGroup().addTo(STATE.map);
       SIM.roadLayer = L.layerGroup().addTo(STATE.map);
       SIM.contourLayer = L.layerGroup().addTo(STATE.map);
 
@@ -4386,7 +4385,6 @@
   function _wfStopSim() {
     SIM.active = false;
     if (SIM.timer) { clearInterval(SIM.timer); SIM.timer = null; }
-    if (SIM.layer) { STATE.map.removeLayer(SIM.layer); SIM.layer = null; }
     if (SIM.roadLayer) { STATE.map.removeLayer(SIM.roadLayer); SIM.roadLayer = null; }
     if (SIM.contourLayer) { STATE.map.removeLayer(SIM.contourLayer); SIM.contourLayer = null; }
     const el = document.getElementById("wf-sim-player");
@@ -4456,39 +4454,60 @@
     SIM.roadLayer.clearLayers();
     SIM.contourLayer.clearLayers();
 
-    // Draw heatmap cells for this frame
-    if (f.cells && f.cells.length > 0) {
-      for (const c of f.cells) {
-        const p = Math.min(1, Math.max(0, c.p));
-        const r = Math.round(255 * Math.min(1, p * 1.3));
-        const g = Math.round(60 * (1 - p));
-        const b = 0;
-        const a = 0.15 + 0.55 * p;
-        const radius = 30 + 80 * p;
-        L.circleMarker([c.lat, c.lon], {
-          radius: radius,
-          fillColor: `rgba(${r},${g},${b},${a})`,
-          fillOpacity: 0.7,
-          stroke: false,
-        }).addTo(SIM.layer);
+    // --- Ghost perimeters: show outlines of previous steps so the
+    //     user sees the fire advancing.  Earlier steps are dimmer.
+    for (let gi = 0; gi < idx; gi++) {
+      const gf = SIM.frames[gi];
+      const opacity = 0.06 + 0.1 * (gi / Math.max(idx, 1));
+      const outer = gf.contour_outer || gf.contour_low || [];
+      for (const seg of outer) {
+        if (seg.length < 2) continue;
+        L.polyline(seg, {
+          color: "#ff6600", weight: 1.5, opacity, dashArray: "4 4",
+        }).addTo(SIM.contourLayer);
       }
     }
 
-    // Draw contour lines
-    if (f.contour_low) {
+    // --- Current perimeter: the outer boundary (0.15) is the
+    //     advancing fire edge — filled polygon + bold outline.
+    //     This is the visual the user expects: a growing perimeter.
+    const outerSegs = f.contour_outer || f.contour_low || [];
+    if (outerSegs.length > 0) {
+      for (const seg of outerSegs) {
+        if (seg.length < 3) continue;
+        L.polygon(seg, {
+          fillColor: "#ff3c00",
+          fillOpacity: 0.18 + 0.12 * idx / Math.max(SIM.frames.length - 1, 1),
+          color: "#ff3c00",
+          weight: 2.5,
+          opacity: 0.9,
+        }).addTo(SIM.contourLayer);
+      }
+    }
+    // Fire edge (0.3 contour) — slightly darker ring inside
+    if (f.contour_low && f.contour_low.length > 0) {
       for (const seg of f.contour_low) {
         if (seg.length < 2) continue;
-        L.polyline(seg, { color: "#ff3c00", weight: 2, opacity: 0.8, dashArray: null }).addTo(SIM.contourLayer);
+        L.polyline(seg, {
+          color: "#ff0f00", weight: 1.5, opacity: 0.6, dashArray: "6 3",
+        }).addTo(SIM.contourLayer);
       }
     }
-    if (f.contour_high) {
+    // Inner hot core (0.6 contour) — dark red fill
+    if (f.contour_high && f.contour_high.length > 0) {
       for (const seg of f.contour_high) {
-        if (seg.length < 2) continue;
-        L.polyline(seg, { color: "#ff0f00", weight: 2.5, opacity: 0.9 }).addTo(SIM.contourLayer);
+        if (seg.length < 3) continue;
+        L.polygon(seg, {
+          fillColor: "#ff0f00",
+          fillOpacity: 0.35,
+          color: "#ff0f00",
+          weight: 2,
+          opacity: 0.95,
+        }).addTo(SIM.contourLayer);
       }
     }
 
-    // Draw road risk
+    // --- Road risk lines (colored by tier) ---
     if (f.road_risk && f.road_risk.length > 0) {
       const tierColors = { critical: "#ff0000", high: "#ff6600", moderate: "#ffaa00" };
       for (const r of f.road_risk) {

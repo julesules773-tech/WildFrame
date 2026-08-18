@@ -2892,7 +2892,8 @@ def simulate_fire(grid_id: str):
         # Sparse heatmap (threshold = 0.03 to keep payload small)
         state = grid_copy.export_state(threshold=0.03)
 
-        # Contours at two levels
+        # Contours at three levels: outer boundary (0.15), fire edge (0.3), hot core (0.6)
+        c_outer = grid_copy.export_contour(level=0.15)
         c_low = grid_copy.export_contour(level=contour_level)
         c_high = grid_copy.export_contour(level=0.6)
 
@@ -2922,6 +2923,7 @@ def simulate_fire(grid_id: str):
             "t_min": t_min,
             "cells": state["cells"],
             "cell_count": state["count"],
+            "contour_outer": c_outer,
             "contour_low": c_low,
             "contour_high": c_high,
             "road_risk": road_risk,
