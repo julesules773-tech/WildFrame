@@ -4473,16 +4473,20 @@
 
     // --- Single current perimeter: the outer spread boundary (0.05)
     //     one clean advancing white line with a light fill.
+    //     After hour 2 (step 8), the line goes dashed to indicate
+    //     lower forecast confidence.
+    const hour2Step = 8; // 8 × 15 min = 2 h
     if (f.contour_perimeter && f.contour_perimeter.length > 0) {
       for (const seg of f.contour_perimeter) {
         if (seg.length < 3) continue;
-        // Filled area inside the perimeter
+        const dashed = idx >= hour2Step;
         L.polygon(seg, {
           fillColor: "#ff3c00",
           fillOpacity: 0.15 + 0.1 * idx / Math.max(SIM.frames.length - 1, 1),
           color: "#ffffff",
-          weight: 3,
-          opacity: 0.95,
+          weight: dashed ? 2 : 3,
+          opacity: dashed ? 0.6 : 0.95,
+          dashArray: dashed ? "8 6" : null,
         }).addTo(SIM.contourLayer);
       }
     }

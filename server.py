@@ -2825,7 +2825,7 @@ def simulate_fire(grid_id: str):
 
     JSON body (all optional):
       {
-        "steps": 6,             // number of 15-min timesteps (1-12)
+        "steps": 24,            // number of 15-min timesteps (1-24 = 6 h max)
         "contour_level": 0.3,   // primary contour level
         "radius_km": 5.0        // road search radius
       }
@@ -2841,7 +2841,7 @@ def simulate_fire(grid_id: str):
     import copy
 
     data = request.get_json(silent=True) or {}
-    steps = max(1, min(int(data.get("steps", 6)), 12))
+    steps = max(1, min(int(data.get("steps", 24)), 24))  # 6 h max (24 × 15 min)
     contour_level = float(data.get("contour_level", 0.3))
     radius_km = float(data.get("radius_km", 5.0))
     demo = data.get("mode") == "demo"
