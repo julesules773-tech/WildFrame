@@ -987,7 +987,7 @@ def faq_page():
 
 
 # Poland bbox for the /map/poland SEO landing page (west,south,east,north).
-POLAND_BBOX = (14.07, 49.00, 24.15, 54.84)
+POLAND_BBOX = (14.85, 49.00, 24.15, 54.84)  # tightened west to exclude Czechia
 
 
 @app.route("/map/poland")
