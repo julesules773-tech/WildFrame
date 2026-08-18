@@ -4457,13 +4457,13 @@
     if (SIM.roadLayer) SIM.roadLayer.clearLayers();
     if (SIM.contourLayer) SIM.contourLayer.clearLayers();
 
-    // --- Ghost perimeters: show outlines of previous steps so the
-    //     user sees the fire advancing.  Earlier steps are dimmer.
+    // --- Ghost perimeters: dashed outlines of where the fire was
+    //     at previous timesteps.  Earlier steps are dimmer.
     for (let gi = 0; gi < idx; gi++) {
       const gf = SIM.frames[gi];
       const opacity = 0.06 + 0.1 * (gi / Math.max(idx, 1));
-      const outer = gf.contour_outer || gf.contour_low || [];
-      for (const seg of outer) {
+      const segs = gf.contour_low || [];
+      for (const seg of segs) {
         if (seg.length < 2) continue;
         L.polyline(seg, {
           color: "#ff6600", weight: 1.5, opacity, dashArray: "4 4",
@@ -4471,40 +4471,17 @@
       }
     }
 
-    // --- Current perimeter: the outer boundary (0.15) is the
-    //     advancing fire edge — filled polygon + bold outline.
-    //     This is the visual the user expects: a growing perimeter.
-    const outerSegs = f.contour_outer || f.contour_low || [];
-    if (outerSegs.length > 0) {
-      for (const seg of outerSegs) {
-        if (seg.length < 3) continue;
-        L.polygon(seg, {
-          fillColor: "#ff3c00",
-          fillOpacity: 0.18 + 0.12 * idx / Math.max(SIM.frames.length - 1, 1),
-          color: "#ff3c00",
-          weight: 2.5,
-          opacity: 0.9,
-        }).addTo(SIM.contourLayer);
-      }
-    }
-    // Fire edge (0.3 contour) — slightly darker ring inside
+    // --- Single current perimeter: the fire edge (0.3 contour) —
+    //     one clean advancing line with a light fill.
     if (f.contour_low && f.contour_low.length > 0) {
       for (const seg of f.contour_low) {
-        if (seg.length < 2) continue;
-        L.polyline(seg, {
-          color: "#ff0f00", weight: 1.5, opacity: 0.6, dashArray: "6 3",
-        }).addTo(SIM.contourLayer);
-      }
-    }
-    // Inner hot core (0.6 contour) — dark red fill
-    if (f.contour_high && f.contour_high.length > 0) {
-      for (const seg of f.contour_high) {
         if (seg.length < 3) continue;
+        // Filled area inside the perimeter
         L.polygon(seg, {
-          fillColor: "#ff0f00",
-          fillOpacity: 0.35,
-          color: "#ff0f00",
-          weight: 2,
+          fillColor: "#ff3c00",
+          fillOpacity: 0.15 + 0.1 * idx / Math.max(SIM.frames.length - 1, 1),
+          color: "#ff3c00",
+          weight: 3,
           opacity: 0.95,
         }).addTo(SIM.contourLayer);
       }
