@@ -2501,6 +2501,9 @@
       <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
       ${windRow}
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
+      <div style="margin-top:8px;display:flex;gap:6px">
+        <button id="wf-sim-btn" onclick="window._wfStartSim('${d.id}', ${d.lat}, ${d.lon})" style="flex:1;padding:6px 0;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">▶ Simulate Spread</button>
+      </div>
       <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">🔍 Zooming in…</div>
     `;
 
@@ -4338,6 +4341,185 @@
       STATE.historicDemo.originMarker = null;
     }
   }
+
+  // -----------------------------------------------------------------------
+  // Fire Spread Simulation Player
+  // -----------------------------------------------------------------------
+  // On-demand forecast: user clicks "Simulate Spread" → fetch N future
+  // timesteps → animate heatmap, road risk, and containment probability.
+
+  const SIM = { active: false, frames: [], meta: null, timer: null, idx: 0, layer: null, roadLayer: null, contourLayer: null };
+
+  window._wfStartSim = async function(gridId, lat, lon) {
+    if (SIM.active) { _wfStopSim(); return; }
+    const btn = document.getElementById("wf-sim-btn");
+    if (btn) { btn.textContent = "⏳ Computing…"; btn.disabled = true; }
+    try {
+      const res = await fetch(`/api/simulate/${encodeURIComponent(gridId)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ steps: 6 }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      SIM.frames = data.frames;
+      SIM.meta = data.metadata;
+      SIM.active = true;
+      SIM.idx = 0;
+      SIM.timer = null;
+
+      // Create overlay layers (below popups, above heatmap)
+      SIM.layer = L.layerGroup().addTo(STATE.map);
+      SIM.roadLayer = L.layerGroup().addTo(STATE.map);
+      SIM.contourLayer = L.layerGroup().addTo(STATE.map);
+
+      // Show the player UI
+      _renderSimPlayer(data);
+      _showSimFrame(0);
+    } catch (e) {
+      console.error("[simulate] error:", e);
+      toast(`Simulation failed: ${e.message}`, "error");
+      if (btn) { btn.textContent = "▶ Simulate Spread"; btn.disabled = false; }
+    }
+  };
+
+  function _wfStopSim() {
+    SIM.active = false;
+    if (SIM.timer) { clearInterval(SIM.timer); SIM.timer = null; }
+    if (SIM.layer) { STATE.map.removeLayer(SIM.layer); SIM.layer = null; }
+    if (SIM.roadLayer) { STATE.map.removeLayer(SIM.roadLayer); SIM.roadLayer = null; }
+    if (SIM.contourLayer) { STATE.map.removeLayer(SIM.contourLayer); SIM.contourLayer = null; }
+    const el = document.getElementById("wf-sim-player");
+    if (el) el.remove();
+    const btn = document.getElementById("wf-sim-btn");
+    if (btn) { btn.textContent = "▶ Simulate Spread"; btn.disabled = false; }
+  }
+  window._wfStopSim = _wfStopSim;
+
+  function _renderSimPlayer(data) {
+    // Remove old player if any
+    const old = document.getElementById("wf-sim-player");
+    if (old) old.remove();
+
+    const total = data.frames.length;
+    const m = data.metadata;
+    const html = `
+      <div id="wf-sim-player" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10000;background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#333);border-radius:12px;padding:12px 16px;min-width:340px;max-width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.5);font-family:inherit;color:var(--text,#e0e0e0);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;font-size:14px;">🔥 Spread Forecast</div>
+          <button onclick="_wfStopSim()" style="background:none;border:none;color:var(--text-muted,#888);cursor:pointer;font-size:18px;padding:0 4px;">✕</button>
+        </div>
+        <div id="wf-sim-info" style="font-size:11px;color:var(--text-muted,#888);margin-bottom:8px;">
+          Wind: ${m.wind_speed.toFixed(1)} m/s from ${Math.round(m.wind_dir_deg)}° · Moisture ×${m.moisture_factor}
+        </div>
+        <div id="wf-sim-frame" style="font-size:12px;margin-bottom:8px;"></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="wf-sim-play" onclick="window._wfSimTogglePlay()" style="background:var(--accent,#ff3c00);border:none;border-radius:6px;color:#fff;width:32px;height:32px;cursor:pointer;font-size:14px;">▶</button>
+          <input id="wf-sim-slider" type="range" min="0" max="${total - 1}" value="0" style="flex:1;accent-color:var(--accent,#ff3c00);" oninput="window._wfSimGo(+this.value)">
+          <span id="wf-sim-label" style="font-size:11px;min-width:50px;text-align:right;">+15 min</span>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML("beforeend", html);
+  }
+
+  function _showSimFrame(idx) {
+    if (!SIM.active || idx < 0 || idx >= SIM.frames.length) return;
+    SIM.idx = idx;
+    const f = SIM.frames[idx];
+
+    // Update frame info
+    const infoEl = document.getElementById("wf-sim-frame");
+    if (infoEl) {
+      const roadCount = f.road_risk ? f.road_risk.length : 0;
+      const critCount = f.road_risk ? f.road_risk.filter(r => r.risk_tier === "critical").length : 0;
+      const highCount = f.road_risk ? f.road_risk.filter(r => r.risk_tier === "high").length : 0;
+      let roadText = roadCount > 0
+        ? `· 🛣️ ${roadCount} road(s) at risk` + (critCount ? ` (${critCount} critical)` : "") + (highCount ? ` (${highCount} high)` : "")
+        : "· No roads at risk";
+      infoEl.innerHTML = `
+        <span style="color:var(--text,#e0e0e0);font-weight:600">${f.t_label}</span>
+        <span style="margin-left:8px;">${f.cell_count} cells · max ${Math.round(f.max_p * 100)}%</span>
+        <span style="margin-left:8px;">🛡️ ${Math.round(f.containment * 100)}%</span>
+        <div style="margin-top:2px;font-size:11px;color:var(--text-muted,#888)">${roadText}</div>
+      `;
+    }
+
+    // Update slider
+    const slider = document.getElementById("wf-sim-slider");
+    if (slider) slider.value = idx;
+    const label = document.getElementById("wf-sim-label");
+    if (label) label.textContent = f.t_label;
+
+    // Clear old overlays
+    SIM.layer.clearLayers();
+    SIM.roadLayer.clearLayers();
+    SIM.contourLayer.clearLayers();
+
+    // Draw heatmap cells for this frame
+    if (f.cells && f.cells.length > 0) {
+      for (const c of f.cells) {
+        const p = Math.min(1, Math.max(0, c.p));
+        const r = Math.round(255 * Math.min(1, p * 1.3));
+        const g = Math.round(60 * (1 - p));
+        const b = 0;
+        const a = 0.15 + 0.55 * p;
+        const radius = 30 + 80 * p;
+        L.circleMarker([c.lat, c.lon], {
+          radius: radius,
+          fillColor: `rgba(${r},${g},${b},${a})`,
+          fillOpacity: 0.7,
+          stroke: false,
+        }).addTo(SIM.layer);
+      }
+    }
+
+    // Draw contour lines
+    if (f.contour_low) {
+      for (const seg of f.contour_low) {
+        if (seg.length < 2) continue;
+        L.polyline(seg, { color: "#ff3c00", weight: 2, opacity: 0.8, dashArray: null }).addTo(SIM.contourLayer);
+      }
+    }
+    if (f.contour_high) {
+      for (const seg of f.contour_high) {
+        if (seg.length < 2) continue;
+        L.polyline(seg, { color: "#ff0f00", weight: 2.5, opacity: 0.9 }).addTo(SIM.contourLayer);
+      }
+    }
+
+    // Draw road risk
+    if (f.road_risk && f.road_risk.length > 0) {
+      const tierColors = { critical: "#ff0000", high: "#ff6600", moderate: "#ffaa00" };
+      for (const r of f.road_risk) {
+        if (!r.segment || r.segment.length < 2) continue;
+        const color = tierColors[r.risk_tier] || "#ffaa00";
+        const weight = r.risk_tier === "critical" ? 4 : r.risk_tier === "high" ? 3 : 2;
+        L.polyline(r.segment, { color, weight, opacity: 0.85 }).addTo(SIM.roadLayer);
+      }
+    }
+  }
+
+  window._wfSimGo = function(idx) { _showSimFrame(idx); };
+
+  window._wfSimTogglePlay = function() {
+    if (SIM.timer) {
+      clearInterval(SIM.timer);
+      SIM.timer = null;
+      const btn = document.getElementById("wf-sim-play");
+      if (btn) btn.textContent = "▶";
+    } else {
+      const btn = document.getElementById("wf-sim-play");
+      if (btn) btn.textContent = "⏸";
+      SIM.timer = setInterval(() => {
+        let next = SIM.idx + 1;
+        if (next >= SIM.frames.length) {
+          next = 0;  // loop
+        }
+        _showSimFrame(next);
+      }, 1500);  // 1.5s per frame
+    }
+  };
 
   // -----------------------------------------------------------------------
   // Boot

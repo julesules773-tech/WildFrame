@@ -591,6 +591,12 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .popup-label { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
 .popup-report-count { font-size: 22px; font-weight: 700; color: var(--accent); }
 
+/* ---------- Fire Spread Simulation Player ---------- */
+#wf-sim-player { touch-action: none; }
+#wf-sim-player input[type=range] { height: 4px; }
+#wf-sim-player button { transition: background 0.15s; }
+#wf-sim-player button:hover { filter: brightness(1.15); }
+
 /* ---------- Live Demo Status Panel ---------- */
 #live-status {
   position: fixed; bottom: 100px; right: 24px; z-index: 1001;

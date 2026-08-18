@@ -2777,6 +2777,176 @@ def agencies_ingest():
     })
 
 
+# ---------------------------------------------------------------------------
+# Fire Spread Simulation
+# ---------------------------------------------------------------------------
+# On-demand forecast: user clicks "Play" → compute N future timesteps
+# (default 6 × 15 min = 90 min) and return heatmap, road risk, and
+# containment probability at each frame.  The client animates through
+# the frames.  No storage — computed fresh per request.
+
+def _containment_estimate(
+    grid: "BayesianFireGrid",
+    wind_speed: float,
+    wind_dir_deg: float,
+    moisture_factor: float,
+    steps_done: int,
+    total_steps: int,
+) -> float:
+    """Heuristic containment probability (0–1) for a fire.
+
+    Starts at 0.1 (fire just detected) and increases as the simulation
+    progresses — a fire that hasn't spread much after many timesteps is
+    more likely to be containable.  Wind and moisture modulate the rate:
+    high wind makes containment harder (slower climb); low moisture
+    makes it easier (faster climb).  This is a *rough* heuristic for
+    the public-facing simulation — not a physics-based containment model.
+    """
+    # Base: linear climb from 0.1 to 0.8 over the full simulation
+    base = 0.1 + 0.7 * (steps_done / max(total_steps, 1))
+    # Wind penalty: >10 m/s pushes containment down
+    wind_penalty = max(0.0, (wind_speed - 10.0) * 0.015)
+    # Moisture bonus: drier fuel (mf < 1) = harder to contain
+    moisture_bonus = max(0.0, (1.0 - moisture_factor) * 0.1)
+    return max(0.05, min(0.95, base - wind_penalty + moisture_bonus))
+
+
+@app.route("/api/simulate/<grid_id>", methods=["POST"])
+def simulate_fire(grid_id: str):
+    """
+    Compute a multi-step fire spread forecast for one grid.
+
+    The grid is cloned (not mutated) and ``predict()`` is called N times
+    with 15-min timesteps.  Each frame returns:
+      - sparse heatmap cells (probability > 0.03)
+      - contour polygons at 0.3 and 0.6 levels
+      - road risk assessment (critical/high/moderate/low)
+      - containment probability estimate
+
+    JSON body (all optional):
+      {
+        "steps": 6,             // number of 15-min timesteps (1-12)
+        "contour_level": 0.3,   // primary contour level
+        "radius_km": 5.0        // road search radius
+      }
+
+    Returns:
+      {
+        "grid_id": "grid-123",
+        "frames": [...],
+        "metadata": {wind, cell_size, center, ...}
+      }
+    """
+    from bayesian_filter import BayesianFireGrid
+    import copy
+
+    data = request.get_json(silent=True) or {}
+    steps = max(1, min(int(data.get("steps", 6)), 12))
+    contour_level = float(data.get("contour_level", 0.3))
+    radius_km = float(data.get("radius_km", 5.0))
+    demo = data.get("mode") == "demo"
+    mode = "demo" if demo else "production"
+
+    # Load the grid entry (read-only — we clone before mutating)
+    entry = db.get_grid_entry(mode, grid_id)
+    if entry is None:
+        return jsonify({"error": f"Grid '{grid_id}' not found"}), 404
+
+    grid: BayesianFireGrid = entry["grid"]
+    wind_speed = float(entry.get("wind_speed", 3.0))
+    wind_dir_deg = float(entry.get("wind_dir_deg", 270.0))
+    ffmc = float(entry.get("ffmc") or 0.0)
+    dmc = float(entry.get("dmc") or 0.0)
+    mf = effis_fwi.moisture_factor(ffmc) if ffmc > 0 else 1.0
+
+    # Road segments: use the DB cache (already populated by the road-risk
+    # endpoint) to avoid blocking the simulation on a live Overpass fetch.
+    # On cache miss, roads are simply empty for this simulation — the
+    # heatmap + containment still render correctly.
+    contour = grid.export_contour(level=contour_level)
+    all_cpts = [pt for seg in contour for pt in seg]
+    road_segments = []
+    if all_cpts:
+        clat = sum(p[0] for p in all_cpts) / len(all_cpts)
+        clon = sum(p[1] for p in all_cpts) / len(all_cpts)
+        try:
+            road_segments = _fetch_osm_roads(clat, clon, radius_km)
+        except Exception as exc:
+            print(f"[simulate] road fetch skipped for {grid_id}: {exc}")
+
+    # Clone the grid so we never mutate the live state
+    grid_copy = BayesianFireGrid.from_dict(grid.to_dict())
+    dt_s = 900.0  # 15 minutes per step
+
+    frames = []
+    for step in range(1, steps + 1):
+        # Advance one timestep
+        grid_copy.predict(
+            dt=dt_s,
+            wind_speed=wind_speed,
+            wind_dir_deg=wind_dir_deg,
+            moisture_factor=mf,
+        )
+        grid_copy._compute_probs()
+
+        # Sparse heatmap (threshold = 0.03 to keep payload small)
+        state = grid_copy.export_state(threshold=0.03)
+
+        # Contours at two levels
+        c_low = grid_copy.export_contour(level=contour_level)
+        c_high = grid_copy.export_contour(level=0.6)
+
+        # Road risk at this timestep
+        road_risk = []
+        if road_segments:
+            try:
+                risk = compute_road_risk(
+                    grid_copy, road_segments, wind_speed, wind_dir_deg,
+                    contour_level=contour_level, contour=c_low,
+                    moisture_factor=mf,
+                )
+                # Only return non-low roads to keep payload small
+                road_risk = [r for r in risk if r.get("risk_tier") != "low"]
+            except Exception:
+                pass
+
+        # Containment estimate
+        containment = _containment_estimate(
+            grid_copy, wind_speed, wind_dir_deg, mf, step, steps,
+        )
+
+        t_min = step * 15
+        frames.append({
+            "step": step,
+            "t_label": f"+{t_min} min",
+            "t_min": t_min,
+            "cells": state["cells"],
+            "cell_count": state["count"],
+            "contour_low": c_low,
+            "contour_high": c_high,
+            "road_risk": road_risk,
+            "containment": round(containment, 3),
+            "max_p": float(grid_copy.probabilities.max()),
+        })
+
+    return jsonify({
+        "grid_id": grid_id,
+        "frames": frames,
+        "metadata": {
+            "wind_speed": wind_speed,
+            "wind_dir_deg": wind_dir_deg,
+            "moisture_factor": round(mf, 3),
+            "cell_size_m": grid.cell_size,
+            "center_lat": grid.center_lat,
+            "center_lon": grid.center_lon,
+            "steps": steps,
+            "step_duration_min": 15,
+            "total_duration_min": steps * 15,
+            "road_segments_count": len(road_segments),
+        },
+    })
+
+
 @app.route("/api/bayesian/predict", methods=["POST"])
 def bayesian_predict():
     """
