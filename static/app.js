@@ -482,8 +482,8 @@
       maxZoom: 18,
     });
 
-    // Layer switcher (top-right)
-    L.control.layers({ "Dark": darkLayer, "Satellite": satelliteLayer }, null, { position: "topright" }).addTo(STATE.map);
+    // Layer switcher (bottom-right, clear of the fixed top bar)
+    L.control.layers({ "Dark": darkLayer, "Satellite": satelliteLayer }, null, { position: "bottomright" }).addTo(STATE.map);
 
     // Add a locate button
     L.control.locate({

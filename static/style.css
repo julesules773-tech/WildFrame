@@ -1111,6 +1111,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
   color: var(--text-primary) !important;
   font-size: 12px !important;
+  z-index: 1003 !important;  /* above the bayesian/upload panels (1001-1002) */
 }
 .leaflet-control-layers-toggle {
   background-color: var(--bg-card) !important;
@@ -1122,6 +1123,15 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .leaflet-control-layers-toggle:hover {
   background-color: var(--bg-card-hover) !important;
+  border-color: var(--accent) !important;
+}
+/* Swap the default layers icon (designed for light maps) for a custom
+   SVG that's bright and readable against the dark basemap. */
+.leaflet-control-layers-toggle {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 6L4 16l14 10 14-10z' fill='none' stroke='%2394a3b8' stroke-width='2'/%3E%3Cpath d='M4 22l14 10 14-10' fill='none' stroke='%2364748b' stroke-width='2'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 22px 22px !important;
 }
 .leaflet-control-layers label {
   color: var(--text-primary) !important;
