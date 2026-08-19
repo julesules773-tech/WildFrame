@@ -470,11 +470,20 @@
     });
 
     // CartoDB dark tiles for mood
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    const darkLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
       subdomains: "abcd",
       maxZoom: 19,
     }).addTo(STATE.map);
+
+    // Esri World Imagery — free satellite tiles, no API key
+    const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, DeLorme, NAVTEQ',
+      maxZoom: 18,
+    });
+
+    // Layer switcher (top-right)
+    L.control.layers({ "Dark": darkLayer, "Satellite": satelliteLayer }, null, { position: "topright" }).addTo(STATE.map);
 
     // Add a locate button
     L.control.locate({

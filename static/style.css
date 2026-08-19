@@ -1103,6 +1103,34 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23f97316' d='M445 4 29 195c-48 23-32 93 19 93h176v176c0 51 70 67 93 19L508 67c16-38-25-79-63-63z'/%3E%3C/svg%3E") !important;
 }
 
+/* Layer switcher — dark theme to match the rest of the map chrome */
+.leaflet-control-layers {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  color: var(--text-primary) !important;
+  font-size: 12px !important;
+}
+.leaflet-control-layers-toggle {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  width: 36px !important;
+  height: 36px !important;
+}
+.leaflet-control-layers-toggle:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+.leaflet-control-layers label {
+  color: var(--text-primary) !important;
+}
+.leaflet-control-layers-separator {
+  background: var(--border) !important;
+  height: 1px !important;
+}
+
 /* Attribution — quiet chip on the dark tiles */
 .leaflet-control-attribution {
   background: rgba(11, 14, 20, 0.7) !important;
