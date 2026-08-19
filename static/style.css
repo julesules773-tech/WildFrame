@@ -1103,42 +1103,138 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%23f97316' d='M445 4 29 195c-48 23-32 93 19 93h176v176c0 51 70 67 93 19L508 67c16-38-25-79-63-63z'/%3E%3C/svg%3E") !important;
 }
 
-/* Layer switcher — dark theme to match the rest of the map chrome */
+/* =================================================================
+   Layer switcher — dark theme matching the rest of the app chrome
+   ================================================================= */
 .leaflet-control-layers {
   background: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  box-shadow: var(--shadow) !important;
   color: var(--text-primary) !important;
   font-size: 12px !important;
-  z-index: 1003 !important;  /* above the bayesian/upload panels (1001-1002) */
+  font-family: inherit !important;
+  padding: 0 !important;
+  z-index: 1003 !important;
+  margin-bottom: 135px !important;
+  width: 36px !important;
+  height: 36px !important;
+  transition: width 0.2s ease, height 0.2s ease !important;
 }
+/* Expand on hover */
+.leaflet-control-layers:hover {
+  width: auto !important;
+  min-width: 140px !important;
+  height: auto !important;
+}
+/* Hide the list until hovered */
+.leaflet-control-layers-list {
+  display: none !important;
+}
+.leaflet-control-layers:hover .leaflet-control-layers-list {
+  display: block !important;
+}
+/* Hide toggle on hover — the panel replaces it */
+.leaflet-control-layers:hover .leaflet-control-layers-toggle {
+  display: none !important;
+}
+/* Toggle icon (collapsed state) */
 .leaflet-control-layers-toggle {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border) !important;
   border-radius: var(--radius) !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  box-shadow: var(--shadow) !important;
   width: 36px !important;
   height: 36px !important;
-}
-.leaflet-control-layers-toggle:hover {
-  background-color: var(--bg-card-hover) !important;
-  border-color: var(--accent) !important;
-}
-/* Swap the default layers icon (designed for light maps) for a custom
-   SVG that's bright and readable against the dark basemap. */
-.leaflet-control-layers-toggle {
   background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cpath d='M18 6L4 16l14 10 14-10z' fill='none' stroke='%2394a3b8' stroke-width='2'/%3E%3Cpath d='M4 22l14 10 14-10' fill='none' stroke='%2364748b' stroke-width='2'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: center !important;
   background-size: 22px 22px !important;
 }
+.leaflet-control-layers-toggle:hover {
+  background-color: var(--bg-card-hover) !important;
+  border-color: var(--accent) !important;
+}
+/* Expanded panel */
+.leaflet-control-layers-list {
+  padding: 6px 0 !important;
+}
+.leaflet-control-layers-base,
+.leaflet-control-layers-overlays {
+  padding: 0 10px !important;
+}
+/* Section headings */
+.leaflet-control-layers-base .leaflet-control-layers-overlays-label,
+.leaflet-control-layers-separator + .leaflet-control-layers-overlays-label {
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  padding: 4px 10px 2px !important;
+}
+/* Separator line */
+.leaflet-control-layers-separator {
+  height: 1px !important;
+  background: var(--border) !important;
+  margin: 4px 10px !important;
+}
+/* Radio labels — match dark theme text colors */
 .leaflet-control-layers label {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 5px 6px !important;
+  border-radius: 6px !important;
+  transition: background var(--transition), color var(--transition) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  user-select: none !important;
+}
+.leaflet-control-layers label:hover {
+  background: rgba(255,255,255,0.06) !important;
   color: var(--text-primary) !important;
 }
-.leaflet-control-layers-separator {
-  background: var(--border) !important;
-  height: 1px !important;
+/* Hide the native radio and replace with a custom dark dot */
+.leaflet-control-layers input[type="radio"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  border: 2px solid var(--text-muted) !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+  transition: border-color var(--transition), background var(--transition) !important;
+  position: relative !important;
+}
+.leaflet-control-layers input[type="radio"]:hover {
+  border-color: var(--text-secondary) !important;
+}
+.leaflet-control-layers input[type="radio"]:checked {
+  border-color: #22d3ee !important;
+  background: transparent !important;
+}
+.leaflet-control-layers input[type="radio"]:checked::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #22d3ee !important;
+}
+/* Checked label gets accent highlight */
+.leaflet-control-layers label:has(input:checked) {
+  color: var(--text-primary) !important;
+  background: rgba(34, 211, 238, 0.08) !important;
+}
+.leaflet-control-layers label:has(input:checked):hover {
+  background: rgba(34, 211, 238, 0.14) !important;
 }
 
 /* Attribution — quiet chip on the dark tiles */

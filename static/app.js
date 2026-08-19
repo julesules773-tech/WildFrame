@@ -482,8 +482,15 @@
       maxZoom: 18,
     });
 
-    // Layer switcher (bottom-right, clear of the fixed top bar)
-    L.control.layers({ "Dark": darkLayer, "Satellite": satelliteLayer }, null, { position: "bottomright" }).addTo(STATE.map);
+    // CartoDB Positron — light basemap (same provider as the dark tiles)
+    const lightLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19,
+    });
+
+    // Layer switcher (bottom-left, above the cluster severity legend)
+    L.control.layers({ "Dark": darkLayer, "Light": lightLayer, "Satellite": satelliteLayer }, null, { position: "bottomleft" }).addTo(STATE.map);
 
     // Add a locate button
     L.control.locate({
