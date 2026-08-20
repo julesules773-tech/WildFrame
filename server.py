@@ -954,8 +954,9 @@ def healthz():
     try:
         db.ping()
         return jsonify({"status": "ok", "db": "ok"}), 200
-    except Exception as exc:
-        return jsonify({"status": "degraded", "db": "error", "detail": str(exc)}), 503
+    except Exception:
+        # Never expose exception details (may contain DB credentials)
+        return jsonify({"status": "degraded", "db": "error"}), 503
 
 
 @app.route("/")
@@ -2066,9 +2067,11 @@ def bayesian_get_state():
         # next poll — regardless of where the worker's global sweep is.
         _spawn_viewport_wind_refresh("demo" if demo else "production", bbox)
         data["mode"] = "demo" if demo else "production"
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify(data)    except Exception:
+        # Never expose exception details (may contain DB credentials)
+        logger.exception("grid data endpoint error")
+        return jsonify({"error": "internal error"}), 500
+
 
 
 # ---------------------------------------------------------------------------

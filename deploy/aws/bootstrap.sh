@@ -44,7 +44,8 @@ echo "==> nginx (port 80 only, ACME challenge; full TLS conf comes from tls.sh)"
 sudo mkdir -p /var/www/letsencrypt
 sudo tee /etc/nginx/sites-available/wildframe.conf > /dev/null <<'NGINX'
 # WildFrame — stage 1: HTTP only, serve ACME challenges.
-# tls.sh replaces this with the full 80->443 redirect + 443 proxy config.
+# tls.sh replaces this with the full 80->443 redirect + 443 proxy config
+# (including rate-limit zones).
 server {
     listen 80 default_server;
     listen [::]:80 default_server;

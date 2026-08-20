@@ -23,7 +23,10 @@ import db
 
 def main() -> int:
     print("🌲 WildFrame Postgres migration")
-    print(f"   Connecting to: {db.DATABASE_URL}")
+    # Mask password in connection string for safe logging
+    import re
+    _safe_url = re.sub(r'(://[^:]+:)[^@]+@', r'\1***@', db.DATABASE_URL)
+    print(f"   Connecting to: {_safe_url}")
 
     if not db.check_connection():
         print("   ❌ Cannot reach Postgres. Is `brew services start postgresql`"
