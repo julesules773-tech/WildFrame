@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -80,14 +81,17 @@ def s3_enabled() -> bool:
 # ---------------------------------------------------------------------------
 
 _s3_client_cache = None
+_s3_client_lock = threading.Lock()
 
 
 def _s3_client():
     """Lazily-created boto3 client — only built when S3 mode is used."""
     global _s3_client_cache
     if _s3_client_cache is None:
-        import boto3  # heavy import kept out of the local-dev path
-        _s3_client_cache = boto3.client("s3", region_name=S3_REGION)
+        with _s3_client_lock:
+            if _s3_client_cache is None:  # double-check after acquiring lock
+                import boto3  # heavy import kept out of the local-dev path
+                _s3_client_cache = boto3.client("s3", region_name=S3_REGION)
     return _s3_client_cache
 
 

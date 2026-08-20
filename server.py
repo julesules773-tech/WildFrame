@@ -165,17 +165,19 @@ class RateLimiter:
 
 
 _limiter = RateLimiter()
-# Cleanup every ~500 requests (rough — no need for a timer thread)
-_request_count = 0
+# Cleanup every ~500 requests (rough — no need for a timer thread).
+# Use itertools.count (atomic increment) instead of bare int += 1 to
+# avoid the GIL read-modify-write race under concurrent requests.
+import itertools as _itertools
+_request_counter = _itertools.count()
 
 
 def _check_rate_limit(ip: str, key: str, max_hits: int, window_s: float) -> Optional[str]:
     """Check rate limit; return error message or None if allowed.
 
     Also triggers lazy cleanup every ~500 requests."""
-    global _request_count
-    _request_count += 1
-    if _request_count % 500 == 0:
+    n = next(_request_counter)
+    if n % 500 == 0:
         _limiter._cleanup()
         _abuse_tracker._cleanup()
 
@@ -1915,7 +1917,16 @@ def _export_cache_get(key: tuple) -> Optional[dict]:
 def _export_cache_set(key: tuple, value: dict) -> None:
     with _EXPORT_CACHE_LOCK:
         if len(_EXPORT_CACHE) >= _EXPORT_CACHE_MAX:
-            _EXPORT_CACHE.clear()
+            # Evict the oldest 20 % instead of clearing the entire cache.
+            # Full clear causes a thundering herd: every concurrent poller
+            # recomputes contours simultaneously, spiking latency on the
+            # 1 GB VM.  Dicts preserve insertion order in Python 3.7+, so
+            # iterating the first N keys removes the oldest entries.
+            evict_count = max(1, _EXPORT_CACHE_MAX // 5)
+            for i, old_key in enumerate(_EXPORT_CACHE):
+                if i >= evict_count:
+                    break
+                _EXPORT_CACHE.pop(old_key, None)
         _EXPORT_CACHE[key] = value
 
 

@@ -115,6 +115,10 @@ def _get_pool() -> ConnectionPool:
             min_size=1,
             max_size=10,
             open=False,
+            # Close idle connections after 5 minutes so stale/server-killed
+            # connections don't cause sporadic OperationalError on the first
+            # request after a quiet period.
+            max_idle=300,
             kwargs={
                 "row_factory": dict_row,
                 # Fail fast on dead DB so PaaS health checks (e.g. Fly's
