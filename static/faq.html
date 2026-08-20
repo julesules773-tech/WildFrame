@@ -68,7 +68,7 @@
         "name": "What is the Fire Grid heatmap?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "The Fire Grid is a Bayesian probability surface built from all evidence — satellite hotspots, citizen reports and agency alerts — showing how likely each area is to be burning and where a fire may spread."
+          "text": "The Fire Grid is a Bayesian probability surface built from all evidence — satellite hotspots, citizen reports and agency alerts — showing how likely each area is to be burning and where a fire may spread. The stats panel shows burned area (cells above 25% probability — the active fire zone) and risk area (cells above 5% — the broader spread potential)."
         }
       },
       {
@@ -177,6 +177,14 @@
             fire is likely to spread. The hotter the color, the higher the
             model's confidence that area will burn, based on wind, terrain,
             fuel moisture, and observed detections.
+          </p>
+          <p>
+            The stats panel shows two area metrics derived from this grid:
+            <b>Burned area</b> counts cells with a burn probability above
+            25% — the high-confidence active fire zone — while
+            <b>Risk area</b> counts cells above 5%, capturing the broader
+            zone where fire may spread. Together they give you the fire's
+            core and its potential reach.
           </p>
         </details>
         <details class="faq-item">
