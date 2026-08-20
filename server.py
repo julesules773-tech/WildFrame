@@ -104,9 +104,89 @@ ACTIVE_REPORT_HOURS = 48          # keep reports visible on map for 48h
 ADMIN_GRIDS_LIMIT = 500
 
 # Grid matching radius lives in db.py (shared with the persistence layer).
-GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_M
+GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_MALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}
+
+# ---------------------------------------------------------------------------
+# Application-level rate limiter (in-memory, sliding window)
+# ---------------------------------------------------------------------------
+# Complements nginx rate limiting: catches abuse that slips through
+# (e.g. distributed low-rate floods, or direct-origin bypass).
+# No external dependencies — uses a dict of (ip → [timestamps]).
+
+class RateLimiter:
+    """Per-IP sliding-window rate limiter.
+
+    Usage:
+        limiter = RateLimiter()
+        if not limiter.allow(request.remote_addr, "upload", max_hits=5, window_s=60):
+            return jsonify({"error": "rate limit exceeded"}), 429
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._windows: dict[str, dict[str, list[float]]] = {}  # ip → {key → [ts]}
+
+    def allow(self, ip: str, key: str, max_hits: int, window_s: float) -> bool:
+        """Return True if the request is allowed, False if rate-limited."""
+        now = time.time()
+        cutoff = now - window_s
+        bucket_key = f"{ip}:{key}"
+
+        with self._lock:
+            buckets = self._windows.setdefault(ip, {})
+            timestamps = buckets.get(key, [])
+
+            # Prune old entries outside the window
+            timestamps = [t for t in timestamps if t > cutoff]
+
+            if len(timestamps) >= max_hits:
+                buckets[key] = timestamps
+                return False
+
+            timestamps.append(now)
+            buckets[key] = timestamps
+            return True
+
+    def _cleanup(self) -> None:
+        """Periodic cleanup of stale entries (called lazily)."""
+        now = time.time()
+        with self._lock:
+            stale_ips = []
+            for ip, buckets in self._windows.items():
+                stale_keys = [k for k, ts in buckets.items()
+                              if not ts or ts[-1] < now - 3600]
+                for k in stale_keys:
+                    del buckets[k]
+                if not buckets:
+                    stale_ips.append(ip)
+            for ip in stale_ips:
+                del self._windows[ip]
+
+
+_limiter = RateLimiter()
+# Cleanup every ~500 requests (rough — no need for a timer thread)
+_request_count = 0
+
+
+def _check_rate_limit(ip: str, key: str, max_hits: int, window_s: float) -> Optional[str]:
+    """Check rate limit; return error message or None if allowed.
+
+    Also triggers lazy cleanup every ~500 requests."""
+    global _request_count
+    _request_count += 1
+    if _request_count % 500 == 0:
+        _limiter._cleanup()
+
+    if not _limiter.allow(ip, key, max_hits, window_s):
+        return f"rate limit: max {max_hits} {key} requests per {window_s:.0f}s"
+    return None
+
+
+# Rate-limit configs: (key, max_hits, window_seconds)
+UPLOAD_RATE_LIMIT = ("upload", 5, 60)        # 5 uploads per minute
+SAT_CONFIRM_RATE_LIMIT = ("sat_check", 10, 60)  # 10 satellite checks per minute
+
 
 # Allowed report source types
 SOURCE_TYPES = {"citizen", "NASA", "Sentinel", "CCTV", "drone", "IoT", "ranger", "emergency services"}
@@ -519,6 +599,13 @@ def list_reports():
 @app.route("/api/reports", methods=["POST"])
 def create_report():
     """Accept multipart upload with photo + GPS data."""
+    # --- Rate limit (application-level, per IP) ---
+    ip = request.headers.get("CF-Connecting-IP") or request.remote_addr or "unknown"
+    rl_err = _check_rate_limit(ip, *UPLOAD_RATE_LIMIT)
+    if rl_err:
+        logger.warning("[rate-limit] upload blocked for %s: %s", ip, rl_err)
+        return jsonify({"error": "too many uploads — please wait a minute"}), 429
+
     # --- Parse form fields ---
     lat = request.form.get("lat")
     lon = request.form.get("lon")
@@ -768,6 +855,13 @@ def check_report_satellite(report_id: str):
     report = db.get_report(report_id)
     if report is None:
         return jsonify({"error": "Report not found"}), 404
+
+    # --- Rate limit (application-level, per IP) ---
+    ip = request.headers.get("CF-Connecting-IP") or request.remote_addr or "unknown"
+    rl_err = _check_rate_limit(ip, *SAT_CONFIRM_RATE_LIMIT)
+    if rl_err:
+        logger.warning("[rate-limit] sat-check blocked for %s: %s", ip, rl_err)
+        return jsonify({"error": "too many satellite checks — please wait"}), 429
 
     api_key = nasa_firms._get_api_key()
     if not api_key:
@@ -1069,6 +1163,12 @@ def feedback_submit():
     Light anti-abuse: per-IP cooldown via kv_store (30 s), category
     whitelist, and length caps. No auth — the page is public by design.
     """
+    # --- Rate limit (application-level, per IP) ---
+    ip = request.headers.get("CF-Connecting-IP") or request.remote_addr or "unknown"
+    rl_err = _check_rate_limit(ip, "feedback", 3, 60)  # 3 per minute
+    if rl_err:
+        return jsonify({"error": "please wait before submitting again"}), 429
+
     body = request.get_json(silent=True) or {}
     category = str(body.get("category", "")).strip().lower()
     message = str(body.get("message", "")).strip()
@@ -2067,7 +2167,8 @@ def bayesian_get_state():
         # next poll — regardless of where the worker's global sweep is.
         _spawn_viewport_wind_refresh("demo" if demo else "production", bbox)
         data["mode"] = "demo" if demo else "production"
-        return jsonify(data)    except Exception:
+        return jsonify(data)
+    except Exception:
         # Never expose exception details (may contain DB credentials)
         logger.exception("grid data endpoint error")
         return jsonify({"error": "internal error"}), 500
