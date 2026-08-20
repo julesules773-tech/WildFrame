@@ -3107,6 +3107,15 @@
       if (FIRE_GATE.pending) {
         try { await FIRE_GATE.pending; } catch (e) { /* gate degrades gracefully */ }
       }
+      // If the model finished loading AFTER the photo was picked, the gate
+      // never ran (FIRE_GATE.ready was false at pick time).  Re-run it now
+      // so the warning still fires for non-fire photos.
+      if (FIRE_GATE.ready && FIRE_GATE.lastProb === null && file) {
+        _gatePhoto(file);
+        if (FIRE_GATE.pending) {
+          try { await FIRE_GATE.pending; } catch (e) { /* gate degrades */ }
+        }
+      }
       if (els.fireGateNotice && FIRE_GATE.ready && FIRE_GATE.lastProb != null &&
           FIRE_GATE.lastProb < FIRE_GATE.minProb && !FIRE_GATE.warned) {
         FIRE_GATE.warned = true;
