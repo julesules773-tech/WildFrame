@@ -2013,15 +2013,22 @@
   function _aggregateBayesianStats(grids) {
     if (!grids.length) return null;
     let maxP = 0;
-    let areaSum = 0;
+    let burnedAreaSum = 0;   // p > 0.25 — high-confidence fire zone
+    let riskAreaSum = 0;     // p > 0.05 — broad risk / spread zone
     let cellsSum = 0;
     for (const g of grids) {
       const s = g.statistics || {};
       if ((s.max_p || 0) > maxP) maxP = s.max_p;
-      areaSum += s.area_ha_p_above_0_10 || 0;
+      burnedAreaSum += s.area_ha_p_above_0_25 || 0;
+      riskAreaSum += s.area_ha_p_above_0_05 || 0;
       cellsSum += s.cells_p_above_0_10 || 0;
     }
-    return { max_p: maxP, area_ha_p_above_0_10: areaSum, cells_p_above_0_10: cellsSum };
+    return {
+      max_p: maxP,
+      area_ha_burned: burnedAreaSum,
+      area_ha_risk: riskAreaSum,
+      cells_p_above_0_10: cellsSum,
+    };
   }
 
   /**
@@ -2438,12 +2445,14 @@
 
     const els = {
       maxP: document.getElementById("bayesian-stat-maxp"),
-      area: document.getElementById("bayesian-stat-area"),
+      burned: document.getElementById("bayesian-stat-burned"),
+      risk: document.getElementById("bayesian-stat-risk"),
       cells: document.getElementById("bayesian-stat-cells"),
     };
 
     if (els.maxP) els.maxP.textContent = s.max_p?.toFixed(3) || "—";
-    if (els.area) els.area.textContent = `${s.area_ha_p_above_0_10 || 0} ha`;
+    if (els.burned) els.burned.textContent = `${s.area_ha_burned || 0} ha`;
+    if (els.risk) els.risk.textContent = `${s.area_ha_risk || 0} ha`;
     if (els.cells) els.cells.textContent = s.cells_p_above_0_10 || 0;
   }
 
@@ -4351,10 +4360,10 @@
       hsCount.textContent = data.hotspots.length;
     }
 
-    // Fire area from stats (hectares)
+    // Fire area from stats (hectares) — burned area for demo replay
     const areaEl = id("historic-fire-area");
     if (areaEl && data.statistics) {
-      const areaHa = data.statistics.area_ha_p_above_0_10 || 0;
+      const areaHa = data.statistics.area_ha_p_above_0_25 || 0;
       areaEl.textContent = `${areaHa} ha`;
     }
 
