@@ -177,6 +177,7 @@ def _check_rate_limit(ip: str, key: str, max_hits: int, window_s: float) -> Opti
     _request_count += 1
     if _request_count % 500 == 0:
         _limiter._cleanup()
+        _abuse_tracker._cleanup()
 
     if not _limiter.allow(ip, key, max_hits, window_s):
         return f"rate limit: max {max_hits} {key} requests per {window_s:.0f}s"
@@ -186,6 +187,114 @@ def _check_rate_limit(ip: str, key: str, max_hits: int, window_s: float) -> Opti
 # Rate-limit configs: (key, max_hits, window_seconds)
 UPLOAD_RATE_LIMIT = ("upload", 5, 60)        # 5 uploads per minute
 SAT_CONFIRM_RATE_LIMIT = ("sat_check", 10, 60)  # 10 satellite checks per minute
+
+
+# ---------------------------------------------------------------------------
+# IP abuse tracker — blocks IPs that repeatedly upload non-fire photos
+# ---------------------------------------------------------------------------
+# After the AI scan, reports with verdict "nothing" (no fire/smoke detected)
+# are tracked per IP.  If an IP exceeds ABUSE_NOTHING_THRESHOLD rejections
+# within ABUSE_WINDOW_S, the IP is blocked for ABUSE_BLOCK_DURATION_S.
+# The block is in-memory and resets on server restart — suitable for
+# stopping automated abuse; persistent bans should use nginx or a WAF.
+ABUSE_NOTHING_THRESHOLD = 5     # nothing-verdicts before block
+ABUSE_WINDOW_S = 3600           # sliding window: 1 hour
+ABUSE_BLOCK_DURATION_S = 86400  # block duration: 24 hours
+
+
+class AbuseTracker:
+    """Per-IP tracker for repeated nothing-verdict uploads.
+
+    After each AI scan that returns "nothing", call ``record_nothing(ip)``.
+    ``is_blocked(ip)`` returns True once the threshold is exceeded.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        # ip → list of timestamps of nothing-verdict uploads
+        self._nothing_hits: dict[str, list[float]] = {}
+        # ip → expiry timestamp of active block
+        self._blocked_until: dict[str, float] = {}
+
+    def is_blocked(self, ip: str) -> Optional[float]:
+        """Return block expiry timestamp if IP is blocked, else None."""
+        with self._lock:
+            until = self._blocked_until.get(ip)
+            if until and until > time.time():
+                return until
+            # Block expired — clear it
+            if until:
+                del self._blocked_until[ip]
+            return None
+
+    def record_nothing(self, ip: str) -> None:
+        """Record a nothing-verdict upload and block the IP if over threshold."""
+        now = time.time()
+        cutoff = now - ABUSE_WINDOW_S
+
+        with self._lock:
+            hits = self._nothing_hits.setdefault(ip, [])
+            # Prune old entries
+            hits[:] = [t for t in hits if t > cutoff]
+            hits.append(now)
+
+            if len(hits) >= ABUSE_NOTHING_THRESHOLD:
+                self._blocked_until[ip] = now + ABUSE_BLOCK_DURATION_S
+                logger.warning(
+                    "[abuse] IP %s blocked for %dh — %d nothing-verdicts in %ds",
+                    ip, ABUSE_BLOCK_DURATION_S // 3600,
+                    len(hits), ABUSE_WINDOW_S,
+                )
+
+    def get_blocked_ips(self) -> list[dict]:
+        """Return list of currently blocked IPs with expiry info."""
+        now = time.time()
+        with self._lock:
+            result = []
+            for ip, until in list(self._blocked_until.items()):
+                if until > now:
+                    result.append({
+                        "ip": ip,
+                        "blocked_until": datetime.fromtimestamp(until, tz=timezone.utc).isoformat(),
+                        "remaining_s": round(until - now),
+                    })
+                    # Also include their nothing count
+                    hits = self._nothing_hits.get(ip, [])
+                    cutoff = now - ABUSE_WINDOW_S
+                    recent = [t for t in hits if t > cutoff]
+                    result[-1]["recent_nothing_count"] = len(recent)
+                else:
+                    del self._blocked_until[ip]
+            return result
+
+    def unblock(self, ip: str) -> bool:
+        """Manually unblock an IP. Returns True if it was blocked."""
+        with self._lock:
+            if ip in self._blocked_until:
+                del self._blocked_until[ip]
+                # Also clear the hit history so a fresh start
+                self._nothing_hits.pop(ip, None)
+                return True
+            return False
+
+    def _cleanup(self) -> None:
+        """Remove expired blocks and old hit records."""
+        now = time.time()
+        cutoff = now - ABUSE_WINDOW_S
+        with self._lock:
+            # Expired blocks
+            expired = [ip for ip, until in self._blocked_until.items()
+                       if until <= now]
+            for ip in expired:
+                del self._blocked_until[ip]
+            # Old hit records (for unblocked IPs)
+            stale = [ip for ip, hits in self._nothing_hits.items()
+                     if not hits or all(t <= cutoff for t in hits)]
+            for ip in stale:
+                del self._nothing_hits[ip]
+
+
+_abuse_tracker = AbuseTracker()
 
 
 # Allowed report source types
@@ -606,6 +715,16 @@ def create_report():
         logger.warning("[rate-limit] upload blocked for %s: %s", ip, rl_err)
         return jsonify({"error": "too many uploads — please wait a minute"}), 429
 
+    # --- IP abuse check: block IPs repeatedly uploading non-fire photos ---
+    blocked_until = _abuse_tracker.is_blocked(ip)
+    if blocked_until:
+        remaining_h = max(1, int((blocked_until - time.time()) / 3600))
+        logger.warning("[abuse] upload blocked for %s — blocked for ~%dh", ip, remaining_h)
+        return jsonify({
+            "error": f"Your IP has been temporarily blocked due to repeated non-fire uploads. Try again in {remaining_h}h.",
+            "blocked_until": datetime.fromtimestamp(blocked_until, tz=timezone.utc).isoformat(),
+        }), 403
+
     # --- Parse form fields ---
     lat = request.form.get("lat")
     lon = request.form.get("lon")
@@ -680,6 +799,12 @@ def create_report():
     except Exception as exc:
         print(f"[AI-vision] Scan failed: {exc} — proceeding with report anyway")
         ai_result = None
+
+    # --- Track nothing-verdicts for IP abuse detection ---
+    # If the AI scan completed and found no fire/smoke, record it.
+    # Repeated nothing-verdicts from the same IP indicate abuse.
+    if ai_verdict == "nothing":
+        _abuse_tracker.record_nothing(ip)
 
     # --- Persist photo: S3 (if configured) or local disk ---
     # The file was staged on local disk for EXIF + AI scanning; now move
@@ -1365,6 +1490,24 @@ def admin_list_grids():
             "evidence_age_h": evidence_age_h,
         })
     return jsonify({"grids": grids, "count": len(grids)})
+
+
+@app.route("/api/admin/blocked-ips", methods=["GET"])
+def admin_list_blocked_ips():
+    """List currently blocked IPs and their abuse stats."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    blocked = _abuse_tracker.get_blocked_ips()
+    return jsonify({"blocked_ips": blocked, "count": len(blocked)})
+
+
+@app.route("/api/admin/unblock-ip/<ip>", methods=["POST"])
+def admin_unblock_ip(ip: str):
+    """Manually unblock an IP address."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    was_blocked = _abuse_tracker.unblock(ip)
+    return jsonify({"ok": True, "was_blocked": was_blocked})
 
 
 @app.route("/api/admin/accept/<report_id>", methods=["POST"])
