@@ -3162,6 +3162,23 @@
         const data = await res.json();
 
         if (!res.ok) {
+          // IP blocked for repeated non-fire uploads — show a prominent
+          // message so the user understands why they can't upload.
+          if (res.status === 403 && data.blocked_until) {
+            const until = new Date(data.blocked_until);
+            const hours = Math.max(1, Math.round((until - Date.now()) / 3600000));
+            toast(
+              `Upload blocked: too many photos without fire detected. ` +
+              `Try again in ${hours}h.`,
+              "error",
+            );
+            // Keep the card open so the user sees the toast, but stop uploading.
+            STATE.uploading = false;
+            els.submitBtn.disabled = false;
+            els.progressBar.classList.remove("active");
+            els.progressBar.classList.add("hidden");
+            return;
+          }
           throw new Error(data.error || "Upload failed");
         }
 
