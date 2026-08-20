@@ -1873,8 +1873,8 @@ def worldcover_code_batch(points: list[tuple[float, float]]) -> dict[int, Option
             """
             SELECT DISTINCT ON (p.idx) p.idx, wp.class_code
             FROM _wc_pts p
-            JOIN worldcover_polygons wp ON ST_Contains(wp.geom, p.geom)
-            ORDER BY p.idx
+            JOIN worldcover_polygons wp ON ST_Intersects(wp.geom, p.geom)
+            ORDER BY p.idx, wp.class_code
             """
         ).fetchall()
     for r in rows:
