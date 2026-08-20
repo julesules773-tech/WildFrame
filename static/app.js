@@ -18,6 +18,8 @@
     dataPollingMs: 15000,
     reports: [],
     clusters: [],
+    _dataSig: 0,     // signature of last renderData payload
+    _dataFullSig: 0, // includes zoom-level style change (hull vs dot)
     markers: { reports: [], clusters: [], triangulation: [], fireOrigin: [] },
     uploading: false,
     liveDemo: {
@@ -499,9 +501,13 @@
       locateOptions: { enableHighAccuracy: true },
     }).addTo(STATE.map);
 
-    // Re-render clusters when zoom changes (convex hull vs dot)
+    // Re-render clusters when zoom changes (convex hull vs dot).
+    // force=true: the zoom-level style changed but data didn't, so the
+    // signature alone would skip the redraw.  The zoom is folded into
+    // _dataFullSig, but zoomend always fires so we force a redraw to
+    // catch the hull↔dot transition at CLUSTER_POLYGON_ZOOM.
     STATE.map.on("zoomend", () => {
-      renderData(STATE.reports, STATE.clusters);
+      renderData(STATE.reports, STATE.clusters, /*force=*/ true);
     });
   }
 
@@ -755,7 +761,65 @@
   // -----------------------------------------------------------------------
   // Render reports & clusters
   // -----------------------------------------------------------------------
-  function renderData(reports, clusters) {
+
+  /**
+   * Fast hash of the reports + clusters payload.  Catches any change
+   * that would affect rendering: report count, status, location, AI
+   * analysis, satellite confirmation, cluster membership, and contour
+   * geometry.  Intentionally excludes fields that don't change rendering
+   * (e.g. created_at granularity beyond seconds) to avoid false misses.
+   */
+  function _reportsSig(reports, clusters) {
+    let h = 0;
+    // Reports: id + status + lat/lon (rounded) + ai verdict + photo presence
+    for (const r of reports) {
+      h = (h * 31 + r.id) | 0;
+      h = (h * 31 + r.status.charCodeAt(0)) | 0;
+      h = (h * 31 + ((r.lat * 1e4) | 0)) | 0;
+      h = (h * 31 + ((r.lon * 1e4) | 0)) | 0;
+      const ai = r.ai_analysis;
+      if (ai && ai.verdict) {
+        h = (h * 31 + ai.verdict.charCodeAt(0)) | 0;
+        h = (h * 31 + ((ai.confidence * 1000) | 0)) | 0;
+      } else {
+        h = (h * 31) | 0;
+      }
+      h = (h * 31 + (r.photo_url ? 1 : 0)) | 0;
+      h = (h * 31 + (r.satellite_confirmation ? 1 : 0)) | 0;
+    }
+    // Clusters: count + centroid + report_ids length + triangulation presence
+    for (const c of clusters) {
+      h = (h * 31 + c.count) | 0;
+      h = (h * 31 + ((c.centroid_lat * 1e4) | 0)) | 0;
+      h = (h * 31 + ((c.centroid_lon * 1e4) | 0)) | 0;
+      h = (h * 31 + (c.report_ids ? c.report_ids.length : 0)) | 0;
+      h = (h * 31 + (c.triangulation ? 1 : 0)) | 0;
+      if (c.points) {
+        for (const p of c.points) {
+          h = (h * 31 + ((p[0] * 1e4) | 0)) | 0;
+          h = (h * 31 + ((p[1] * 1e4) | 0)) | 0;
+        }
+      }
+    }
+    return h | 0;
+  }
+
+  function renderData(reports, clusters, force) {
+    // --- Change detection: skip the expensive DOM rebuild when the
+    //     payload is identical to the last render.  The common case
+    //     (15 s poll, nothing changed) used to destroy and recreate
+    //     every marker, pulse ring, cluster polygon, and triangulation
+    //     overlay — hundreds of Leaflet DOM operations for zero benefit.
+    const sig = _reportsSig(reports, clusters);
+    // Full sig includes zoom level (cluster hull vs dot changes at
+    // CLUSTER_POLYGON_ZOOM) so a zoom-only change still redraws.
+    const fullSig = (sig * 31 + STATE.map.getZoom()) | 0;
+    if (!force && sig === STATE._dataSig && fullSig === STATE._dataFullSig) {
+      return;  // nothing changed
+    }
+    STATE._dataSig = sig;
+    STATE._dataFullSig = fullSig;
+
     // Clear existing markers
     STATE.markers.reports.forEach((m) => STATE.map.removeLayer(m));
     STATE.markers.clusters.forEach((m) => STATE.map.removeLayer(m));
@@ -2812,13 +2876,35 @@
   // -----------------------------------------------------------------------
   const FIRE_GATE = { ready: false, model: null, minProb: 0.4, loading: false, warned: false, lastProb: null, pending: null };
 
+  /**
+   * Lazily inject the TF.js runtime (<script> tag) if it isn't loaded yet.
+   * Returns immediately when already present.  The 1.4 MB download only
+   * happens on first upload-card open — visitors who never upload save the
+   * bandwidth and main-thread parse cost.
+   */
+  let _tfLoadPromise = null;
+  function _ensureTfJs() {
+    if (window.tf) return Promise.resolve();
+    if (_tfLoadPromise) return _tfLoadPromise;
+    _tfLoadPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "/vendor/tf.min.js?v=20260814";
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load TF.js runtime"));
+      document.head.appendChild(s);
+    });
+    return _tfLoadPromise;
+  }
+
   async function _loadFireGate() {
       if (FIRE_GATE.loading || FIRE_GATE.ready) return;
       FIRE_GATE.loading = true;
       try {
+        // Load TF.js runtime on demand (1.4 MB) — saves bandwidth for
+        // every visitor who never opens the upload card.
+        await _ensureTfJs();
         const cfg = await fetch("/model/gate/config.json").then((r) => r.json());
         FIRE_GATE.minProb = cfg.min_prob ?? 0.4;
-        if (!window.tf) throw new Error("TF.js runtime not loaded");
         // Graph model format: MobileNetV3 contains TFOpLambda ops that the
         // layers format can't deserialize ('Unknown layer: TFOpLambda').
         FIRE_GATE.model = await window.tf.loadGraphModel("/model/gate/model.json");
@@ -2827,6 +2913,8 @@
       } catch (err) {
         // The gate is a progressive enhancement — the app works without it.
         console.warn("[fire-gate] unavailable, proceeding without gate:", err.message);
+        // Clear the promise so a retry on next card open is possible
+        _tfLoadPromise = null;
       } finally {
         FIRE_GATE.loading = false;
       }
@@ -2939,6 +3027,11 @@
     els.uploadTrigger.addEventListener("click", () => {
       els.uploadCard.classList.toggle("hidden");
       els.uploadTrigger.classList.toggle("hidden");
+      // Lazy-load the client-side fire gate (MobileNetV3 + TF.js) on
+      // first card open instead of at boot.  The model is ~5 MB and the
+      // TF.js runtime is ~1 MB — most visitors never upload a photo, so
+      // loading these eagerly wastes bandwidth and delays first paint.
+      _loadFireGate();
     });
 
     els.cardClose.addEventListener("click", () => {
@@ -3093,11 +3186,10 @@
       }
     });
 
-    // Preload the client-side fire gate in the background (progressive
-    // enhancement — the app works fine without it). Must be called from
-    // here: _loadFireGate is scoped to setupUpload, and init() calling it
-    // would throw a ReferenceError that aborts map initialization.
-    _loadFireGate();
+    // Fire gate is lazy-loaded on first card open (see uploadTrigger
+    // click handler above) instead of eagerly at boot — the ~6 MB
+    // TF.js + MobileNetV3 payload is wasted for visitors who never
+    // upload a photo.
   }
 
   function resetForm() {
@@ -3443,13 +3535,33 @@
   // -----------------------------------------------------------------------
   // Auto-refresh polling
   // -----------------------------------------------------------------------
+  /**
+   * Self-rescheduling data poll loop.  Each tick awaits the fetch before
+   * scheduling the next one, so a slow /api/reports response can never
+   * overlap with the next poll — the old setInterval fired every N ms
+   * regardless of how long the previous fetch took, causing two in-flight
+   * requests on slow connections.
+   */
+  async function _dataPollTick() {
+    if (!STATE.dataPollingInterval) return;  // stopped while awaiting
+    await refreshData();
+    // Re-arm AFTER the await so a stop (clearTimeout) during the fetch
+    // doesn't immediately respawn the timer.
+    if (STATE.dataPollingInterval) {
+      STATE.dataPollingInterval = setTimeout(
+        _dataPollTick,
+        STATE.dataPollingMs || 15000
+      );
+    }
+  }
+
   function startPolling(intervalMs = 15000) {
     // Keep the handle (and the period) so the tab-hidden pause/resume can
-    // stop and restart polling without leaking intervals.
-    if (STATE.dataPollingInterval) clearInterval(STATE.dataPollingInterval);
+    // stop and restart polling without leaking timers.
+    if (STATE.dataPollingInterval) clearTimeout(STATE.dataPollingInterval);
     STATE.dataPollingMs = intervalMs;
     refreshData();
-    STATE.dataPollingInterval = setInterval(refreshData, intervalMs);
+    STATE.dataPollingInterval = setTimeout(_dataPollTick, intervalMs);
   }
 
   /**
@@ -3468,7 +3580,7 @@
           STATE.bayesian.pollingInterval = null;
         }
         if (STATE.dataPollingInterval) {
-          clearInterval(STATE.dataPollingInterval);
+          clearTimeout(STATE.dataPollingInterval);
           STATE.dataPollingInterval = null;
         }
       } else {
@@ -3480,8 +3592,8 @@
           fetchBayesianState();
         }
         if (!STATE.dataPollingInterval) {
-          STATE.dataPollingInterval = setInterval(refreshData, STATE.dataPollingMs || 15000);
           refreshData();
+          STATE.dataPollingInterval = setTimeout(_dataPollTick, STATE.dataPollingMs || 15000);
         }
       }
     });
@@ -3592,13 +3704,7 @@
       });
     }
 
-    // Close on outside click or Escape.
-    document.addEventListener("click", (e) => {
-      if (!els.topMenu || !els.topMenu.classList.contains("open")) return;
-      if (els.topMenuBtn && els.topMenuBtn.contains(e.target)) return;
-      if (els.topMenu.contains(e.target)) return;
-      _closeTopMenu();
-    });
+    // Close on Escape (click-outside is handled by _setupClickOutside).
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") _closeTopMenu();
     });
@@ -3799,10 +3905,28 @@
       if (btn) _selectSearchResult(_lastResults[Number(btn.dataset.index)]);
     });
 
-    // Close the dropdown when clicking anywhere outside the search box.
+  }
+
+  // -----------------------------------------------------------------------
+  // Single document-level click-outside handler
+  // -----------------------------------------------------------------------
+  // Multiple dropdowns (top-bar overflow menu, search results) each need
+  // to close when the user clicks outside.  Instead of N separate
+  // document.addEventListener("click") calls that all fire on every
+  // click, one consolidated handler routes to the relevant close logic.
+  function _setupClickOutside() {
     document.addEventListener("click", (e) => {
-      if (e.target.closest("#search-box")) return;
-      _closeSearchResults();
+      // --- Top-bar overflow menu (mobile ⋯) ---
+      if (els.topMenu && els.topMenu.classList.contains("open")) {
+        if (els.topMenuBtn && els.topMenuBtn.contains(e.target)) return;
+        if (els.topMenu.contains(e.target)) return;
+        _closeTopMenu();
+        return;
+      }
+      // --- Search results dropdown ---
+      if (!e.target.closest("#search-box")) {
+        _closeSearchResults();
+      }
     });
   }
 
@@ -3830,6 +3954,7 @@
 
     _setupTopBarMenu();
     _setupSearch();
+    _setupClickOutside();
 
     // Show the Admin button only if this browser holds the admin cookie.
     _syncAdminVisibility();
