@@ -383,6 +383,33 @@ def _fetch_weatherapi(lat: float, lon: float) -> tuple[float, float, list]:
     return speed_mps, (from_dir + 180.0) % 360.0, series
 
 
+# --- Periodic kv_store cleanup (throttled to once per hour) ---
+_last_cleanup = 0.0
+_CLEANUP_INTERVAL_S = 3600.0  # 1 hour
+
+
+def _maybe_cleanup_kv_store() -> None:
+    """Delete stale weather/forecast cache entries from kv_store.
+
+    Runs at most once per hour.  Entries older than 48h are removed —
+    the in-memory cache TTL is 24h, so 48h gives a safe margin.
+    """
+    global _last_cleanup
+    now = time.time()
+    if now - _last_cleanup < _CLEANUP_INTERVAL_S:
+        return
+    _last_cleanup = now
+    try:
+        deleted = db.kv_cleanup(
+            prefixes=["weather", "forecast", "effis"],
+            max_age_hours=48.0,
+        )
+        if deleted:
+            print(f"[weather] kv_cleanup: removed {deleted} stale cache entries")
+    except Exception:
+        pass  # cleanup failure must never block weather fetches
+
+
 def _store_cell(cell: str, speed: float, dir_: float, series: Optional[list] = None) -> None:
     """Persist a freshly-fetched wind value (and forecast series, if any) to
     the shared cache + memory."""
@@ -397,6 +424,8 @@ def _store_cell(cell: str, speed: float, dir_: float, series: Optional[list] = N
         _mem_cache[cell] = (now + CACHE_TTL_S, speed, dir_)
         if series:
             _mem_fc_cache[cell] = (now + CACHE_TTL_S, series)
+    # Trigger periodic cleanup of stale kv_store entries
+    _maybe_cleanup_kv_store()
 
 
 def _fc_cache_get(cell: str, now: float) -> Optional[list]:

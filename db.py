@@ -238,6 +238,9 @@ CREATE TABLE IF NOT EXISTS kv_store (
     key    TEXT PRIMARY KEY,
     value  JSONB
 );
+-- Add created_at for TTL-based cleanup (idempotent — safe to re-run)
+ALTER TABLE kv_store ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
+UPDATE kv_store SET created_at = now() WHERE created_at IS NULL;
 
 -- Public feedback / suggestions / bug reports submitted from the FAQ page.
 -- Unauthenticated by design (anyone can submit); rate-limited per IP in
@@ -1906,11 +1909,35 @@ def kv_set(key: str, value: Any) -> None:
         with conn.transaction():
             conn.execute(
                 """
-                INSERT INTO kv_store (key, value) VALUES (%s, %s)
+                INSERT INTO kv_store (key, value, created_at)
+                VALUES (%s, %s, now())
                 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                 """,
                 (key, Jsonb(value)),
             )
+
+
+def kv_cleanup(prefixes: list[str], max_age_hours: float = 48.0) -> int:
+    """Delete kv_store entries matching prefixes older than max_age_hours.
+
+    Returns the number of deleted rows.  Call periodically from the worker
+    to prevent unbounded growth of weather/EFFIS/feedback cache rows.
+    """
+    if not prefixes:
+        return 0
+    with _conn() as conn:
+        # Build prefix match: key LIKE 'weather_%' OR key LIKE 'effis_%'
+        clauses = " OR ".join("key LIKE %s" for _ in prefixes)
+        params = [f"{p}%" for p in prefixes] + [int(max_age_hours * 3600)]
+        result = conn.execute(
+            f"""
+            DELETE FROM kv_store
+            WHERE ({clauses})
+              AND created_at < now() - make_interval(secs := %s)
+            """,
+            params,
+        )
+        return result.rowcount or 0
 
 
 # ---------------------------------------------------------------------------
