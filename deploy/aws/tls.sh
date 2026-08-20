@@ -60,6 +60,16 @@ server {
 
     client_max_body_size 20m;   # Flask MAX_CONTENT_LENGTH is 16 MB
 
+    # --- Slowloris protection ---
+    # Reject requests that take too long to send headers/body.
+    client_header_timeout 10s;   # 10s to send all request headers
+    client_body_timeout 30s;     # 30s to send request body (photo uploads)
+    send_timeout 10s;            # 10s between successive write operations
+
+    # --- Request header hardening ---
+    # Reject oversized or missing Host header (bot scanners, curl floods)
+    large_client_header_buffers 4 8k;
+
     # --- Global connection limit (20 concurrent per IP) ---
     limit_conn connlimit 20;
 

@@ -1207,11 +1207,14 @@ def feedback_submit():
 # ---------------------------------------------------------------------------
 
 def _require_admin():
-    """Check the X-Admin-Secret header against the configured secret."""
+    """Check the X-Admin-Secret header against the configured secret.
+
+    Uses hmac.compare_digest for constant-time comparison to prevent
+    timing attacks on the admin secret."""
     auth = request.headers.get("X-Admin-Secret", "")
-    if auth != ADMIN_SECRET:
+    if not auth or not ADMIN_SECRET:
         return False
-    return True
+    return hmac.compare_digest(auth, ADMIN_SECRET)
 
 
 # Cookie proving this browser already validated the admin key. HttpOnly so
@@ -1250,14 +1253,21 @@ def admin_page():
         return send_from_directory(str(STATIC_DIR), "admin.html")
 
     key = request.args.get("key", "")
-    if key and hmac.compare_digest(key, ADMIN_SECRET):
-        resp = redirect("/admin", code=302)
-        resp.set_cookie(
-            ADMIN_COOKIE, _admin_cookie_value(),
-            max_age=ADMIN_COOKIE_MAX_AGE, httponly=True, samesite="Lax",
-            secure=request.is_secure,
-        )
-        return resp
+    if key:
+        # Rate-limit admin login attempts (brute-force protection)
+        ip = request.headers.get("CF-Connecting-IP") or request.remote_addr or "unknown"
+        rl_err = _check_rate_limit(ip, "admin_login", 5, 300)  # 5 per 5 min
+        if rl_err:
+            logger.warning("[rate-limit] admin login blocked for %s", ip)
+            return jsonify({"error": "too many login attempts — try again later"}), 429
+        if hmac.compare_digest(key, ADMIN_SECRET):
+            resp = redirect("/admin", code=302)
+            resp.set_cookie(
+                ADMIN_COOKIE, _admin_cookie_value(),
+                max_age=ADMIN_COOKIE_MAX_AGE, httponly=True, samesite="Lax",
+                secure=request.is_secure,
+            )
+            return resp
 
     return jsonify({"error": "Not found"}), 404
 
