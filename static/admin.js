@@ -14,6 +14,7 @@
     autoApproved: [],
     feedback: [],
     fires: [],
+    blockedIps: [],
     processing: new Set(),  // report IDs currently being processed
   };
 
@@ -47,6 +48,10 @@
     feedbackList: $("#feedback-list"),
     feedbackCount: $("#feedback-count"),
     feedbackToggle: $("#feedback-toggle"),
+    blockedIpsSection: $("#blocked-ips-section"),
+    blockedIpsList: $("#blocked-ips-list"),
+    blockedIpsCount: $("#blocked-ips-count"),
+    blockedIpsToggle: $("#blocked-ips-toggle"),
     toastContainer: $("#admin-toast-container"),
   };
 
@@ -57,12 +62,13 @@
   // primary moderation workspace — gets the full height instead of being
   // squeezed by the fires / auto-approved panels. The choice sticks.
   const SECTION_UI_KEY = "wf.admin.sectionsCollapsed";
-  let uiState = { firesCollapsed: true, autoCollapsed: true, feedbackCollapsed: true };
+  let uiState = { firesCollapsed: true, autoCollapsed: true, feedbackCollapsed: true, blockedIpsCollapsed: true };
   try {
     const saved = JSON.parse(localStorage.getItem(SECTION_UI_KEY) || "{}");
     if (typeof saved.firesCollapsed === "boolean") uiState.firesCollapsed = saved.firesCollapsed;
     if (typeof saved.autoCollapsed === "boolean") uiState.autoCollapsed = saved.autoCollapsed;
     if (typeof saved.feedbackCollapsed === "boolean") uiState.feedbackCollapsed = saved.feedbackCollapsed;
+    if (typeof saved.blockedIpsCollapsed === "boolean") uiState.blockedIpsCollapsed = saved.blockedIpsCollapsed;
   } catch (e) { /* ignore malformed storage */ }
 
   function applySectionState() {
@@ -75,9 +81,11 @@
     if (els.firesSection) els.firesSection.classList.toggle("collapsed", uiState.firesCollapsed);
     if (els.autoSection) els.autoSection.classList.toggle("collapsed", uiState.autoCollapsed);
     if (els.feedbackSection) els.feedbackSection.classList.toggle("collapsed", uiState.feedbackCollapsed);
+    if (els.blockedIpsSection) els.blockedIpsSection.classList.toggle("collapsed", uiState.blockedIpsCollapsed);
     toggle(els.firesToggle, uiState.firesCollapsed);
     toggle(els.autoToggle, uiState.autoCollapsed);
     toggle(els.feedbackToggle, uiState.feedbackCollapsed);
+    toggle(els.blockedIpsToggle, uiState.blockedIpsCollapsed);
   }
 
   function toggleSection(key) {
@@ -161,6 +169,7 @@
       els.loginError.classList.add("hidden");
       showDashboard();
       await loadPending();
+      loadBlockedIPs();
     } catch (err) {
       els.loginError.textContent = "Connection error. Is the server running?";
       els.loginError.classList.remove("hidden");
@@ -395,6 +404,75 @@
       if (row) row.style.opacity = "";
     } finally {
       STATE.processing.delete(id);
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Blocked IPs (abuse: repeated non-fire uploads)
+  // -----------------------------------------------------------------------
+  async function loadBlockedIPs() {
+    if (!STATE.secret) return;
+    try {
+      const res = await adminFetch("/api/admin/blocked-ips");
+      const data = await res.json();
+      STATE.blockedIps = data.blocked_ips || [];
+      renderBlockedIPs();
+    } catch (err) {
+      if (err.message !== "Session expired. Please log in again.") {
+        console.error("Failed to load blocked IPs:", err);
+      }
+    }
+  }
+
+  function renderBlockedIPs() {
+    if (!els.blockedIpsSection || !els.blockedIpsList) return;
+    const rows = STATE.blockedIps || [];
+    els.blockedIpsList.innerHTML = "";
+
+    if (rows.length === 0) {
+      els.blockedIpsSection.classList.add("hidden");
+      return;
+    }
+
+    els.blockedIpsSection.classList.remove("hidden");
+    els.blockedIpsCount.textContent = `${rows.length} blocked`;
+
+    rows.forEach((b) => {
+      const hours = Math.max(1, Math.round(b.remaining_s / 3600));
+      const row = document.createElement("div");
+      row.className = "blocked-ip-row";
+      row.id = `blocked-ip-${b.ip.replace(/[^a-zA-Z0-9]/g, "-")}`;
+      row.innerHTML = `
+        <div class="blocked-ip-info">
+          <div class="blocked-ip-addr">${esc(b.ip)}</div>
+          <div class="blocked-ip-meta">
+            ${b.recent_nothing_count} non-fire uploads &middot; blocked for ~${hours}h more
+          </div>
+        </div>
+        <button class="unblock-btn" data-ip="${esc(b.ip)}" title="Unblock this IP">
+          Unblock
+        </button>
+      `;
+      els.blockedIpsList.appendChild(row);
+    });
+
+    els.blockedIpsList.querySelectorAll(".unblock-btn").forEach((btn) => {
+      btn.addEventListener("click", () => unblockIP(btn.dataset.ip, btn));
+    });
+  }
+
+  async function unblockIP(ip, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res = await adminFetch(`/api/admin/unblock-ip/${encodeURIComponent(ip)}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to unblock");
+      toast(`🔓 Unblocked ${ip}`, "success");
+      STATE.blockedIps = (STATE.blockedIps || []).filter((b) => b.ip !== ip);
+      renderBlockedIPs();
+    } catch (err) {
+      toast(err.message || "Failed to unblock IP", "error");
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -841,6 +919,7 @@
         loadPending();
         loadAutoApproved();
         loadFeedback();
+        loadBlockedIPs();
       }
     }, ms);
   }
@@ -886,6 +965,7 @@
     if (els.firesToggle) els.firesToggle.addEventListener("click", () => toggleSection("firesCollapsed"));
     if (els.autoToggle) els.autoToggle.addEventListener("click", () => toggleSection("autoCollapsed"));
     if (els.feedbackToggle) els.feedbackToggle.addEventListener("click", () => toggleSection("feedbackCollapsed"));
+    if (els.blockedIpsToggle) els.blockedIpsToggle.addEventListener("click", () => toggleSection("blockedIpsCollapsed"));
     applySectionState();
 
     // Start polling

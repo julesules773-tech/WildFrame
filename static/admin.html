@@ -105,6 +105,19 @@
       <div id="feedback-list" class="feedback-list"></div>
     </div>
 
+    <!-- Blocked IPs (abuse: repeated non-fire uploads) -->
+    <div id="blocked-ips-section" class="blocked-ips-section hidden">
+      <div class="blocked-ips-header">
+        <button id="blocked-ips-toggle" class="collapse-toggle" title="Collapse / expand blocked IPs"
+          aria-expanded="true">
+          <span class="chevron">▾</span>
+        </button>
+        <span class="blocked-ips-title">🚫 Blocked IPs</span>
+        <span id="blocked-ips-count" class="blocked-ips-count"></span>
+      </div>
+      <div id="blocked-ips-list" class="blocked-ips-list"></div>
+    </div>
+
     <!-- Toast container (reuse same style) -->
     <div id="admin-toast-container"></div>
   </div>
