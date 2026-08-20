@@ -911,6 +911,118 @@ class BayesianFireGrid:
         self.grid_lat = np.degrees(self.grid_y / R_EARTH + rlat0)
         self.grid_lon = np.degrees(self.grid_x / (R_EARTH * np.cos(rlat0)) + rlon0)
 
+    # ------------------------------------------------------------------
+    # Dynamic grid expansion
+    # ------------------------------------------------------------------
+
+    def _expand(
+        self,
+        pad_west: int = 0,
+        pad_east: int = 0,
+        pad_south: int = 0,
+        pad_north: int = 0,
+    ) -> bool:
+        """Expand the grid by adding cells on specified sides.
+
+        Pads the logit and last-updated arrays, shifts the grid centre so
+        that existing cells keep their geographic positions, and rebuilds
+        all coordinate arrays.  Returns True if the expansion succeeded.
+        Fails silently (returns False) when the new size would exceed
+        MAX_GRID_CELLS.
+        """
+        if pad_west + pad_east + pad_south + pad_north == 0:
+            return False
+
+        new_nx = self.nx + pad_west + pad_east
+        new_ny = self.ny + pad_south + pad_north
+        if new_nx * new_ny > MAX_GRID_CELLS:
+            return False
+
+        # Pad state arrays — new cells start at the prior (low probability)
+        init_logit = math.log(0.01 / 0.99)
+        self.logits = np.pad(
+            self.logits,
+            ((pad_west, pad_east), (pad_south, pad_north)),
+            constant_values=init_logit,
+        )
+        self.last_updated = np.pad(
+            self.last_updated,
+            ((pad_west, pad_east), (pad_south, pad_north)),
+        )
+        # Recompute probabilities to match the padded logits
+        self._compute_probs()
+
+        # Shift the geographic centre so existing cell positions are
+        # preserved.  Adding pad_east cells shifts centre east by
+        # pad_east * cell_size / 2; adding pad_west shifts it west.
+        delta_cx = (pad_east - pad_west) * self.cell_size / 2.0  # metres
+        delta_cy = (pad_north - pad_south) * self.cell_size / 2.0
+        lat_rad = math.radians(self.center_lat)
+        self.center_lat += math.degrees(delta_cy / R_EARTH)
+        self.center_lon += math.degrees(
+            delta_cx / (R_EARTH * math.cos(lat_rad))
+        )
+
+        # Update dimensions and rebuild coordinates
+        self.nx = new_nx
+        self.ny = new_ny
+        self.half_x = self.nx * self.cell_size / 2.0
+        self.half_y = self.ny * self.cell_size / 2.0
+        self._build_coords()
+        return True
+
+    def expand_to_fit(
+        self, lat: float, lon: float, margin_cells: int = 10
+    ) -> bool:
+        """Expand the grid if (lat, lon) is near or outside the boundary.
+
+        Adds at least ``margin_cells`` padding on every side the point
+        approaches.  Returns True if the grid was expanded.
+        """
+        x, y = equirectangular_project(
+            lat, lon, self.center_lat, self.center_lon
+        )
+        # Raw cell indices (may be negative or >= nx/ny for outside points)
+        i_raw = (x + self.half_x) / self.cell_size
+        j_raw = (y + self.half_y) / self.cell_size
+
+        pad_west = max(0, int(math.ceil(margin_cells - i_raw)))
+        pad_east = max(
+            0, int(math.ceil(i_raw - (self.nx - 1 - margin_cells)))
+        )
+        pad_south = max(0, int(math.ceil(margin_cells - j_raw)))
+        pad_north = max(
+            0, int(math.ceil(j_raw - (self.ny - 1 - margin_cells)))
+        )
+        if pad_west + pad_east + pad_south + pad_north == 0:
+            return False
+        return self._expand(pad_west, pad_east, pad_south, pad_north)
+
+    def _expand_for_predict(self, radius_cells: int, margin: int = 5) -> bool:
+        """Pre-expand grid if burning cells are near the boundary.
+
+        Ensures the predict step's convolution has enough room to spread
+        probability without being clipped by the grid edge.  Called once
+        at the top of ``predict()``.
+        """
+        burning_mask = self.probabilities > DEFAULT_BURN_THRESHOLD
+        if not np.any(burning_mask):
+            return False
+
+        indices = np.argwhere(burning_mask)
+        i_min = int(indices[:, 0].min())
+        i_max = int(indices[:, 0].max())
+        j_min = int(indices[:, 1].min())
+        j_max = int(indices[:, 1].max())
+
+        pad_west = max(0, radius_cells + margin - i_min)
+        pad_east = max(0, radius_cells + margin - (self.nx - 1 - i_max))
+        pad_south = max(0, radius_cells + margin - j_min)
+        pad_north = max(0, radius_cells + margin - (self.ny - 1 - j_max))
+        if pad_west + pad_east + pad_south + pad_north == 0:
+            return False
+        return self._expand(pad_west, pad_east, pad_south, pad_north)
+
     def _compute_probs(self) -> None:
         """Sync the probability array from logits."""
         # Clamp to avoid overflow
@@ -1000,6 +1112,11 @@ class BayesianFireGrid:
 
         spread_radius = kernel.spread_radius_m(dt_minutes)
         radius_cells = int(math.ceil(spread_radius / self.cell_size))
+
+        # --- Pre-expand grid if fire is approaching the boundary ---
+        # Without this, the convolution zero-pads at the edge and the fire
+        # front gets clipped instead of spreading naturally.
+        self._expand_for_predict(radius_cells)
 
         # --- Spread probability from burning cells ---
         # We build a temporary array of delta-logits to apply in one pass
@@ -1123,6 +1240,11 @@ class BayesianFireGrid:
         stamp (the backtest harness replays historical detections with
         their real acquisition times; production always leaves it None).
         """
+        # --- Expand grid if evidence falls near / outside the boundary ---
+        # Without this, latlon_to_cell clamps to the edge and the evidence
+        # piles into the wrong cell, starving the fire's true location.
+        self.expand_to_fit(evidence.lat, evidence.lon)
+
         # Find the central cell
         ci, cj = self.latlon_to_cell(evidence.lat, evidence.lon)
 

@@ -41,12 +41,13 @@ from triangulation import triangulate, triangulate_cluster
 from bayesian_filter import (
     BayesianFireGrid, Evidence, auto_grid_size, seed_from_reports,
     compute_road_risk,
-    DEFAULT_CELL_SIZE_M,
+    DEFAULT_CELL_SIZE_M, DEFAULT_BASE_SPREAD_RATE, WIND_HEAD_FACTOR,
 )
 
 from fire_vision import scan_photo
 import nasa_firms
 import corine
+import worldcover
 import db
 import photo_storage
 import weather
@@ -1909,6 +1910,16 @@ def _grid_to_json(
             lpt = grid.last_predict_time
             elapsed = max(0.0, now_ts - lpt) if lpt > 0 else 0.0
 
+            # Expand grid if fire is near the boundary — even when predict
+            # is skipped (recent checkpoint).  Without this, the export
+            # shows the old DB dimensions and the fire appears clipped at
+            # a straight grid edge.
+            _radius = max(10, int(math.ceil(
+                (DEFAULT_BASE_SPREAD_RATE * (1.0 + 15.0 * WIND_HEAD_FACTOR))
+                * (min(elapsed, 600.0) / 60.0) / grid.cell_size
+            ))) if lpt > 0 else 10
+            _did_expand = grid._expand_for_predict(_radius)
+
             # Fallback extrapolation (never persisted — the worker owns
             # persistence via grids.advance). Raised gate (~10s) keeps steady
             # state cheap; dt capped at 10 minutes so fires can't run away
@@ -1918,7 +1929,15 @@ def _grid_to_json(
             # (grids.advance → db.advance_grids) so the between-poll
             # animation doesn't silently drift toward wind-only behaviour
             # on a dry-fuel fire (ffmc=0 / outside coverage → neutral 1.0).
-            if lpt > 0 and elapsed > _PREDICT_GATE_S:
+            #
+            # When the grid was JUST expanded (fire was at boundary), always
+            # run a short predict to spread probability into the new cells —
+            # without this, the new cells stay at prior (0.01) and the heatmap
+            # still looks clipped even though the grid grew.
+            _needs_predict = (
+                lpt > 0 and (elapsed > _PREDICT_GATE_S or _did_expand)
+            )
+            if _needs_predict:
                 _ffmc = float(entry.get("ffmc") or 0.0)
                 _dmc = float(entry.get("dmc") or 0.0)
                 grid.predict(
@@ -3830,22 +3849,43 @@ def _fuse_firms_hotspots(
 
 
 def _gate_firms_by_land_cover(hotspots: list) -> list:
-    """Drop FIRMS detections that fall on non-burnable CORINE classes.
+    """Drop FIRMS detections that fall on non-burnable land-cover classes.
 
-    Batched PostGIS lookup against the ``land_cover`` table (CLC2018,
-    loaded by corine_import.py). Points outside CORINE coverage pass
-    through — the gate is permissive where we have no data so it can
+    Two-layer lookup:
+      1. CORINE CLC2018 (100 m vector, Europe only) — authoritative for
+         the Poland/EU beta footprint.
+      2. ESA WorldCover 2021 (10 m raster, global) — fallback for points
+         outside CORINE coverage (the FIRMS API returns worldwide data).
+
+    Points outside BOTH layers pass through permissively — the gate can
     never silently delete fires in uncovered regions.
 
-    Side effect: each kept hotspot gets ``h._clc_code`` set to its CLC
-    class (None when outside coverage), so the Step 3 ag-burn tagging
-    reuses this one lookup instead of hitting PostGIS again.
+    Side effect: each kept hotspot gets ``h._clc_code`` set to its
+    land-cover class code (CORINE string when in Europe, WorldCover int
+    when in the global fallback, None when outside both).  The Step 3
+    ag-burn tagging reuses this one lookup instead of hitting PostGIS
+    again.
     """
     if not hotspots:
         return hotspots
-    codes = db.land_cover_codes_batch(
+
+    # Layer 1: CORINE (Europe)
+    corine_codes = db.land_cover_codes_batch(
         [(h.latitude, h.longitude) for h in hotspots]
     )
+
+    # Layer 2: WorldCover (global) — only for points NOT in CORINE
+    uncov_indices = [i for i in range(len(hotspots)) if i not in corine_codes]
+    wc_codes: dict[int, Optional[int]] = {}
+    if uncov_indices:
+        wc_points = [(hotspots[i].latitude, hotspots[i].longitude)
+                     for i in uncov_indices]
+        wc_raw = db.worldcover_code_batch(wc_points)
+        # Remap indices back to the original hotspot list positions
+        for j, orig_i in enumerate(uncov_indices):
+            if j in wc_raw:
+                wc_codes[orig_i] = wc_raw[j]
+
     kept: list = []
     for i, h in enumerate(hotspots):
         # Step 4: passthrough-classified sources (volcanic/conflict) are
@@ -3855,30 +3895,48 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
             h._clc_code = None
             kept.append(h)
             continue
-        code = codes.get(i)
-        if code is not None and not corine.is_burnable(code):
+
+        # Try CORINE first (Europe), then WorldCover (global fallback)
+        corine_code = corine_codes.get(i)
+        if corine_code is not None:
+            if not corine.is_burnable(corine_code):
+                continue
+            h._clc_code = corine_code
+            kept.append(h)
             continue
-        h._clc_code = code
+
+        # Outside CORINE — try WorldCover
+        wc_code = wc_codes.get(i)
+        if wc_code is not None:
+            if not worldcover.is_burnable(wc_code):
+                continue
+            h._clc_code = wc_code
+            kept.append(h)
+            continue
+
+        # Outside both layers — pass through permissively
+        h._clc_code = None
         kept.append(h)
+
     return kept
 
 
 def _tag_ag_burn(hotspots: list) -> int:
     """Tag FIRMS detections on cropland as agricultural burning (Step 3).
 
-    The signal is the CORINE class alone: the archive calibration found no
-    FRP or day/night separation between cropland and forest detections, so
-    the land class is the discriminator. An optional FRP cap (0 = off)
+    Checks both CORINE (Europe) and WorldCover (global) cropland classes.
+    The signal is the land-cover class alone: the archive calibration found
+    no FRP or day/night separation between cropland and forest detections,
+    so the land class is the discriminator.  An optional FRP cap (0 = off)
     still exists for deployments that want it.
 
-    Returns the number of hotspots tagged. Fail-open: hotspots without a
-    CLC code (outside coverage) are never tagged, so the mask can never
-    silently starve fires in uncovered regions.
+    Returns the number of hotspots tagged.  Fail-open: hotspots without a
+    code (outside both CORINE and WorldCover) are never tagged.
     """
     tagged = 0
     for h in hotspots:
         code = getattr(h, "_clc_code", None)
-        if not corine.is_cropland(code):
+        if not corine.is_cropland(code) and not worldcover.is_cropland(code):
             continue
         if AG_BURN_FRP_MAX_MW > 0 and h.frp >= AG_BURN_FRP_MAX_MW:
             continue

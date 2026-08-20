@@ -1816,6 +1816,74 @@ def static_source_hits_batch(points: list[tuple[float, float]]) -> dict[int, boo
     return out
 
 
+def worldcover_code_batch(points: list[tuple[float, float]]) -> dict[int, Optional[int]]:
+    """Look up the ESA WorldCover class code at each point (global fallback).
+
+    ``points`` is a list of ``(lat, lon)``.  Returns ``{index: code}`` for
+    points that fall inside a loaded ``worldcover_polygons`` geometry row;
+    points outside WorldCover coverage are absent from the result.
+
+    This is the **global fallback** for the land-cover gate: CORINE covers
+    Europe at 100 m; WorldCover covers the globe at 10 m.  The caller
+    (``_gate_firms_by_land_cover``) tries CORINE first and falls back to
+    this function when CORINE has no coverage.
+
+    Same batched-GiST pattern as ``land_cover_codes_batch``: temp table,
+    spatial pre-filter, chunked inserts, ST_Contains join.  Fail-open:
+    if ``worldcover_polygons`` doesn't exist yet, returns empty (every
+    point treated as burnable).
+    """
+    if not points:
+        return {}
+    # Check if table exists (fail-open)
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_name = 'worldcover_polygons'"
+            ")"
+        ).fetchone()
+        exists = row["exists"]
+    if not exists:
+        return {}
+    bbox = _table_bbox("worldcover_polygons")
+    if bbox is None:
+        return {}
+    keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
+            if _in_bbox(lat, lon, bbox)]
+    if not keep:
+        return {}
+    out: dict[int, Optional[int]] = {}
+    with _conn() as conn:
+        conn.execute(
+            "CREATE TEMP TABLE _wc_pts (idx int, geom geometry) ON COMMIT DROP"
+        )
+        conn.execute("CREATE INDEX ON _wc_pts USING gist (geom)")
+        for start in range(0, len(keep), 1000):
+            batch = keep[start:start + 1000]
+            conn.execute(
+                "INSERT INTO _wc_pts (idx, geom) VALUES "
+                + ", ".join(
+                    "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                    for _ in batch
+                ),
+                [p for idx, (lat, lon) in batch for p in (idx, lon, lat)],
+            )
+        rows = conn.execute(
+            """
+            SELECT DISTINCT ON (p.idx) p.idx, wp.class_code
+            FROM _wc_pts p
+            JOIN worldcover_polygons wp ON ST_Contains(wp.geom, p.geom)
+            ORDER BY p.idx
+            """
+        ).fetchall()
+    for r in rows:
+        val = r["class_code"]
+        if val is not None:
+            out[int(r["idx"])] = int(val)
+    return out
+
+
 def volcano_hits_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
     """Return ``{index: True}`` for points near a volcano (Step 4 stub).
 
