@@ -35,11 +35,19 @@ def main() -> int:
     local = BACKUP_DIR / f"wildframe-{ts}.dump"
 
     print(f"[backup] dumping to {local} ...")
-    subprocess.run(
+    result = subprocess.run(
         ["pg_dump", url, "-Fc", "-f", str(local)],
-        check=True,
         capture_output=True,
     )
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        print(f"[backup] pg_dump FAILED (exit {result.returncode}): {stderr}")
+        local.unlink(missing_ok=True)  # remove 0-byte file
+        return 1
+    if local.stat().st_size == 0:
+        print("[backup] pg_dump produced empty file — aborting")
+        local.unlink(missing_ok=True)
+        return 1
     print(f"[backup] dump OK ({local.stat().st_size / 1024 / 1024:.1f} MB)")
 
     import boto3
