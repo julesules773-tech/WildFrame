@@ -104,7 +104,8 @@ ACTIVE_REPORT_HOURS = 48          # keep reports visible on map for 48h
 ADMIN_GRIDS_LIMIT = 500
 
 # Grid matching radius lives in db.py (shared with the persistence layer).
-GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_MALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}
+GRID_MATCH_RADIUS_M = db.GRID_MATCH_RADIUS_M
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "heic", "heif"}
 
 
 # ---------------------------------------------------------------------------
