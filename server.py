@@ -1183,7 +1183,12 @@ def healthz():
 
 @app.route("/")
 def index():
-    return send_from_directory(str(STATIC_DIR), "index.html")
+    return send_from_directory(str(STATIC_DIR), "landing.html")
+
+
+@app.route("/map")
+def map_page():
+    return send_from_directory(str(STATIC_DIR), "map.html")
 
 
 @app.route("/contact")

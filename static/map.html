@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyrae — Live Wildfire Map &amp; Early Detection</title>
+  <meta name="description" content="Live wildfire map with real-time satellite detection (NASA FIRMS), AI fire & smoke analysis of citizen photos, and predictive spread modelling. Report a fire, see confirmed hotspots, and check road risk near active fires." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/map" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="Pyrae — Live Wildfire Map &amp; Early Detection" />
+  <meta property="og:description" content="Real-time wildfire detection from satellite data and citizen photo reports, with predictive spread modelling and road risk assessment." />
+  <meta property="og:url" content="https://pyrae.co/map" />
+  <meta property="og:locale" content="en_US" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Pyrae — Live Wildfire Map &amp; Early Detection" />
+  <meta name="twitter:description" content="Real-time wildfire detection from satellite data and citizen photo reports, with predictive spread modelling and road risk assessment." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
+  <!-- Leaflet CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet.Locate control -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.locatecontrol@0.79.0/dist/L.Control.Locate.min.js" charset="utf-8"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="/style.css?v=20260819e" />
+</head>
+<body>
+
+  <!-- ======== Full-screen Map ======== -->
+  <div id="map"></div>
+
+  <!-- ======== Top Bar ======== -->
+  <header id="top-bar">
+    <div class="brand">
+      <span class="brand-icon">🔥</span>
+      <span class="brand-text">Pyrae</span>
+      <p class="brand-tagline">live wildfire map</p>
+      <span class="version-badge" title="Pyrae v0.1.1
+      ">v0.1.1</span>
+    </div>
+    <div class="search-box" id="search-box">
+      <span class="search-box-icon" aria-hidden="true">🔍</span>
+      <input id="search-input" type="search" placeholder="Search city, address…"
+             autocomplete="off" spellcheck="false" enterkeyhint="search"
+             role="combobox" aria-expanded="false" aria-controls="search-results"
+             aria-label="Search for a city or address" />
+      <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
+    </div>
+    <div class="top-actions">
+      <a href="/admin" class="admin-link admin-link--hidden" title="Admin moderation dashboard">
+        <span class="admin-link-icon">🛡️</span>
+        <span class="admin-link-text">Admin</span>
+      </a>
+      <a href="/contact" class="contact-link" title="Contact & partnerships">
+        <span class="contact-link-icon">✉️</span>
+        <span class="contact-link-text">Contact</span>
+      </a>
+      <a href="/privacy" class="privacy-link" title="Privacy policy">
+        <span class="contact-link-icon">🔒</span>
+        <span class="contact-link-text">Privacy</span>
+      </a>
+      <a href="/about" class="about-link" title="Who we are">
+        <span class="contact-link-icon">🧭</span>
+        <span class="contact-link-text">Who we are</span>
+      </a>
+      <a href="/faq" class="faq-link" title="Frequently asked questions & feedback">
+        <span class="contact-link-icon">❓</span>
+        <span class="contact-link-text">FAQ</span>
+      </a>
+      <a href="/map/poland" class="poland-map-link" title="Live wildfire map of Poland">
+        <span class="contact-link-icon">🇵🇱</span>
+        <span class="contact-link-text">Poland map</span>
+      </a>
+      <button id="bayesian-toggle" class="bayesian-toggle-btn" title="Toggle fire grid probability heatmap">
+        <span class="bayesian-icon">🌀</span>
+        <span class="bayesian-text">Fire Grid</span>
+      </button>
+      <button id="users-only-toggle" class="users-only-btn" title="Show only fires reported by app users (hide satellite data)">
+        <span class="users-only-icon">👥</span>
+        <span class="users-only-text">Users only</span>
+      </button>
+      <div class="status-badge" id="status-badge">
+        <span class="dot"></span>
+        <span id="status-text">Initializing…</span>
+      </div>
+      <!-- Mobile overflow: secondary controls collapse into a ⋯ menu on
+           narrow screens (app.js moves them in/out via _layoutTopBar). -->
+      <button id="top-menu-btn" class="top-menu-btn" title="More options" aria-label="More options" aria-expanded="false">
+        <span class="menu-icon">⋯</span>
+      </button>
+    </div>
+
+    <!-- Mobile overflow menu (dropdown under the top bar) -->
+    <div id="top-menu" class="top-menu"></div>
+  </header>
+
+
+  <!-- ======== Stats Panel ======== -->
+  <div id="stats-panel">
+    <div class="stat-item">
+      <span class="stat-value" id="stat-reports">0</span>
+      <span class="stat-label">Reports</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-clusters">0</span>
+      <span class="stat-label">Clusters</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-pending">0</span>
+      <span class="stat-label">Pending</span>
+    </div>
+  </div>
+
+  <!-- ======== Cluster Legend ======== -->
+  <div id="cluster-legend">
+    <div class="legend-title">Cluster Severity</div>
+    <div class="legend-item">
+      <span class="legend-dot dot-small"></span>
+      <span>1 report</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot dot-medium"></span>
+      <span>2–3 reports</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot dot-large"></span>
+      <span>4+ reports</span>
+    </div>
+  </div>
+
+
+  <!-- ======== Upload Panel (floating card) ======== -->
+  <div id="upload-panel">
+    <!-- Collapsed trigger -->
+    <button id="upload-trigger" class="upload-trigger" title="Report a fire">
+      <span class="trigger-icon">+</span>
+      <span class="trigger-text">Report a Wildfire</span>
+    </button>
+
+    <!-- Expanded card -->
+    <div id="upload-card" class="upload-card hidden">
+      <div class="card-header">
+        <h2>Report a Wildfire</h2>
+        <button id="card-close" class="card-close" title="Close">&times;</button>
+      </div>
+      <div class="card-body">
+        <div class="location-status" id="location-status">
+          <span id="loc-text">Acquiring GPS…</span>
+          <button id="gps-refresh-btn" class="gps-refresh-btn" title="Re-acquire GPS location">
+            <span class="refresh-icon">⟳</span>
+          </button>
+        </div>
+
+        <div class="manual-coords hidden" id="manual-coords">
+          <div class="manual-coords-heading">Or enter coordinates manually:</div>
+          <div class="coord-inputs">
+            <input type="text" id="input-lat-manual" class="coord-input" placeholder="Latitude (e.g. 37.745)" inputmode="decimal" autocomplete="off" />
+            <input type="text" id="input-lon-manual" class="coord-input" placeholder="Longitude (e.g. -119.593)" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="photo-preview" id="photo-preview">
+          <div class="preview-placeholder" id="preview-placeholder">
+            <span class="camera-icon">📷</span>
+            <p>Tap to take a photo</p>
+          </div>
+          <img id="preview-image" class="hidden" alt="Photo preview" />
+        </div>
+
+        <!-- Photo attach confirmation: shown the moment the photo is
+             loaded into the report, independent of the client-side scan. -->
+        <div id="photo-status" class="photo-status hidden"></div>
+
+        <div id="fire-gate-notice" class="fire-gate-notice hidden"></div>
+
+        <form id="upload-form">
+          <input type="file" id="photo-input" name="photo" accept="image/*,image/heic,image/heif,.heic,.heif" capture="environment" class="hidden" />
+          <input type="hidden" id="input-lat" name="lat" />
+          <input type="hidden" id="input-lon" name="lon" />
+          <input type="hidden" id="input-heading" name="heading" />
+          <input type="hidden" id="input-session" name="session_id" />
+          <input type="hidden" id="input-captured-at" name="captured_at" />
+
+          <button type="submit" id="submit-btn" class="submit-btn" disabled>
+            <span class="btn-icon">🔥</span>
+            <span>Submit Report</span>
+          </button>
+        </form>
+
+        <div id="upload-progress" class="progress-bar hidden">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== Fire Grid Panel ======== -->
+  <div id="bayesian-panel" class="bayesian-panel hidden">
+    <div class="bayesian-header">
+      <span class="bayesian-pulse"></span>
+      <span class="bayesian-title">Fire Grid</span>
+      <button id="bayesian-collapse-btn" class="bayesian-collapse-btn" title="Collapse panel" aria-label="Collapse panel">▾</button>
+    </div>
+    <div class="bayesian-legend">
+      <!-- Absolute color scale: the same probability always maps to the
+           same color (see _lavaColor in app.js). Ticks mark the fixed
+           ramp stops: 0.3 yellow→orange, 0.6 orange→warm red, 0.85
+           warm→bright red, 0.92 bright red→ember. -->
+      <div class="bayesian-legend-gradient">
+        <span class="legend-grad-label" style="left:0%">0</span>
+        <span class="legend-grad-label" style="left:30%">0.3</span>
+        <span class="legend-grad-label" style="left:60%">0.6</span>
+        <span class="legend-grad-label" style="left:85%">0.85</span>
+        <span class="legend-grad-label" style="left:92%">0.92</span>
+        <span class="legend-grad-label" style="left:100%">1</span>
+      </div>
+    </div>
+    <div class="bayesian-stats" id="bayesian-stats">
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label">Max prob:</span>
+        <span id="bayesian-stat-maxp" class="bayesian-stat-value">0.00</span>
+      </div>
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label" title="Cells with >25% burn probability — high-confidence active fire zone">Burned area:</span>
+        <span id="bayesian-stat-burned" class="bayesian-stat-value">— ha</span>
+      </div>
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label" title="Cells with >5% burn probability — broader spread-risk zone visible on the heatmap">Risk area:</span>
+        <span id="bayesian-stat-risk" class="bayesian-stat-value">— ha</span>
+      </div>
+      <div class="bayesian-stat-row">
+        <span class="bayesian-stat-label">Cells >10%:</span>
+        <span id="bayesian-stat-cells" class="bayesian-stat-value">0</span>
+      </div>
+    </div>
+    <div class="bayesian-controls">
+      <div class="bayesian-control-row">
+        <label class="bayesian-toggle-label">
+          <input type="checkbox" id="bayesian-heatmap-toggle" checked />
+          <span class="toggle-switch"></span>
+          Heatmap
+        </label>
+        <label class="bayesian-toggle-label">
+          <input type="checkbox" id="bayesian-contour-toggle" checked />
+          <span class="toggle-switch"></span>
+          Contour
+        </label>
+      </div>
+      <div class="bayesian-control-row">
+        <label class="bayesian-slider-label">
+          <span>Threshold</span>
+          <input type="range" id="bayesian-threshold" min="0" max="0.9" step="0.01" value="0.05" />
+        </label>
+      </div>
+      <div class="bayesian-control-row bayesian-satellite-row">
+        <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
+          <span class="btn-icon">🛰️</span>
+          <span>Fetch FIRMS</span>
+        </button>
+        <label class="bayesian-toggle-label" title="Auto-fetch NASA FIRMS data every 5 minutes">
+          <input type="checkbox" id="firms-poller-toggle" />
+          <span class="toggle-switch"></span>
+          FIRMS Live
+        </label>
+      </div>
+      <div class="satellite-status" id="satellite-status">Satellite: idle</div>
+      <div class="bayesian-control-row bayesian-roadrisk-row">
+        <label class="bayesian-toggle-label" title="Overlay roads colored by fire spread risk">
+          <input type="checkbox" id="roadrisk-toggle" />
+          <span class="toggle-switch"></span>
+          Road Risk (Beta)
+        </label>
+        <span class="roadrisk-status" id="roadrisk-status">idle</span>
+      </div>
+      <div class="bayesian-control-row" style="margin-top:6px;">
+        <button id="wf-sim-panel-btn" title="Simulate fire spread at the fire nearest your viewport" style="width:100%;padding:6px 0;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;">▶ Simulate Spread (Beta)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reopen pill shown whenever the Fire Grid card is collapsed (the
+       heatmap stays on; this is the only way back to the card). -->
+  <button id="bayesian-panel-pill" class="bayesian-panel-pill hidden" title="Expand the Fire Grid panel" aria-label="Expand the Fire Grid panel">
+    <span class="bayesian-pulse"></span>
+    <span>Fire Grid</span>
+    <span class="bayesian-pill-chevron">▸</span>
+  </button>
+
+
+  <!-- ======== Toast Notifications ======== -->
+  <div id="toast-container"></div>
+
+  <!-- ======== Scripts ======== -->
+  <!-- TF.js loaded lazily on upload-card open (~1.4 MB saved for non-upload visitors) -->
+  <script src="/app.js?v=20260819c"></script>
+  <!-- Page Pulse Tracking Script -->
+  <script>
+    (function () {
+      if (window.self !== window.top) return;
+      var pid = "fda79210-dee5-447d-8cf7-1194b352d5e2";
+      var tk = "ce9c6104-faa5-40cf-8f15-097057f31d31";
+      var ep = "https://esnubozrjxrbegatzusu.supabase.co/functions/v1/track";
+      var sid = sessionStorage.getItem("_pp_sid") || Math.random().toString(36).slice(2);
+      sessionStorage.setItem("_pp_sid", sid);
+      var vid = localStorage.getItem("_pp_vid") || Math.random().toString(36).slice(2);
+      localStorage.setItem("_pp_vid", vid);
+      var lastUrl = location.href;
+      function send(t, n) {
+        fetch(ep, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            page_id: pid, token: tk, url: location.href, referrer: document.referrer,
+            user_agent: navigator.userAgent, screen_width: screen.width,
+            session_id: sid, visitor_id: vid, event_type: t, element_name: n || null
+          })
+        });
+      }
+      send("pageview");
+      document.addEventListener("click", function (e) {
+        var el = e.target.closest("a,button,[role='button'],input[type='submit']");
+        if (!el) return;
+        var p = el; while (p) { var s = getComputedStyle(p); if (s.position === "fixed" || s.position === "sticky") { var r = p.getBoundingClientRect(); if (r.width > window.innerWidth * 0.4 && r.height > window.innerHeight * 0.3) return; } p = p.parentElement; }
+        var name = el.getAttribute("data-pp") || el.innerText || el.getAttribute("aria-label") || el.tagName;
+        if (name) send("click", name.trim().substring(0, 100));
+      });
+      function checkUrl() { if (location.href !== lastUrl) { lastUrl = location.href; send("pageview"); } }
+      var origPush = history.pushState; history.pushState = function () { origPush.apply(this, arguments); checkUrl(); };
+      var origReplace = history.replaceState; history.replaceState = function () { origReplace.apply(this, arguments); checkUrl(); };
+      window.addEventListener("popstate", checkUrl);
+      setInterval(function () { if (!document.hidden) send("ping"); }, 15000);
+      var _cc = {};
+      function trackConversion(label) { var k = label || "_"; if (_cc[k]) return; _cc[k] = 1; send("conversion", label || null); }
+      window.PagePulse = window.PagePulse || {};
+      window.PagePulse.trackConversion = trackConversion;
+      window.pagePulse = window.PagePulse;
+      /* Web Vitals: LCP, CLS, INP, page load time */
+      var _v = { cls: 0, inp: 0 };
+      try {
+        if (window.PerformanceObserver) {
+          try { new PerformanceObserver(function (l) { var e = l.getEntries(); if (e.length) _v.lcp = Math.round(e[e.length - 1].startTime); }).observe({ type: "largest-contentful-paint", buffered: true }); } catch (e) { }
+          try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (!e.hadRecentInput) _v.cls += e.value; }); }).observe({ type: "layout-shift", buffered: true }); } catch (e) { }
+          try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { if (e.duration > _v.inp) _v.inp = Math.round(e.duration); }); }).observe({ type: "event", buffered: true, durationThreshold: 40 }); } catch (e) { }
+        }
+      } catch (e) { }
+      function flushVitals() {
+        if (_v._sent) return; _v._sent = 1;
+        try { var nt = performance.getEntriesByType && performance.getEntriesByType("navigation")[0]; if (nt && nt.loadEventEnd) _v.load = Math.round(nt.loadEventEnd); } catch (e) { }
+        var dt = (screen.width && screen.width < 768) ? "mobile" : "desktop";
+        var payload = { page_id: pid, token: tk, url: location.href, session_id: sid, event_type: "vitals", vitals: { lcp: _v.lcp || null, cls: _v.cls ? Math.round(_v.cls * 1000) / 1000 : null, inp: _v.inp || null, load_time: _v.load || null, device_type: dt } };
+        try { if (navigator.sendBeacon) { navigator.sendBeacon(ep, new Blob([JSON.stringify(payload)], { type: "application/json" })); } else { fetch(ep, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), keepalive: true }); } } catch (e) { }
+      }
+      addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flushVitals(); });
+      addEventListener("pagehide", flushVitals);
+    })();
+  </script>
+  <!-- End Page Pulse Tracking Script -->
+</body>
+</html>
