@@ -31,6 +31,7 @@ import logging
 import os
 import sys
 import tempfile
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger("worldcover_import")
@@ -84,13 +85,23 @@ def _tile_keys_for_bbox(bbox: tuple[float, float, float, float],
     return keys
 
 
-def _download_tile(key: str) -> bytes:
-    """Download a single tile from S3 (public, no auth needed)."""
+def _download_tile(key: str) -> bytes | None:
+    """Download a single tile from S3 (public, no auth needed).
+
+    Returns None for 404 (tile doesn't exist — e.g. open ocean) so the
+    caller can skip it instead of treating it as a hard error.
+    """
     url = f"{S3_BASE}/{key}"
     logger.info("downloading %s …", key)
     req = Request(url, headers={"User-Agent": "pyrae-worldcover-import/1.0"})
-    with urlopen(req, timeout=120) as resp:
-        data = resp.read()
+    try:
+        with urlopen(req, timeout=120) as resp:
+            data = resp.read()
+    except HTTPError as exc:
+        if exc.code == 404:
+            logger.info("  %s — 404 (no tile, likely ocean), skipping", key)
+            return None
+        raise
     # Validate: GeoTIFF starts with either 'II' (little-endian) or 'MM' (big-endian)
     if not data or data[:2] not in (b'II', b'MM'):
         snippet = data[:200].decode('utf-8', errors='replace') if data else '<empty>'
@@ -352,6 +363,12 @@ def main() -> int:
         try:
             # 1. Download
             data = _download_tile(key)
+            if data is None:
+                # Tile doesn't exist (ocean / no data) — mark done so
+                # --resume never retries it.
+                progress[key] = "done"
+                _save_progress(args.progress_file, progress, bbox, table)
+                continue
 
             # 2. Extract polygons
             polys = _extract_polygons(data, key, simplify=args.simplify)
