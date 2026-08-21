@@ -136,6 +136,21 @@
     .trust-item { display: flex; align-items: center; gap: 6px; }
     .trust-icon { font-size: 15px; }
   </style>
+  <!-- JSON-LD: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://pyrae.co/"
+      }
+    ]
+  }
+  </script>
   <!-- JSON-LD: Organization -->
   <script type="application/ld+json">
   {
@@ -144,6 +159,10 @@
     "name": "Pyrae",
     "url": "https://pyrae.co",
     "description": "Live wildfire detection and spread intelligence for communities and responders, built on citizen photo reports, AI fire/smoke analysis, NASA FIRMS satellite corroboration and Bayesian predictive modelling.",
+    "founder": {
+      "@type": "Person",
+      "name": "Julian Uhres"
+    },
     "sameAs": []
   }
   </script>
@@ -311,10 +330,13 @@
 
     <!-- ======== Trust bar ======== -->
     <div class="trust-bar">
-      <div class="trust-item"><span class="trust-icon">🛰️</span> NASA FIRMS satellite data</div>
-      <div class="trust-item"><span class="trust-icon">🧠</span> AI fire &amp; smoke analysis</div>
-      <div class="trust-item"><span class="trust-icon">📊</span> Bayesian spread modelling</div>
+      <div class="trust-item"><span class="trust-icon">👤</span> Founded by Julian Uhres</div>
+      <div class="trust-item"><span class="trust-icon">🛰️</span> NASA FIRMS, EFFIS/Copernicus</div>
+      <div class="trust-item"><span class="trust-icon">🌤️</span> Open-Meteo weather data</div>
+      <div class="trust-item"><span class="trust-icon">🧠</span> AI + citizen reports</div>
+      <div class="trust-item"><span class="trust-icon">🔄</span> Satellite every 3 h · map every 8 s</div>
       <div class="trust-item"><span class="trust-icon">🔒</span> <a href="/privacy" style="color:var(--text-secondary);">Privacy-first</a></div>
+      <div class="trust-item"><span class="trust-icon">📧</span> <a href="mailto:contact@pyrae.co" style="color:var(--text-secondary);">contact@pyrae.co</a></div>
       <div class="trust-item"><span class="trust-icon">⚠️</span> Not an emergency service</div>
     </div>
 
