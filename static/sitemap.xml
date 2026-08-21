@@ -31,6 +31,31 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://pyrae.co/wildfire-early-detection-for-emergency-services</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://pyrae.co/investors</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://pyrae.co/nasa-firms-wildfire-map</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://pyrae.co/how-early-wildfire-detection-works</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://pyrae.co/wildfire-spread-risk-map</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://pyrae.co/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>

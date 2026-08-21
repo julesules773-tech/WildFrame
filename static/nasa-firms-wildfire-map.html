@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NASA FIRMS Wildfire Map — Live Satellite Fire Detection | Pyrae</title>
+  <meta name="description" content="See NASA FIRMS active fire detections on a live map. Pyrae corroborates citizen reports against VIIRS and MODIS satellite hotspots within 3 km / 12 hours — turning ground sightings into confirmed incidents." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/nasa-firms-wildfire-map" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="NASA FIRMS Wildfire Map — Live Satellite Fire Detection" />
+  <meta property="og:description" content="See NASA FIRMS active fire detections on a live map. Pyrae corroborates citizen reports against VIIRS and MODIS satellite hotspots." />
+  <meta property="og:url" content="https://pyrae.co/nasa-firms-wildfire-map" />
+  <meta property="og:locale" content="en_US" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="NASA FIRMS Wildfire Map — Live Satellite Fire Detection" />
+  <meta name="twitter:description" content="Live NASA FIRMS active fire data on a map, corroborated with citizen AI-screened reports." />
+  <!-- JSON-LD: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://pyrae.co/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "NASA FIRMS Wildfire Map",
+        "item": "https://pyrae.co/nasa-firms-wildfire-map"
+      }
+    ]
+  }
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/contact.css" />
+  <style>
+    #firms-map {
+      width: 100%; height: 460px;
+      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    #firms-map .leaflet-control-zoom a {
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    #firms-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
+    #firms-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    #firms-map .leaflet-control-attribution {
+      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
+    }
+    #firms-map .leaflet-control-attribution a { color: var(--text-secondary); }
+    #firms-map .leaflet-popup-content-wrapper, #firms-map .leaflet-popup-tip {
+      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
+    }
+    #firms-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+    .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
+    .map-cta { text-align: center; margin: 0 0 30px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(225, 29, 72, 0.15); color: #fda4af;
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
+      margin-bottom: 18px;
+    }
+    .live-badge .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
+      animation: live-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
+    .stat {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
+      box-shadow: var(--shadow);
+    }
+    .stat b { font-size: 30px; display: block; letter-spacing: -0.5px; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
+    .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
+  </style>
+</head>
+<body class="contact-page">
+
+  <!-- ======== Header ======== -->
+  <header class="contact-header">
+    <div class="contact-brand">
+      <span class="brand-icon">🔥</span>
+      <span class="contact-brand-text">Pyrae</span>
+      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+    </div>
+    <a href="/map" class="contact-back" title="Back to the live map">
+      <span class="contact-back-icon">←</span>
+      <span>Back to map</span>
+    </a>
+  </header>
+
+  <main class="contact-main" style="max-width: 860px;">
+
+    <section class="hero" style="text-align: center;">
+      <p class="hero-eyebrow">LIVE SATELLITE FIRE MONITORING</p>
+      <h1 class="hero-title">NASA FIRMS Wildfire Map — <span class="hero-accent">Live Satellite Fire Detection</span></h1>
+      <p class="hero-sub">
+        NASA's Fire Information for Resource Management System (FIRMS) detects
+        active fires from space using VIIRS and MODIS satellite sensors.
+        Pyrae layers this data onto a live map and corroborates citizen
+        ground reports against satellite hotspots — turning single sightings
+        into confirmed incidents.
+      </p>
+      <span class="live-badge"><span class="live-dot"></span> Live</span>
+      <div class="stat-row">
+        <div class="stat"><b>3 h</b><span>satellite refresh</span></div>
+        <div class="stat"><b>375 m</b><span>VIIRS resolution</span></div>
+        <div class="stat"><b>3 km</b><span>corroboration radius</span></div>
+      </div>
+    </section>
+
+    <div id="firms-map" aria-label="Live NASA FIRMS wildfire map"></div>
+
+    <p class="map-note">Red markers show currently tracked fire hotspots. Zoom in for detail.</p>
+    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+
+    <!-- ======== What is FIRMS? ======== -->
+    <section class="section">
+      <h2 class="section-title">What is NASA FIRMS?</h2>
+      <p>
+        NASA's <strong>Fire Information for Resource Management System</strong>
+        (FIRMS) provides near-real-time active fire data from the MODIS and
+        VIIRS satellite instruments. The VIIRS 375&nbsp;m sensor detects
+        thermal anomalies — areas significantly warmer than their surroundings
+        — that often indicate active wildfires, agricultural burning, or
+        industrial flaring.
+      </p>
+      <p>
+        FIRMS data is refreshed every 3 hours for most regions, making it
+        one of the most reliable global sources for fire detection. However,
+        satellite detection has inherent limitations: cloud cover, small
+        fires and nighttime conditions can mask thermal signals, and the
+        revisit interval means a fast-growing fire may already be large by
+        the time it appears on the next pass.
+      </p>
+    </section>
+
+    <!-- ======== How Pyrae uses FIRMS ======== -->
+    <section class="section">
+      <h2 class="section-title">How Pyrae uses FIRMS data</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">🛰️</div>
+          <h3>Satellite corroboration</h3>
+          <p>
+            Every citizen photo report is checked against live NASA FIRMS
+            hotspots. If a photo sighting falls within <strong>3 km</strong>
+            of a satellite detection in the past <strong>12 hours</strong>,
+            the report is confirmed — turning a single ground observation
+            into a verified incident.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🧠</div>
+          <h3>AI screening first</h3>
+          <p>
+            Before reaching the satellite corroboration step, every photo is
+            screened by a computer-vision model for visible fire and smoke.
+            Only AI-positive reports are checked against FIRMS — reducing
+            noise and ensuring that confirmed fires have both ground truth
+            and satellite evidence.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">📈</div>
+          <h3>Bayesian modelling</h3>
+          <p>
+            FIRMS hotspots feed directly into the Bayesian Fire Grid, which
+            models how each fire is likely to spread. Satellite data provides
+            the initial evidence; the grid fuses it with weather, terrain and
+            vegetation data to produce a probabilistic spread forecast.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== Why speed matters ======== -->
+    <section class="section">
+      <h2 class="section-title">Why speed matters</h2>
+      <p>
+        Wildfires can double in size every 30–60 minutes under dry, windy
+        conditions. Traditional satellite-only detection — while valuable —
+        leaves a gap: the fire must be large enough and hot enough to trigger
+        a thermal anomaly on the next satellite pass. By combining citizen
+        ground reports with satellite corroboration, Pyrae fills this gap —
+        detecting fires that are still small enough for initial attack.
+      </p>
+      <p>
+        The corroboration step (satellite + ground truth) is critical: it
+        prevents false alarms from reaching responders while ensuring that
+        real fires — even those the satellite missed on its last pass — are
+        confirmed through independent evidence.
+      </p>
+    </section>
+
+    <!-- ======== Data sources ======== -->
+    <section class="section">
+      <h2 class="section-title">Data sources</h2>
+      <ul class="audience-list">
+        <li><b>NASA FIRMS</b> — VIIRS 375 m and MODIS 1 km active fire detections, refreshed every 3 hours.</li>
+        <li><b>EFFIS / Copernicus</b> — European Forest Fire Information System for fire weather indices.</li>
+        <li><b>Open-Meteo</b> — real-time wind, temperature and humidity for spread modelling.</li>
+        <li><b>Citizen photo reports</b> — ground-truth sightings screened by AI and validated against FIRMS.</li>
+      </ul>
+    </section>
+
+    <!-- ======== CTA ======== -->
+    <section class="section contact-section">
+      <h2 class="section-title">See it in action</h2>
+      <p class="contact-lead">
+        The live map combines NASA FIRMS data with citizen reports and
+        predictive modelling — all in one view.
+      </p>
+      <div class="contact-actions">
+        <a class="contact-btn contact-btn--primary" href="/map">
+          🔥 &nbsp;Explore live map
+        </a>
+        <a class="contact-btn contact-btn--secondary" href="/contact">
+          ✉️ &nbsp;Contact us
+        </a>
+      </div>
+    </section>
+
+    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;">
+      Pyrae is an information tool, not an emergency service. If a fire
+      threatens life or property, call your local emergency number.
+    </p>
+
+  </main>
+
+  <footer class="contact-footer">
+    <span class="contact-footer-brand">🔥 Pyrae</span>
+  </footer>
+
+  <script>
+    (function () {
+      var map = L.map("firms-map", { zoomControl: true }).setView([42, 25], 4);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      function lavaColor(t) {
+        t = Math.min(1, Math.max(0, t));
+        var r, g, b;
+        if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); }
+        else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; }
+        else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; }
+        else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; }
+        else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); }
+        return "rgb(" + r + "," + g + "," + b + ")";
+      }
+
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; });
+          var bounds = [];
+          dots.forEach(function (g) {
+            L.circleMarker([g.lat, g.lon], {
+              radius: 4 + Math.round(g.max_p * 8),
+              color: "rgba(0,0,0,0.35)", weight: 1,
+              fillColor: lavaColor(g.max_p), fillOpacity: 0.9,
+            }).addTo(map)
+              .bindPopup("<b>Fire hotspot</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
+                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s" : ""));
+            bounds.push([g.lat, g.lon]);
+          });
+          if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+          else if (bounds.length === 1) map.setView(bounds[0], 8);
+        })
+        .catch(function () {});
+    })();
+  </script>
+
+</body>
+</html>

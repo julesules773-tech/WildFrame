@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wildfire Spread Risk Map — Predictive Fire Modelling | Pyrae</title>
+  <meta name="description" content="Wildfire spread risk map showing predicted fire movement. Pyrae's Bayesian Fire Grid models burn probability using wind, terrain, vegetation and humidity — so communities know which roads and areas are at risk before the fire arrives." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/wildfire-spread-risk-map" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="Wildfire Spread Risk Map — Predictive Fire Modelling" />
+  <meta property="og:description" content="Predictive wildfire spread modelling: Bayesian fire grid showing burn probability, road risk, and spread forecasts using wind, terrain and vegetation data." />
+  <meta property="og:url" content="https://pyrae.co/wildfire-spread-risk-map" />
+  <meta property="og:locale" content="en_US" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Wildfire Spread Risk Map — Predictive Fire Modelling" />
+  <meta name="twitter:description" content="Predictive wildfire spread modelling: Bayesian fire grid, road risk assessment, and spread forecasts." />
+  <!-- JSON-LD: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://pyrae.co/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Wildfire Spread Risk Map",
+        "item": "https://pyrae.co/wildfire-spread-risk-map"
+      }
+    ]
+  }
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/contact.css" />
+  <style>
+    #spread-map {
+      width: 100%; height: 460px;
+      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    #spread-map .leaflet-control-zoom a {
+      background: var(--bg-card); color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    #spread-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
+    #spread-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    #spread-map .leaflet-control-attribution {
+      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
+    }
+    #spread-map .leaflet-control-attribution a { color: var(--text-secondary); }
+    #spread-map .leaflet-popup-content-wrapper, #spread-map .leaflet-popup-tip {
+      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
+    }
+    #spread-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+    .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
+    .map-cta { text-align: center; margin: 0 0 30px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(225, 29, 72, 0.15); color: #fda4af;
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
+      margin-bottom: 18px;
+    }
+    .live-badge .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
+      animation: live-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
+    .stat {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
+      box-shadow: var(--shadow);
+    }
+    .stat b { font-size: 30px; display: block; letter-spacing: -0.5px; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
+    .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
+    /* Color legend */
+    .map-legend {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin: 14px auto 4px; font-size: 11px; color: var(--text-muted);
+    }
+    .legend-gradient {
+      width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0;
+      background: linear-gradient(90deg,
+        rgb(255,200,40) 0%, rgb(255,140,0) 30%, rgb(255,60,0) 60%,
+        rgb(255,15,0) 85%, rgb(255,5,15) 92%, rgb(255,30,40) 100%);
+      border: 1px solid var(--border);
+    }
+    .legend-tick { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .legend-tick b { font-weight: 700; color: var(--text-secondary); }
+    .legend-tick i { width: 1px; height: 5px; background: var(--text-muted); font-style: normal; opacity: 0.6; }
+    .legend-tick span { white-space: nowrap; }
+    @media (max-width: 600px) { .legend-gradient { width: 160px; } }
+  </style>
+</head>
+<body class="contact-page">
+
+  <!-- ======== Header ======== -->
+  <header class="contact-header">
+    <div class="contact-brand">
+      <span class="brand-icon">🔥</span>
+      <span class="contact-brand-text">Pyrae</span>
+      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+    </div>
+    <a href="/map" class="contact-back" title="Back to the live map">
+      <span class="contact-back-icon">←</span>
+      <span>Back to map</span>
+    </a>
+  </header>
+
+  <main class="contact-main" style="max-width: 860px;">
+
+    <section class="hero" style="text-align: center;">
+      <p class="hero-eyebrow">PREDICTIVE MODELLING</p>
+      <h1 class="hero-title">Wildfire Spread Risk Map — <span class="hero-accent">Predictive Fire Modelling</span></h1>
+      <p class="hero-sub">
+        Not just where fires are — where they're going. Pyrae's Bayesian
+        Fire Grid models how each fire is likely to spread using wind,
+        terrain, vegetation and humidity data, showing which roads and
+        communities are at risk before the fire arrives.
+      </p>
+      <span class="live-badge"><span class="live-dot"></span> Live</span>
+      <div class="stat-row">
+        <div class="stat"><b>8 s</b><span>map refresh</span></div>
+        <div class="stat"><b>Bayesian</b><span>spread model</span></div>
+        <div class="stat"><b>Road risk</b><span>assessment</span></div>
+      </div>
+    </section>
+
+    <div id="spread-map" aria-label="Wildfire spread risk map"></div>
+
+    <!-- Color legend -->
+    <div class="map-legend" aria-hidden="true">
+      <span>burn probability</span>
+      <div class="legend-gradient"></div>
+      <div class="legend-tick"><b>0</b><i></i><span>low</span></div>
+      <div class="legend-tick"><b>0.3</b><i></i><span></span></div>
+      <div class="legend-tick"><b>0.6</b><i></i><span></span></div>
+      <div class="legend-tick"><b>0.85</b><i></i><span></span></div>
+      <div class="legend-tick"><b>1</b><i></i><span>high</span></div>
+    </div>
+
+    <p class="map-note">Warmer colours indicate higher burn probability. Zoom in for the full heatmap.</p>
+    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+
+    <!-- ======== What is the Bayesian Fire Grid? ======== -->
+    <section class="section">
+      <h2 class="section-title">What is the Bayesian Fire Grid?</h2>
+      <p>
+        The Bayesian Fire Grid is a probabilistic model that estimates the
+        likelihood of burning for every location near an active fire. Unlike
+        a simple perimeter drawn around a fire's current extent, the grid
+        models <em>how the fire is likely to evolve</em> — producing a
+        probability surface rather than a hard boundary.
+      </p>
+      <p>
+        Each cell in the grid has a burn probability between 0 and 1.
+        The model updates continuously as new evidence arrives: citizen
+        reports, satellite hotspots, and live weather data. Cells with
+        higher probability are shown in warmer colours on the map — red
+        for high risk, yellow for lower risk.
+      </p>
+    </section>
+
+    <!-- ======== How the model works ======== -->
+    <section class="section">
+      <h2 class="section-title">How the spread model works</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">🌬️</div>
+          <h3>Wind direction &amp; speed</h3>
+          <p>
+            Live wind data from Open-Meteo determines the primary spread
+            direction. Fires spread faster with the wind and slower against
+            it — the model weights cell probabilities accordingly, creating
+            an elongated risk plume downwind of each fire.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">⛰️</div>
+          <h3>Terrain &amp; elevation</h3>
+          <p>
+            Fires spread faster uphill as pre-heated fuel above the fire
+            front ignites more quickly. Terrain slope and aspect (sun
+            exposure) are factored into each cell's spread rate, producing
+            realistic risk patterns across ridgelines and valleys.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🌲</div>
+          <h3>Vegetation &amp; fuel type</h3>
+          <p>
+            Different vegetation types burn at different rates. Grass fires
+            spread fast but burn out quickly; dense forest fires burn hotter
+            but move more slowly. Land-use and land-cover data determines
+            the fuel model for each cell.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">💧</div>
+          <h3>Humidity &amp; fire weather</h3>
+          <p>
+            Low humidity dries out fuel and increases fire intensity. Live
+            humidity, temperature and fire weather index data adjust the
+            model's spread rate — drier conditions produce wider risk zones.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== Burned vs risk area ======== -->
+    <section class="section">
+      <h2 class="section-title">Burned area vs. risk area</h2>
+      <p>
+        The Fire Grid distinguishes between two key concepts:
+      </p>
+      <ul class="audience-list">
+        <li><b>Burned area</b> — cells with very high probability (typically &gt; 0.85) where the fire is likely already burning or has recently burned. These represent the fire's current footprint.</li>
+        <li><b>Risk area</b> — cells with moderate to high probability (0.1 – 0.85) where the fire could spread in the coming hours. This is the forward-looking zone: the area that responders should monitor, evacuate or prepare.</li>
+      </ul>
+      <p>
+        The risk area is always larger than the burned area — and that's the
+        point. By the time a fire reaches a location, it's too late to act.
+        The risk area gives responders a head start: which roads to close,
+        which communities to alert, where to position resources.
+      </p>
+    </section>
+
+    <!-- ======== Road risk assessment ======== -->
+    <section class="section">
+      <h2 class="section-title">Road risk assessment</h2>
+      <p>
+        The Fire Grid doesn't just model vegetation — it also assesses which
+        roads are at risk. By overlaying the spread probability surface onto
+        the road network, Pyrae identifies which evacuation routes and access
+        roads could be threatened by fire spread.
+      </p>
+      <p>
+        This means incident commanders can see, in real time, which roads
+        are safe to use and which ones may be cut off — before the fire
+        reaches them. Pre-positioning resources on the safe side of the risk
+        zone is far more effective than reacting after roads are blocked.
+      </p>
+    </section>
+
+    <!-- ======== Why this matters ======== -->
+    <section class="section">
+      <h2 class="section-title">Why predictive modelling matters</h2>
+      <p>
+        Knowing where a fire <em>is</em> matters. Knowing where it's
+        <em>going</em> saves lives. Traditional fire maps show a static
+        snapshot — the current perimeter, the latest satellite hotspot. But
+        a fire is a moving, evolving event. The spread model extends
+        detection into forecasting, giving communities and responders the
+        most valuable thing: time.
+      </p>
+      <p>
+        Every hour of advance warning is an hour to evacuate residents,
+        close roads, position firefighting resources, and shut down
+        critical infrastructure. The Bayesian Fire Grid turns raw detection
+        data into actionable intelligence — not just alerts.
+      </p>
+    </section>
+
+    <!-- ======== CTA ======== -->
+    <section class="section contact-section">
+      <h2 class="section-title">See it in action</h2>
+      <p class="contact-lead">
+        The live map shows the Bayesian Fire Grid at work — probability
+        surfaces, spread forecasts, and road risk assessments for every
+        tracked fire.
+      </p>
+      <div class="contact-actions">
+        <a class="contact-btn contact-btn--primary" href="/map">
+          🔥 &nbsp;Explore live map
+        </a>
+        <a class="contact-btn contact-btn--secondary" href="/contact">
+          ✉️ &nbsp;Contact us
+        </a>
+      </div>
+    </section>
+
+    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;">
+      Pyrae is an early-warning tool, not an emergency service. If a fire
+      threatens life or property, call your local emergency number.
+    </p>
+
+  </main>
+
+  <footer class="contact-footer">
+    <span class="contact-footer-brand">🔥 Pyrae</span>
+  </footer>
+
+  <script>
+    (function () {
+      var map = L.map("spread-map", { zoomControl: true }).setView([42, 25], 4);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      function lavaColor(t) {
+        t = Math.min(1, Math.max(0, t));
+        var r, g, b;
+        if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); }
+        else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; }
+        else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; }
+        else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; }
+        else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); }
+        return "rgb(" + r + "," + g + "," + b + ")";
+      }
+
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; });
+          var bounds = [];
+          dots.forEach(function (g) {
+            L.circleMarker([g.lat, g.lon], {
+              radius: 4 + Math.round(g.max_p * 8),
+              color: "rgba(0,0,0,0.35)", weight: 1,
+              fillColor: lavaColor(g.max_p), fillOpacity: 0.9,
+            }).addTo(map)
+              .bindPopup("<b>Fire risk cell</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
+                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "°" : ""));
+            bounds.push([g.lat, g.lon]);
+          });
+          if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+          else if (bounds.length === 1) map.setView(bounds[0], 8);
+        })
+        .catch(function () {});
+    })();
+  </script>
+
+</body>
+</html>

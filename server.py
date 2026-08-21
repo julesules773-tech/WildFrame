@@ -1215,6 +1215,36 @@ def faq_page():
     return send_from_directory(str(STATIC_DIR), "faq.html")
 
 
+@app.route("/wildfire-early-detection-for-emergency-services")
+def emergency_services_page():
+    """Public page targeting emergency services, agencies, utilities and insurers."""
+    return send_from_directory(str(STATIC_DIR), "emergency-services.html")
+
+
+@app.route("/investors")
+def investors_page():
+    """Public page for investors and potential partners."""
+    return send_from_directory(str(STATIC_DIR), "investors.html")
+
+
+@app.route("/nasa-firms-wildfire-map")
+def nasa_firms_map_page():
+    """SEO intent page: live NASA FIRMS satellite fire detection map."""
+    return send_from_directory(str(STATIC_DIR), "nasa-firms-wildfire-map.html")
+
+
+@app.route("/how-early-wildfire-detection-works")
+def how_detection_works_page():
+    """SEO intent page: how early wildfire detection works."""
+    return send_from_directory(str(STATIC_DIR), "how-early-wildfire-detection-works.html")
+
+
+@app.route("/wildfire-spread-risk-map")
+def wildfire_spread_risk_page():
+    """SEO intent page: wildfire spread risk map and predictive modelling."""
+    return send_from_directory(str(STATIC_DIR), "wildfire-spread-risk-map.html")
+
+
 # Poland bbox for the /map/poland SEO landing page (west,south,east,north).
 POLAND_BBOX = (14.07, 49.00, 24.15, 54.84)  # full bbox for SEO page / PostGIS pre-filter
 

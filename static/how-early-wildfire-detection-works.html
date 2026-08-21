@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How Early Wildfire Detection Works — AI, Satellite &amp; Citizen Reports | Pyrae</title>
+  <meta name="description" content="Learn how early wildfire detection works: citizen photo reports screened by AI for fire and smoke, corroborated against NASA FIRMS satellite data, fused into a Bayesian spread model — why speed saves lives." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://pyrae.co/how-early-wildfire-detection-works" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Pyrae" />
+  <meta property="og:title" content="How Early Wildfire Detection Works — AI, Satellite &amp; Citizen Reports" />
+  <meta property="og:description" content="How early wildfire detection works: citizen reports, AI screening, satellite corroboration, and predictive spread modelling." />
+  <meta property="og:url" content="https://pyrae.co/how-early-wildfire-detection-works" />
+  <meta property="og:locale" content="en_US" />
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How Early Wildfire Detection Works" />
+  <meta name="twitter:description" content="Citizen reports, AI screening, satellite corroboration and predictive spread modelling — how early wildfire detection saves lives." />
+  <!-- JSON-LD: BreadcrumbList -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://pyrae.co/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "How Early Wildfire Detection Works",
+        "item": "https://pyrae.co/how-early-wildfire-detection-works"
+      }
+    ]
+  }
+  </script>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/contact.css" />
+</head>
+<body class="contact-page">
+
+  <!-- ======== Header ======== -->
+  <header class="contact-header">
+    <div class="contact-brand">
+      <span class="brand-icon">🔥</span>
+      <span class="contact-brand-text">Pyrae</span>
+      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+    </div>
+    <a href="/map" class="contact-back" title="Back to the live map">
+      <span class="contact-back-icon">←</span>
+      <span>Back to map</span>
+    </a>
+  </header>
+
+  <main class="contact-main" style="max-width: 860px;">
+
+    <section class="hero" style="text-align: center;">
+      <p class="hero-eyebrow">HOW IT WORKS</p>
+      <h1 class="hero-title">How early wildfire detection <span class="hero-accent">works</span></h1>
+      <p class="hero-sub">
+        Catching wildfires early is the single highest-leverage investment in
+        fire resilience. Here's how modern detection works — from the first
+        sighting on the ground to a confirmed, predicted incident on the map.
+      </p>
+    </section>
+
+    <!-- ======== The detection pipeline ======== -->
+    <section class="section">
+      <h2 class="section-title">The detection pipeline</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">1️⃣</div>
+          <h3>Citizen sighting</h3>
+          <p>
+            A person on the ground sees smoke or flames and opens the Pyrae
+            map on their phone. They attach a photo and share their location
+            — a process that takes seconds. This ground-truth sighting is the
+            fastest possible detection signal: it requires no satellite pass,
+            no infrastructure, just someone who is there.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">2️⃣</div>
+          <h3>AI screening</h3>
+          <p>
+            The photo is immediately screened by a computer-vision model
+            (YOLOv26 + EfficientNet-B0 ensemble) that detects visible fire
+            and smoke. The model returns per-class confidence scores for
+            flame and smoke — not a binary yes/no. This runs locally on the
+            server in under a second.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">3️⃣</div>
+          <h3>Satellite corroboration</h3>
+          <p>
+            The report is checked against live NASA FIRMS satellite hotspot
+            data. If a photo sighting falls within 3 km of a satellite
+            detection in the past 12 hours, the report is confirmed
+            automatically — independent ground + space evidence. Reports
+            without satellite match remain pending for human review.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">4️⃣</div>
+          <h3>Bayesian modelling</h3>
+          <p>
+            Confirmed fires feed into a Bayesian Fire Grid that models how
+            each fire is likely to spread — factoring in wind speed and
+            direction, terrain, vegetation type and humidity. The grid
+            produces a probability surface showing which areas are most at
+            risk in the coming hours.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== Why each source matters ======== -->
+    <section class="section">
+      <h2 class="section-title">Why each source matters</h2>
+      <ul class="audience-list">
+        <li><b>Citizen reports</b> catch fires that satellites miss — small ignitions, fires under cloud cover, or fires in the gap between satellite passes. They are the fastest signal but need validation.</li>
+        <li><b>AI screening</b> filters noise automatically. Without it, every submitted photo — fire or not — would require manual review. The model's 100% recall (on validated datasets) ensures no real fire is discarded.</li>
+        <li><b>Satellite corroboration</b> turns a single ground observation into a confirmed incident. Two independent sources (ground + space) are far more reliable than either alone — eliminating false alarms without slowing real detections.</li>
+        <li><b>Predictive modelling</b> extends detection into forecasting. Knowing where a fire <em>is</em> matters; knowing where it's <em>going</em> saves lives and resources.</li>
+      </ul>
+    </section>
+
+    <!-- ======== Why speed matters ======== -->
+    <section class="section">
+      <h2 class="section-title">Why speed saves lives</h2>
+      <p>
+        Wildfires can double in size every 30–60 minutes under dry, windy
+        conditions. A fire that is 1 hectare at detection can be 10 hectares
+        within two hours — and 100 hectares within four. The cost of
+        suppression, the area burned, and the risk to lives all scale
+        exponentially with delayed detection.
+      </p>
+      <p>
+        Traditional detection methods — satellite passes every 3–12 hours,
+        lookout towers, routine patrols — create a gap between ignition and
+        alert. By the time a fire appears on the next satellite pass, it may
+        already be beyond initial attack. Citizen-powered detection fills
+        this gap: someone on the ground can see and report a fire within
+        minutes of ignition, long before any satellite overpass.
+      </p>
+      <p>
+        But speed alone isn't enough — the signal must be reliable. That's
+        why Pyrae combines the speed of citizen reports with the
+        reliability of AI screening and satellite corroboration. The result:
+        fast <em>and</em> trustworthy detection.
+      </p>
+    </section>
+
+    <!-- ======== Detection sources ======== -->
+    <section class="section">
+      <h2 class="section-title">Data sources in the pipeline</h2>
+      <div class="cap-grid">
+        <div class="cap-card">
+          <div class="cap-icon">📸</div>
+          <h3>Citizen photo reports</h3>
+          <p>
+            Ground-truth sightings from anyone with a phone. Each report
+            includes a photo, GPS coordinates and timestamp — the raw
+            evidence that feeds the pipeline.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🛰️</div>
+          <h3>NASA FIRMS (VIIRS/MODIS)</h3>
+          <p>
+            Satellite thermal anomaly detections at 375 m resolution,
+            refreshed every 3 hours. The primary corroboration source for
+            confirming ground reports from space.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🌤️</div>
+          <h3>Open-Meteo weather</h3>
+          <p>
+            Real-time wind, temperature and humidity data. Feeds the Bayesian
+            spread model to predict where each fire will move next.
+          </p>
+        </div>
+        <div class="cap-card">
+          <div class="cap-icon">🗺️</div>
+          <h3>OpenStreetMap terrain</h3>
+          <p>
+            Road networks, elevation and land-use data for road risk
+            assessment and terrain-aware spread modelling.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== CTA ======== -->
+    <section class="section contact-section">
+      <h2 class="section-title">See it in action</h2>
+      <p class="contact-lead">
+        The live map shows the full pipeline at work — citizen reports,
+        satellite hotspots, AI screening and predictive spread modelling
+        in real time.
+      </p>
+      <div class="contact-actions">
+        <a class="contact-btn contact-btn--primary" href="/map">
+          🔥 &nbsp;Explore live map
+        </a>
+        <a class="contact-btn contact-btn--secondary" href="/contact">
+          ✉️ &nbsp;Contact us
+        </a>
+      </div>
+    </section>
+
+    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;">
+      Pyrae is an early-warning tool, not an emergency service. If a fire
+      threatens life or property, call your local emergency number.
+    </p>
+
+  </main>
+
+  <footer class="contact-footer">
+    <span class="contact-footer-brand">🔥 Pyrae</span>
+  </footer>
+
+</body>
+</html>
