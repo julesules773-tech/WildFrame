@@ -41,7 +41,7 @@ from triangulation import triangulate, triangulate_cluster
 from bayesian_filter import (
     BayesianFireGrid, Evidence, auto_grid_size, seed_from_reports,
     compute_road_risk,
-    DEFAULT_CELL_SIZE_M, DEFAULT_BASE_SPREAD_RATE, WIND_HEAD_FACTOR,
+    DEFAULT_CELL_SIZE_M, CITIZEN_CELL_SIZE_M, DEFAULT_BASE_SPREAD_RATE, WIND_HEAD_FACTOR,
 )
 
 from fire_vision import scan_photo
@@ -1782,7 +1782,7 @@ _live_demo: Optional[dict] = None
 # use ``demo=True``; real reports and real FIRMS data use ``demo=False``.
 # ---------------------------------------------------------------------------
 
-def _find_or_create_grid_for_cluster(cluster: dict, demo: bool = False) -> tuple[str, BayesianFireGrid]:
+def _find_or_create_grid_for_cluster(cluster: dict, demo: bool = False, cell_size_m: float = DEFAULT_CELL_SIZE_M) -> tuple[str, BayesianFireGrid]:
     """Return (grid_id, grid) tracking this cluster's fire, creating one if
     needed. Creation is serialized in Postgres (advisory lock on a location
     bucket), so concurrent workers can't create duplicate grids.
@@ -1792,7 +1792,7 @@ def _find_or_create_grid_for_cluster(cluster: dict, demo: bool = False) -> tuple
     real wind from Open-Meteo at their centroid; matched grids keep their
     stored wind, which the worker's periodic refresh keeps current."""
     mode = "demo" if demo else "production"
-    grid_id, entry = db.find_or_create_grid(mode, cluster)
+    grid_id, entry = db.find_or_create_grid(mode, cluster, cell_size_m=cell_size_m)
 
     # Only fetch weather for PRODUCTION fires (demo/seed grids keep the
     # deterministic defaults) and only when the grid has no fresh wind yet
@@ -1818,7 +1818,7 @@ def _sync_grids_from_clusters(reports: list[dict], clusters: list[dict], demo: b
     workers never clobber each other's evidence."""
     mode = "demo" if demo else "production"
     for cluster in clusters:
-        grid_id, _entry = _find_or_create_grid_for_cluster(cluster, demo=demo)
+        grid_id, _entry = _find_or_create_grid_for_cluster(cluster, demo=demo, cell_size_m=CITIZEN_CELL_SIZE_M)
         cluster_reports = [r for r in reports if r["id"] in cluster["report_ids"]]
 
         def _seed(grid: BayesianFireGrid, entry: dict, _cr=cluster_reports, _cl=clusters) -> None:
@@ -1877,7 +1877,7 @@ def _find_or_create_grid_for_point(lat: float, lon: float, demo: bool = False) -
         "centroid_lat": lat, "centroid_lon": lon,
         "points": [[lat, lon]],
     }
-    return _find_or_create_grid_for_cluster(fake_cluster, demo=demo)
+    return _find_or_create_grid_for_cluster(fake_cluster, demo=demo, cell_size_m=CITIZEN_CELL_SIZE_M)
 
 
 # Maximum grids serialized in one /api/bayesian/state response. The map

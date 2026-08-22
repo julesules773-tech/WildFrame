@@ -41,7 +41,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
-from bayesian_filter import BayesianFireGrid, auto_grid_size, DEFAULT_CELL_SIZE_M
+from bayesian_filter import BayesianFireGrid, auto_grid_size, DEFAULT_CELL_SIZE_M, CITIZEN_CELL_SIZE_M
 
 # ---------------------------------------------------------------------------
 # Connection
@@ -883,6 +883,7 @@ def find_or_create_grid(
     wind_speed: float = 3.0,
     wind_dir_deg: float = 270.0,
     wind_updated_at: float = 0.0,
+    cell_size_m: float = DEFAULT_CELL_SIZE_M,
 ) -> tuple[str, dict]:
     """
     Return the grid tracking this cluster's fire, creating one if needed.
@@ -940,9 +941,9 @@ def find_or_create_grid(
             # --- No nearby grid — create a fresh one sized to this cluster ---
             lats = [p[0] for p in cluster.get("points", [[clat, clon]])]
             lons = [p[1] for p in cluster.get("points", [[clat, clon]])]
-            sizing = auto_grid_size(lats, lons) or {
+            sizing = auto_grid_size(lats, lons, cell_size_m=cell_size_m) or {
                 "center_lat": clat, "center_lon": clon,
-                "cell_size_m": DEFAULT_CELL_SIZE_M, "nx": 40, "ny": 40,
+                "cell_size_m": cell_size_m, "nx": 40, "ny": 40,
             }
             grid = BayesianFireGrid(
                 center_lat=sizing["center_lat"],
@@ -1146,6 +1147,7 @@ def bulk_find_or_create_grids(
     wind_speed: float = 3.0,
     wind_dir_deg: float = 270.0,
     wind_updated_at: float = 0.0,
+    cell_size_m: float = DEFAULT_CELL_SIZE_M,
 ) -> list[str]:
     """Return one grid_id per cluster (in order), creating grids in bulk.
 
@@ -1262,9 +1264,9 @@ def bulk_find_or_create_grids(
                 for grid_id, c, (clat, clon) in zip(ids, new_clusters, new_centroids):
                     lats = [p[0] for p in c.get("points", [[clat, clon]])]
                     lons = [p[1] for p in c.get("points", [[clat, clon]])]
-                    sizing = auto_grid_size(lats, lons) or {
+                    sizing = auto_grid_size(lats, lons, cell_size_m=cell_size_m) or {
                         "center_lat": clat, "center_lon": clon,
-                        "cell_size_m": DEFAULT_CELL_SIZE_M, "nx": 40, "ny": 40,
+                        "cell_size_m": cell_size_m, "nx": 40, "ny": 40,
                     }
                     grid = BayesianFireGrid(
                         center_lat=sizing["center_lat"],

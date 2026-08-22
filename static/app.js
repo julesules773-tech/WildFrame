@@ -1221,6 +1221,21 @@
     return pts;
   }
 
+  // Pre-allocated buffers for _grayDilateErodeBBox — grow-only, never
+  // shrunk, so repeated calls with similar crop sizes reuse the same
+  // memory instead of allocating + GC'ing 5 typed arrays per call
+  // (×2 per frame = 10 allocs/frame during pans).
+  let _bboxTmp = new Uint8ClampedArray(0);
+  let _bboxOut = new Uint8ClampedArray(0);
+  let _bboxF = new Uint8ClampedArray(0);
+  let _bboxBb = new Uint8ClampedArray(0);
+  let _bboxDeque = new Int32Array(0);
+
+  function _bboxEnsure(buf, len, Cls) {
+    if (buf.length < len) return new Cls(len);
+    return buf;
+  }
+
   function _grayDilateErodeBBox(data, w, h, r, isMax) {
     // 1. Find the bounding box of non-zero (hot) pixels.
     let x0 = w, y0 = h, x1 = -1, y1 = -1;
@@ -1252,7 +1267,15 @@
     }
 
     // 3. Copy the crop (R channel only) into a compact 1-channel buffer.
-    const tmp = new Uint8ClampedArray(cw * ch);
+    const cropLen = cw * ch;
+    const lineLen = Math.max(cw, ch);
+    _bboxTmp = _bboxEnsure(_bboxTmp, cropLen, Uint8ClampedArray);
+    _bboxOut = _bboxEnsure(_bboxOut, cropLen, Uint8ClampedArray);
+    _bboxF = _bboxEnsure(_bboxF, lineLen, Uint8ClampedArray);
+    _bboxBb = _bboxEnsure(_bboxBb, lineLen, Uint8ClampedArray);
+    _bboxDeque = _bboxEnsure(_bboxDeque, lineLen, Int32Array);
+    const tmp = _bboxTmp;
+    const out = _bboxOut;
     for (let y = 0; y < ch; y++) {
       const sBase = (Y0 + y) * w * 4 + X0 * 4;
       const dBase = y * cw;
@@ -1264,10 +1287,9 @@
     // 4. Run the same separable morphology on the compact crop.
     const win = r + 1;
     const better = isMax ? (a, b) => a >= b : (a, b) => a <= b;
-    const f = new Uint8ClampedArray(Math.max(cw, ch));
-    const bb = new Uint8ClampedArray(Math.max(cw, ch));
-    const deque = new Int32Array(Math.max(cw, ch));
-    const out = new Uint8ClampedArray(cw * ch);
+    const f = _bboxF;
+    const bb = _bboxBb;
+    const deque = _bboxDeque;
 
     // Horizontal pass
     for (let y = 0; y < ch; y++) {
@@ -1399,6 +1421,13 @@
 
     setData: function (regions) {
       this._regions = regions || [];
+      // After a zoom, _showAndRedraw sets _needsShowOnData so we
+      // guarantee the canvas is visible and redrawn with the fresh
+      // payload — even if _redraw was already called with stale data.
+      if (this._needsShowOnData) {
+        this._needsShowOnData = false;
+        if (this._container) this._container.style.opacity = '1';
+      }
       this._redraw();
     },
 
@@ -1420,6 +1449,11 @@
         this._container.style.width = size.x + "px";
         this._container.style.height = size.y + "px";
       }
+      // Skip redraw when the canvas is hidden (during drag/zoom).
+      // The moveend/zoomend handler will redraw with correct coordinates
+      // after the interaction ends — redrawing here would paint stale
+      // content that's briefly visible as a flash.
+      if (this._container && this._container.style.opacity === '0') return;
       this._redraw();
     },
 
@@ -1433,14 +1467,21 @@
     },
 
     /**
-     * Restore canvas visibility after a drag ends.
-     * No redraw here — Leaflet fires moveend synchronously after dragend,
-     * so the moveend listener handles the actual redraw without doubling up.
+     * Restore canvas visibility after a drag/zoom ends, then redraw.
+     * For drag: Leaflet fires moveend synchronously after dragend, so
+     * the moveend listener handles the redraw.
+     * For zoom: moveend does NOT reliably fire after zoomend on all
+     * Leaflet versions, so we must redraw here. But the data may be
+     * stale (the async fetch hasn't completed yet), so we also set a
+     * flag so setData() knows to force-show + redraw when fresh data
+     * arrives.
      */
     _showAndRedraw: function () {
       if (this._container) {
         this._container.style.opacity = '1';
       }
+      this._needsShowOnData = true;
+      this._redraw();
     },
 
     /**
@@ -1570,10 +1611,11 @@
         // the erosion then restores the outer boundary so every fire doesn't
         // grow ~500 m bigger. Display-only: the grid probabilities are
         // untouched, so "Max prob" and the absolute color scale stay honest.
-        // 5 cells of lo-res px = the ~1 km merge (cells are ~200 m). The
-        // old 20px cap silently shrank this to ~300 m once the downscale
-        // cap dropped to 4x; the deque filter is O(w·h) regardless of
-        // kernel size, so a wide window is free.
+        // 5 cells of lo-res px: the merge distance scales with cell size
+        // (e.g. 5 × 2px lo-res × 200 m/cell = ~2 km for FIRMS 100 m cells;
+        // 5 × 1px lo-res × 50 m/cell = ~250 m for citizen 50 m cells).
+        // The deque filter is O(w·h) regardless of kernel size, so a wide
+        // window is free.
         const cellLo = Math.max(1.2, maxCellPx / downscale);
         const kernelR = Math.max(2, Math.min(64, Math.round(5 * cellLo)));
         const grayImg = accumCtx.getImageData(0, 0, loW, loH);
@@ -1947,11 +1989,46 @@
       // for the heatmap layer to render in a single pass. Contours are
       // corner-rounded here (once per payload) so the render loop strokes
       // the smoothed polylines on every redraw without re-smoothing.
+      //
+      // Cache: Chaikin smoothing is ~0.5 ms per grid but runs on every
+      // state update even when the contour hasn't changed (e.g. only wind
+      // updated). Key by grid ID + a hash of the raw contour segments so
+      // unchanged contours skip the smoothing entirely.
+      if (!STATE.bayesian._contourCache) STATE.bayesian._contourCache = {};
+      const _cc = STATE.bayesian._contourCache;
+
       const regions = grids.map((g) => {
         const st = g.state || {};
+        const rawContour = g.contour || [];
+        // Quick hash of the raw contour: segment count + first/last points.
+        // Cheap enough to run on every poll; catches real changes while
+        // being far cheaper than Chaikin itself.
+        let cHash = rawContour.length;
+        if (rawContour.length > 0) {
+          const s0 = rawContour[0];
+          cHash = (cHash * 31 + s0.length) | 0;
+          if (s0.length > 0) {
+            cHash = (cHash * 31 + ((s0[0][0] * 1e5) | 0) + ((s0[0][1] * 1e5) | 0)) | 0;
+          }
+          if (rawContour.length > 1) {
+            const sLast = rawContour[rawContour.length - 1];
+            if (sLast.length > 0) {
+              const lp = sLast[sLast.length - 1];
+              cHash = (cHash * 31 + ((lp[0] * 1e5) | 0) + ((lp[1] * 1e5) | 0)) | 0;
+            }
+          }
+        }
+        let smoothed = _cc[g.id];
+        if (!smoothed || smoothed.hash !== cHash) {
+          smoothed = {
+            hash: cHash,
+            segs: rawContour.map((seg) => _chaikinSmooth(seg, 2)),
+          };
+          _cc[g.id] = smoothed;
+        }
         return {
           cells: st.cells || [],
-          contour: (g.contour || []).map((seg) => _chaikinSmooth(seg, 2)),
+          contour: smoothed.segs,
           cellSizeM: st.cell_size_m || 100,
           refLat: st.ref_lat,
           refLon: st.ref_lon,
@@ -1959,6 +2036,11 @@
           ny: st.ny || 120,
         };
       });
+      // Evict stale entries (grids that no longer exist in the payload).
+      const activeIds = new Set(grids.map((g) => g.id));
+      for (const cid of Object.keys(_cc)) {
+        if (!activeIds.has(cid)) delete _cc[cid];
+      }
 
       STATE.bayesian.regions = regions;
 

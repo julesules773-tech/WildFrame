@@ -70,6 +70,7 @@ R_EARTH = 6_371_000.0  # Earth radius in metres
 
 # Default grid geometry
 DEFAULT_CELL_SIZE_M = 100.0   # 100 m — matches the design doc recommendation
+CITIZEN_CELL_SIZE_M = 50.0    # 50 m — finer resolution for citizen-reported fires
 DEFAULT_GRID_NX = 120         # 120 cells × 100 m → 12 km coverage
 DEFAULT_GRID_NY = 120         # 12 km N–S
 
@@ -1528,13 +1529,14 @@ def auto_grid_size(
     lats: list[float],
     lons: list[float],
     margin_m: float = 5000.0,
+    cell_size_m: float = DEFAULT_CELL_SIZE_M,
 ) -> dict:
     """
     Compute optimal grid dimensions from a set of latitude/longitude coordinates.
 
     Returns a dict with keys:
         nx, ny        — number of cells
-        cell_size_m   — cell size in metres (may be > 100 if capped)
+        cell_size_m   — cell size in metres (may be > cell_size_m if capped)
         center_lat    — centroid latitude
         center_lon    — centroid longitude
 
@@ -1559,14 +1561,14 @@ def auto_grid_size(
     span_x = (x_max - x_min) + 2 * margin_m
     span_y = (y_max - y_min) + 2 * margin_m
 
-    cell_size = DEFAULT_CELL_SIZE_M
+    cell_size = cell_size_m
     nx = max(40, int(math.ceil(span_x / cell_size)))
     ny = max(40, int(math.ceil(span_y / cell_size)))
 
     if nx * ny > MAX_GRID_CELLS:
         # Coarsen resolution to fit within MAX_GRID_CELLS
         ratio = math.sqrt(nx * ny / MAX_GRID_CELLS)
-        cell_size = DEFAULT_CELL_SIZE_M * ratio
+        cell_size = cell_size_m * ratio
         cell_size = min(cell_size, MAX_CELL_SIZE_M)
         nx = max(40, int(math.ceil(span_x / cell_size)))
         ny = max(40, int(math.ceil(span_y / cell_size)))
