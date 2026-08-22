@@ -1675,6 +1675,10 @@
       // --- Draw contour as glowing fire perimeter boundary ---
       // Contour segments are absolute lat/lon polylines, so segments from
       // every region can just be concatenated and drawn the same way.
+      // Pre-compute pixel coordinates once: both the glow and core passes
+      // stroke the same path, so converting lat/lng → pixel twice doubles
+      // the cost of the most expensive part of the contour draw (each
+      // latLngToLayerPoint involves trig + projection math).
       const allContourSegs = [];
       for (const region of regions) {
         if (region.contour && region.contour.length > 0) {
@@ -1682,6 +1686,29 @@
         }
       }
       if (this._showContour && allContourSegs.length > 0) {
+        // Convert lat/lng segments to pixel-coordinate segments once.
+        const pxSegs = [];
+        for (const seg of allContourSegs) {
+          if (seg.length < 2) continue;
+          const px = [];
+          for (let k = 0; k < seg.length; k++) {
+            const pt = map.latLngToLayerPoint(seg[k]);
+            px.push(pt.x, pt.y);
+          }
+          pxSegs.push(px);
+        }
+
+        function _strokeContours(ctx) {
+          for (const px of pxSegs) {
+            ctx.beginPath();
+            ctx.moveTo(px[0], px[1]);
+            for (let i = 2; i < px.length; i += 2) {
+              ctx.lineTo(px[i], px[i + 1]);
+            }
+            ctx.stroke();
+          }
+        }
+
         // First pass: glow behind the perimeter
         ctx.save();
         ctx.shadowColor = 'rgba(255, 80, 0, 0.6)';
@@ -1689,18 +1716,7 @@
         ctx.lineWidth = 4;
         ctx.strokeStyle = 'rgba(255, 150, 20, 0.5)';
         ctx.globalAlpha = 0.6;
-
-        for (const seg of allContourSegs) {
-          if (seg.length < 2) continue;
-          ctx.beginPath();
-          const pt0 = map.latLngToLayerPoint(seg[0]);
-          ctx.moveTo(pt0.x, pt0.y);
-          for (let k = 1; k < seg.length; k++) {
-            const pt = map.latLngToLayerPoint(seg[k]);
-            ctx.lineTo(pt.x, pt.y);
-          }
-          ctx.stroke();
-        }
+        _strokeContours(ctx);
         ctx.restore();
 
         // Second pass: bright core line
@@ -1709,18 +1725,7 @@
         ctx.strokeStyle = 'rgba(255, 220, 100, 0.9)';
         ctx.shadowColor = 'rgba(255, 200, 50, 0.3)';
         ctx.shadowBlur = 8;
-
-        for (const seg of allContourSegs) {
-          if (seg.length < 2) continue;
-          ctx.beginPath();
-          const pt0 = map.latLngToLayerPoint(seg[0]);
-          ctx.moveTo(pt0.x, pt0.y);
-          for (let k = 1; k < seg.length; k++) {
-            const pt = map.latLngToLayerPoint(seg[k]);
-            ctx.lineTo(pt.x, pt.y);
-          }
-          ctx.stroke();
-        }
+        _strokeContours(ctx);
         ctx.restore();
       }
 
