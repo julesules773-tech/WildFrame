@@ -378,7 +378,8 @@ def main() -> int:
             # Clean up temp file and force GC to free rasterio/shapely memory
             if tiff_path and os.path.exists(tiff_path):
                 os.unlink(tiff_path)
-            del polys, polygons if 'polygons' in dir() else None
+            polys = None
+            polygons = None
             gc.collect()
 
     print(f"[worldcover] done — {total_polygons} polygons from "
