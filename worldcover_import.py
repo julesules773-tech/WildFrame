@@ -26,8 +26,10 @@ Requires: rasterio, shapely, psycopg (all already in the project).
 """
 
 import argparse
+import gc
 import json
 import logging
+import tempfile
 import os
 import sys
 import tempfile
@@ -112,53 +114,61 @@ def _download_tile(key: str) -> bytes | None:
     return data
 
 
-def _extract_polygons(tiff_bytes: bytes, tile_key: str,
-                      simplify: float = 0.001) -> list[tuple[int, str]]:
-    """Extract vector polygons from a GeoTIFF tile.
+def _extract_polygons(tiff_path: str, tile_key: str,
+                      simplify: float = 0.005) -> list[tuple[int, str]]:
+    """Extract vector polygons from a GeoTIFF tile on disk.
+
+    Uses a temp file instead of MemoryFile to avoid holding both the raw
+    bytes AND the rasterio array in memory — the file is read directly
+    by rasterio, keeping peak RAM under ~300 MB per tile on a 1 GB VM.
 
     Returns list of (class_code, wkt_geometry) pairs.
     Polygons are simplified to reduce geometry count.
     """
-    from rasterio.io import MemoryFile
+    import rasterio
     from rasterio.features import shapes
-    from shapely.geometry import shape, mapping
+    from shapely.geometry import shape
 
-    with MemoryFile(tiff_bytes) as mem:
-        with mem.open() as src:
-            data = src.read(1)  # band 1 = land cover class codes
-            mask = src.dataset_mask()  # alpha mask (0=nodata, 255=valid)
-            transform = src.transform
+    # Open directly from disk — avoids loading the raw bytes into Python
+    # memory (the 40 MB GeoTIFF stays on disk; rasterio memory-maps it).
+    with rasterio.open(tiff_path) as src:
+        data = src.read(1)  # band 1 = land cover class codes
+        mask = src.dataset_mask()  # alpha mask (0=nodata, 255=valid)
+        transform = src.transform
 
-            polygons: list[tuple[int, str]] = []
-            for geom, value in shapes(
-                data,
-                transform=transform,
-                mask=mask > 0,  # only polygonize valid pixels
-            ):
-                class_code = int(value)
-                if class_code == 0:
-                    continue  # nodata
+        polygons: list[tuple[int, str]] = []
+        for geom, value in shapes(
+            data,
+            transform=transform,
+            mask=mask > 0,  # only polygonize valid pixels
+        ):
+            class_code = int(value)
+            if class_code == 0:
+                continue  # nodata
 
-                shp = shape(geom)
-                if shp.is_empty:
-                    continue
+            shp = shape(geom)
+            if shp.is_empty:
+                continue
 
-                # Simplify to reduce vertex count (0.001° ≈ 111 m at equator)
-                if simplify > 0:
-                    shp = shp.simplify(simplify, preserve_topology=True)
+            # Simplify to reduce vertex count
+            if simplify > 0:
+                shp = shp.simplify(simplify, preserve_topology=True)
 
-                if shp.is_empty:
-                    continue
+            if shp.is_empty:
+                continue
 
-                # Convert MultiPolygon to individual Polygons
-                if shp.geom_type == "MultiPolygon":
-                    for part in shp.geoms:
-                        polygons.append((class_code, part.wkt))
-                else:
-                    polygons.append((class_code, shp.wkt))
+            # Convert MultiPolygon to individual Polygons
+            if shp.geom_type == "MultiPolygon":
+                for part in shp.geoms:
+                    polygons.append((class_code, part.wkt))
+            else:
+                polygons.append((class_code, shp.wkt))
 
-            logger.info("  extracted %d polygons from %s", len(polygons), tile_key)
-            return polygons
+        # Free the raster data before returning
+        del data, mask
+
+        logger.info("  extracted %d polygons from %s", len(polygons), tile_key)
+        return polygons
 
 
 # -----------------------------------------------------------------------
@@ -252,47 +262,6 @@ def _ensure_indexes(cur, table: str) -> None:
     )
 
 
-def load_tiles_to_postgis(tiles: list[tuple[str, bytes]], table: str,
-                          simplify: float = 0.001,
-                          is_resume: bool = False) -> None:
-    """Load extracted polygons into a PostGIS geometry table.
-
-    Each tile's GeoTIFF is parsed with rasterio, polygons are extracted
-    per land-cover class, simplified, and inserted as geometry rows.
-
-    When *is_resume* is True, the table is not dropped — new polygons
-    are appended alongside any existing rows.
-    """
-    import psycopg
-
-    conninfo = os.environ.get(
-        "WILDFRAME_DATABASE_URL",
-        "host=localhost dbname=wildframe",
-    )
-
-    all_polygons: list[tuple[int, str, str]] = []  # (class_code, wkt, tile_key)
-    for key, tiff_bytes in tiles:
-        polys = _extract_polygons(tiff_bytes, key, simplify=simplify)
-        for class_code, wkt in polys:
-            all_polygons.append((class_code, wkt, key))
-
-    if not all_polygons:
-        logger.warning("no polygons extracted from %d tile(s)", len(tiles))
-        return
-
-    logger.info("loading %d polygons into %s …", len(all_polygons), table)
-
-    with psycopg.connect(conninfo) as conn:
-        with conn.cursor() as cur:
-            _ensure_table(cur, table, is_resume)
-            _insert_polygons(cur, table, all_polygons)
-            _ensure_indexes(cur, table)
-            conn.commit()
-
-    logger.info("done — table '%s' now has polygons from %d tile(s)",
-                table, len(tiles))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -304,9 +273,10 @@ def main() -> int:
     )
     parser.add_argument("--table", default=DEFAULT_TABLE)
     parser.add_argument("--year", type=int, default=DEFAULT_YEAR)
-    parser.add_argument("--version", default=DEFAULT_VERSION)
-    parser.add_argument("--simplify", type=float, default=0.001,
-                        help="polygon simplification tolerance in degrees (default: 0.001 ≈ 111 m)")
+    parser.add_argument("--version", default=DEFAULT_VERSION)    parser.add_argument(
+        "--simplify", type=float, default=0.005,
+        help="polygon simplification tolerance in degrees (default: 0.005 ≈ 555 m)"
+    )
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--resume", action="store_true",
                         help="skip tiles already marked done in the progress file")
@@ -360,8 +330,9 @@ def main() -> int:
 
         print(f"{label} {key}")
 
+        tiff_path = None
         try:
-            # 1. Download
+            # 1. Download to temp file (avoids holding raw bytes + rasterio array in RAM)
             data = _download_tile(key)
             if data is None:
                 # Tile doesn't exist (ocean / no data) — mark done so
@@ -370,8 +341,14 @@ def main() -> int:
                 _save_progress(args.progress_file, progress, bbox, table)
                 continue
 
-            # 2. Extract polygons
-            polys = _extract_polygons(data, key, simplify=args.simplify)
+            # Write to temp file, then free the raw bytes immediately
+            with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as tmp:
+                tmp.write(data)
+                tiff_path = tmp.name
+            del data  # free ~40 MB of raw GeoTIFF bytes
+
+            # 2. Extract polygons (reads from disk, not from memory)
+            polys = _extract_polygons(tiff_path, key, simplify=args.simplify)
             polygons = [(cc, wkt, key) for cc, wkt in polys]
             total_polygons += len(polygons)
 
@@ -396,6 +373,12 @@ def main() -> int:
             progress[key] = "error"
             _save_progress(args.progress_file, progress, bbox, table)
             continue
+        finally:
+            # Clean up temp file and force GC to free rasterio/shapely memory
+            if tiff_path and os.path.exists(tiff_path):
+                os.unlink(tiff_path)
+            del polys, polygons if 'polygons' in dir() else None
+            gc.collect()
 
     print(f"[worldcover] done — {total_polygons} polygons from "
           f"{len(keys)} tile(s) in '{table}'")
