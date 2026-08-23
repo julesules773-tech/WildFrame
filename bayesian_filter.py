@@ -1383,22 +1383,9 @@ class BayesianFireGrid:
 
         contour_level = level
         if established:
-            # Merge nearby shapes into one perimeter: binary closing on the
-            # above-level mask bridges gaps of up to ~2*r cells, so a cluster
-            # of small fire pockets renders as one continuous ring instead of
-            # many near-identical small shapes. Peak-preserving (works on the
-            # mask, not the probabilities). Display-level only. The closed
-            # mask is re-marched at 0.5 with a light smoothing pass so the
-            # outline follows the fused boundary instead of a staircase.
-            mask = probs > level
-            closed = _binary_closing(mask, CONTOUR_MERGE_RADIUS_CELLS)
-            field = closed.astype(np.float64)
-            field = (field[:-2, :] + 2.0 * field[1:-1, :] + field[2:, :]) / 4.0
-            field = (field[:, :-2] + 2.0 * field[:, 1:-1] + field[:, 2:]) / 4.0
-            padded = np.zeros_like(field, shape=probs.shape)
-            padded[1:-1, 1:-1] = field
-            probs = padded
-            contour_level = 0.5
+            # (Merge removed: nearby fires are no longer fused into one
+            # perimeter. Each fire cluster gets its own contour ring.)
+            pass
 
         segments_xy = marching_squares_contour(
             probs, contour_level, self.grid_x, self.grid_y,

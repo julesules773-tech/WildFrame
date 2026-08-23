@@ -1617,29 +1617,8 @@
         }
         accumCtx.globalCompositeOperation = 'source-over';
 
-        // Display-level merge — the same ~1 km logic as the contour layer:
-        // a grayscale CLOSING (dilate then erode) on the accumulated field
-        // with a ~5-cell kernel. Dilation bridges the dark gap between hot
-        // cells whose fires are within ~1 km of each other, so they fuse
-        // into one connected blob instead of rendering as separate islands;
-        // the erosion then restores the outer boundary so every fire doesn't
-        // grow ~500 m bigger. Display-only: the grid probabilities are
-        // untouched, so "Max prob" and the absolute color scale stay honest.
-        // 5 cells of lo-res px: the merge distance scales with cell size
-        // (e.g. 5 × 2px lo-res × 200 m/cell = ~2 km for FIRMS 100 m cells;
-        // 5 × 1px lo-res × 50 m/cell = ~250 m for citizen 50 m cells).
-        // The deque filter is O(w·h) regardless of kernel size, so a wide
-        // window is free.
-        const cellLo = Math.max(1.2, maxCellPx / downscale);
-        const kernelR = Math.max(2, Math.min(64, Math.round(5 * cellLo)));
-        const grayImg = accumCtx.getImageData(0, 0, loW, loH);
-        // Bbox-limited morphology: the full-canvas sweep was ~45ms of the
-        // ~57ms redraw on dense viewports even though hot pixels cover a
-        // fraction of the canvas. The crop is bit-identical to the full
-        // pass (2×r padding keeps every window inside the crop).
-        _grayDilateErodeBBox(grayImg.data, loW, loH, kernelR, true);   // dilate — bridge the gaps
-        _grayDilateErodeBBox(grayImg.data, loW, loH, kernelR, false);  // erode — restore the boundary
-        accumCtx.putImageData(grayImg, 0, 0);
+        // (Display-level merge removed: nearby fires are no longer fused
+        // into one connected blob. Each fire cluster renders independently.)
 
         // Pass 2: soften blob edges at low resolution (cheap) so the
         // upscaled field is melty rather than grainy.
