@@ -765,16 +765,13 @@ def marching_squares_contour(
 
     # Drop micro contours: the discrete spread kernel leaves isolated
     # single-cell probability pockets (a lone p>0.3 cell among ~10%
-    # neighbours) whose contours are tiny rings that render as absurdly
-    # small shapes on the map. With the display-level merge bridging ~1 km
-    # gaps, any contour below 8 cells of perimeter is a fragment — a
-    # pocket the merge should have absorbed or a neck-split artifact — so
-    # it is dropped (open or closed). A fire that small isn't meaningful to
-    # display and the road-risk / contour math never relied on it.
+    # neighbours) whose contours are tiny rings. Without the display-level
+    # merge, each fire cluster is independent, so we keep smaller contours
+    # (≥ 2 cells of perimeter) and only drop genuine single-cell noise.
     if cell_m > 0:
         chained = [
             c for c in chained
-            if _chain_perimeter(c) >= 8.0 * cell_m
+            if _chain_perimeter(c) >= 2.0 * cell_m
         ]
 
     # Stitch open chains whose endpoints are within ~1 cell of each other.

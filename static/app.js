@@ -48,6 +48,7 @@
       metaLayer: null,  // Leaflet layerGroup holding those dots
       metaSig: "",      // signature of last-rendered dots (skip DOM rebuild when unchanged)
       fullSig: "",      // signature of last full-detail render (skip redraw when unchanged)
+      stateRequestSeq: 0, // newest state request wins; prevents stale LOD responses clearing the canvas
       satellitePollerActive: false,
       firmsPollerActive: false,
       usersOnly: false,       // hide satellite/Bayesian layers, show user reports only
@@ -506,8 +507,17 @@
     // signature alone would skip the redraw.  The zoom is folded into
     // _dataFullSig, but zoomend always fires so we force a redraw to
     // catch the hull↔dot transition at CLUSTER_POLYGON_ZOOM.
+    // Also detect LOD threshold crossings: when zoom crosses
+    // BAYESIAN_LOD_ZOOM (7), immediately re-fetch Bayesian state so
+    // the heatmap appears without waiting for the next poll tick.
+    let _prevZoom = STATE.map.getZoom();
     STATE.map.on("zoomend", () => {
       renderData(STATE.reports, STATE.clusters, /*force=*/ true);
+      const z = STATE.map.getZoom();
+      const crossed = (_prevZoom < BAYESIAN_LOD_ZOOM && z >= BAYESIAN_LOD_ZOOM) ||
+        (_prevZoom >= BAYESIAN_LOD_ZOOM && z < BAYESIAN_LOD_ZOOM);
+      _prevZoom = z;
+      if (crossed && STATE.bayesian.active) fetchBayesianState();
     });
   }
 
@@ -1908,6 +1918,13 @@
   async function fetchBayesianState() {
     if (!STATE.bayesian.active || !STATE.bayesian.heatmapLayer) return;
 
+    // A zoom/pan can start another request before this one returns. In
+    // particular, a late low-zoom (meta) response used to clear the canvas
+    // after a newer full-detail response had drawn it, and the full-payload
+    // signature then suppressed the next redraw. Keep the current request's
+    // sequence and discard any response that is no longer current.
+    const requestSeq = ++STATE.bayesian.stateRequestSeq;
+
     try {
       // The server floors the threshold at MIN_STATE_THRESHOLD, so sending
       // the raw slider value is safe (0 is allowed — faint cells just get
@@ -1934,6 +1951,7 @@
       if (!res.ok) return;
 
       const data = await res.json();
+      if (requestSeq !== STATE.bayesian.stateRequestSeq || !STATE.bayesian.active) return;
       const grids = data.grids || [];
 
       if (meta) {
@@ -1949,6 +1967,11 @@
         // low-zoom dots stay current; backoff only applies to the heavy
         // full-detail path.
         STATE.bayesian.pollMs = 5000;
+        // Reset the fullSig so the next full-detail fetch always renders —
+        // otherwise the early-return in the full branch (when the fire data
+        // hasn't changed) would skip setData() and leave the heatmap empty
+        // after a meta→full LOD transition.
+        STATE.bayesian.fullSig = "";
         return;
       }
 
