@@ -1581,7 +1581,12 @@
 
           for (const cell of region.cells) {
             const p = cell.p;
-            if (p < this._threshold) continue;
+            // Cells below the display threshold still contribute a faint
+            // gradient so the heatmap fades smoothly at the grid boundary
+            // instead of hard-clipping (the contour extends beyond the
+            // visible cells because it's computed from the full probability
+            // field). Only skip cells with truly zero probability.
+            if (p <= 0) continue;
 
             const pt = map.latLngToLayerPoint([cell.lat, cell.lon]);
             const x = pt.x / downscale;
@@ -1590,10 +1595,14 @@
                 y < -radius || y > loH + radius) continue;
 
             // Absolute scale: brightness = the cell's true probability.
-            // (Grid probabilities live in 0..1 — bayesian_filter clamps at
-            // PROB_MAX=0.9999 — so 1.0 is the natural "hot" end.)
+            // Cells below the display threshold get a minimum intensity
+            // (faint halo) so the grid boundary fades softly.
             const t = Math.min(1, Math.max(0, p));
-            const v = Math.round(255 * t);
+            // LUT maps v < 8 to alpha=0, so the minimum must be >= 8
+            // to be visible as a faint fade at the grid boundary.
+            const v = p < this._threshold
+              ? Math.max(8, Math.round(255 * t))
+              : Math.round(255 * t);
             // Flat-topped falloff: intensity holds at the cell's value over
             // most of the radius and only fades near the edge.
             const grd = accumCtx.createRadialGradient(x, y, 0, x, y, radius);
