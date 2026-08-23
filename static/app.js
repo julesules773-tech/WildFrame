@@ -1391,11 +1391,11 @@
       // Append to the OVERLAY pane, not the map root. The overlay pane
       // stacks above the tiles but below the shadow/marker/popup panes, so
       // the heatmap glow sits over the map but never covers the wind
-      // badges, report markers or popups. Drawing uses
-      // map.latLngToLayerPoint() (pane-relative): Leaflet shifts the pane
-      // itself during pan/zoom (translate3d of _mapPanePos), so pane-local
-      // coordinates stay correct without double-offsetting. The canvas is
-      // hidden during drag/zoom and redrawn on moveend/zoomend.
+      // badges, report markers or popups. The pane itself is translated
+      // while Leaflet pans: keep this viewport-sized, clipped canvas pinned
+      // to the visible container (and draw in container coordinates), or a
+      // pan leaves a rectangular section of the map outside the canvas.
+      // The canvas is hidden during drag/zoom and redrawn on moveend/zoomend.
       map.getPane('overlayPane').appendChild(this._container);
 
       this._ctx = this._canvas.getContext("2d");
@@ -1463,12 +1463,27 @@
         this._container.style.width = size.x + "px";
         this._container.style.height = size.y + "px";
       }
+      this._syncViewportOrigin();
       // Skip redraw when the canvas is hidden (during drag/zoom).
       // The moveend/zoomend handler will redraw with correct coordinates
       // after the interaction ends — redrawing here would paint stale
       // content that's briefly visible as a flash.
       if (this._container && this._container.style.opacity === '0') return;
       this._redraw();
+    },
+
+    /**
+     * Pin the viewport-sized canvas to the visible map container. Leaflet
+     * moves overlayPane as the map is panned; leaving the canvas at layer
+     * coordinate (0, 0) makes its overflow:hidden rectangle move too,
+     * producing the hard vertical/horizontal cutoffs seen in the heatmap.
+     */
+    _syncViewportOrigin: function () {
+      if (!this._container || !this._map) return;
+      L.DomUtil.setPosition(
+        this._container,
+        this._map.containerPointToLayerPoint([0, 0]),
+      );
     },
 
     /**
@@ -1535,6 +1550,8 @@
       const canvasW = this._canvas.width;
       const canvasH = this._canvas.height;
 
+      this._syncViewportOrigin();
+
       ctx.clearRect(0, 0, canvasW, canvasH);
 
       const regions = this._regions || [];
@@ -1598,7 +1615,7 @@
             // field). Only skip cells with truly zero probability.
             if (p <= 0) continue;
 
-            const pt = map.latLngToLayerPoint([cell.lat, cell.lon]);
+            const pt = map.latLngToContainerPoint([cell.lat, cell.lon]);
             const x = pt.x / downscale;
             const y = pt.y / downscale;
             if (x < -radius || x > loW + radius ||
@@ -1695,7 +1712,7 @@
           if (seg.length < 2) continue;
           const px = [];
           for (let k = 0; k < seg.length; k++) {
-            const pt = map.latLngToLayerPoint(seg[k]);
+            const pt = map.latLngToContainerPoint(seg[k]);
             px.push(pt.x, pt.y);
           }
           pxSegs.push(px);
