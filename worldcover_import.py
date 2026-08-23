@@ -273,7 +273,8 @@ def main() -> int:
     )
     parser.add_argument("--table", default=DEFAULT_TABLE)
     parser.add_argument("--year", type=int, default=DEFAULT_YEAR)
-    parser.add_argument("--version", default=DEFAULT_VERSION)    parser.add_argument(
+    parser.add_argument("--version", default=DEFAULT_VERSION)
+    parser.add_argument(
         "--simplify", type=float, default=0.005,
         help="polygon simplification tolerance in degrees (default: 0.005 ≈ 555 m)"
     )
