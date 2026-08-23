@@ -1884,14 +1884,23 @@
    * checkpoints grids on ~15s buckets and the export cache serves the same
    * state between changes, so most 5s polls return identical data. Hash
    * per-grid (id, cell count, state version, sampled cells, wind) — a few
-   * thousand integer ops, far cheaper than re-rendering ~100k cells.
+   * thousand integer ops, far cheaper than re-rendering ~100k cells. The
+   * caller additionally combines this with the viewport key: a different
+   * viewport can legitimately return a different selected set even when
+   * their compact payload hashes happen to match.
    */
   function _gridSignature(grids) {
     let h = 0;
     for (const g of grids) {
       const st = g.state || {};
       const cells = st.cells || [];
-      h = (h * 31 + g.id.length + cells.length + ((st.last_predict_time || 0) | 0)) | 0;
+      // Include the actual grid id, not just its length. Viewport-ranked
+      // responses can replace one same-sized grid id with another; treating
+      // them as identical leaves an old, partial fire field on the canvas.
+      for (let i = 0; i < g.id.length; i++) {
+        h = (h * 31 + g.id.charCodeAt(i)) | 0;
+      }
+      h = (h * 31 + cells.length + ((st.last_predict_time || 0) | 0)) | 0;
       // Grid shape is part of the signature too: a fire can grow/shrink
       // its footprint without the cell count or version changing.
       h = (h * 31 + ((st.nx || 0) | 0) + ((st.ny || 0) | 0) + ((st.count || 0) | 0)) | 0;
@@ -1996,7 +2005,12 @@
       for (const d of data.overflow || []) {
         oh = (oh * 31 + d.id.length + ((d.max_p * 10000) | 0)) | 0;
       }
-      const sig = (_gridSignature(grids) * 31 + oh) | 0;
+      // The backend filters and ranks grids by the viewport. Thus a new
+      // bounding box must be a new render even if the compact grid hash is
+      // unchanged — otherwise a zoom can retain a prior, clipped selection
+      // and make a continuous blob look like it has been chopped apart.
+      const viewKey = `${bbox}@${zoom}`;
+      const sig = `${(_gridSignature(grids) * 31 + oh) | 0}:${viewKey}`;
       if (sig === STATE.bayesian.fullSig) {
         STATE.bayesian.pollMs = Math.min((STATE.bayesian.pollMs || 5000) * 2, 30000);
         return;
