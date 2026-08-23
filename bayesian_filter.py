@@ -1361,31 +1361,13 @@ class BayesianFireGrid:
         # squared) ≈ sigma 0.7: below one cell, so genuinely separate fires
         # stay separate.
         probs = self.probabilities
-        # Smoothing dilutes the peak (a lone 0.33 pocket drops to ~0.09), so
-        # only apply it to well-established fires (peak well above the
-        # contour level). Borderline fires keep their raw field — chaining +
-        # micro-fragment filtering still clean those up.
-        established = (
-            probs.shape[0] >= 3 and probs.shape[1] >= 3
-            and float(np.max(probs)) > 2.0 * level
-        )
-        if established:
-            p = np.asarray(probs, dtype=np.float64)
-            p = (p[:-2, :] + 2.0 * p[1:-1, :] + p[2:, :]) / 4.0
-            p = (p[:, :-2] + 2.0 * p[:, 1:-1] + p[:, 2:]) / 4.0
-            # Re-expand to the full grid with the mean baseline at the rim so
-            # grid_x/grid_y stay aligned (the rim is below any contour level
-            # anyway).
-            padded = np.empty_like(p, shape=probs.shape)
-            padded[:] = np.mean(probs)
-            padded[1:-1, 1:-1] = p
-            probs = padded
+        # (Pre-merge smoothing removed: it was designed to feed the binary
+        # closing merge which has been removed. Without the merge, smoothing
+        # dilutes the peak and breaks contour extraction at the original
+        # level — chaining + micro-fragment filtering still clean up stray
+        # segments.)
 
         contour_level = level
-        if established:
-            # (Merge removed: nearby fires are no longer fused into one
-            # perimeter. Each fire cluster gets its own contour ring.)
-            pass
 
         segments_xy = marching_squares_contour(
             probs, contour_level, self.grid_x, self.grid_y,

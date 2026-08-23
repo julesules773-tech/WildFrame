@@ -1913,7 +1913,7 @@ META_MAX_GRIDS = 600
 # operation (~30ms/grid). Keep the response small by flooring the cell
 # threshold so we never ship every cell of every grid (at threshold 0.02 a
 # typical grid ships 1-10 cells; at 0.001 it ships ~13k).
-MIN_STATE_THRESHOLD = 0.02
+MIN_STATE_THRESHOLD = 0.005
 
 # In-process cache for serialized grid exports (the read-only path of
 # /api/bayesian/state). Keyed by (mode, grid_id, persisted-state version,
