@@ -298,6 +298,23 @@
   <!-- ======== Scripts ======== -->
   <!-- TF.js loaded lazily on upload-card open (~1.4 MB saved for non-upload visitors) -->
   <script src="/app.js?v=20260819c"></script>
+  <!-- Auto-open report card when coming from landing page -->
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      if (p.get("report") === "1") {
+        p.delete("report");
+        var q = p.toString();
+        history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
+        var btn = document.getElementById("upload-trigger");
+        var input = document.getElementById("photo-input");
+        if (btn && input) {
+          btn.click();
+          input.click();
+        }
+      }
+    })();
+  </script>
   <!-- Page Pulse Tracking Script -->
   <script>
     (function () {

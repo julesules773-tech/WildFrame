@@ -1342,6 +1342,9 @@
 
     // 5. Write the crop back (R channel), mirroring G/B like the full
     //    filter does so the blurred/LUT passes see an identical field.
+    //    Also fix the alpha channel: dilated pixels that were originally
+    //    outside the gradient circle have R>0 but alpha=0, which makes
+    //    them invisible when drawImage composites them into the blur pass.
     for (let y = 0; y < ch; y++) {
       const dBase = (Y0 + y) * w * 4 + X0 * 4;
       const sBase = y * cw;
@@ -1351,6 +1354,7 @@
         data[idx] = v;
         data[idx + 1] = v;
         data[idx + 2] = v;
+        if (v > 0) data[idx + 3] = 255;
       }
     }
   }
@@ -1563,14 +1567,15 @@
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
           const cellSizeLo = Math.max(1.2, this._cellSizePxFor(region) / downscale);
-          // Radius just past one cell so neighboring cells overlap and
-          // fuse into a single shape. The plateau always extends past the
+          // Radius well past one cell so neighboring cells overlap and
+          // fuse into a single shape. The plateau extends past the
           // neighbor's center (1 cell) so there is no dip between adjacent
-          // cells; the fade band targets a constant ~6px on the full-res
-          // canvas — soft when zoomed out (melty, hides cell dots) but
-          // crisp when zoomed in (the old wide fade grew with the cell
-          // size, so zoomed-in blobs melted into a wide blurry mush).
-          const radius = cellSizeLo * 1.55;
+          // cells; a wider radius (2.5×) ensures cells up to ~4 apart
+          // still overlap, preventing dark holes when intermediate cells
+          // are below the threshold. The fade band targets a constant
+          // ~6px on the full-res canvas — soft when zoomed out but crisp
+          // when zoomed in.
+          const radius = cellSizeLo * 2.5;
           const fadeLo = Math.min(radius * 0.5, Math.max(0.6, 6 / downscale));
           const plateau = Math.min(0.97, Math.max(1 - fadeLo / radius, (1.05 * cellSizeLo) / radius));
 
