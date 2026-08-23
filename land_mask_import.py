@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 """Download Natural Earth 110m land polygon and load into PostGIS.
 
-The ne_110m_land shapefile (~1 MB, public domain) provides a global
+The ne_110m_land shapefile (~70 KB, public domain) provides a global
 land polygon at ~1 km resolution.  Loaded into a PostGIS table
 (``land_mask``) with a spatial index for fast point-in-polygon queries.
 
+Uses pyshp + shapely + psycopg (no GDAL/ogr2ogr needed).
+
 Usage:
     python land_mask_import.py [--table land_mask] [--verbose]
-
-The script downloads the shapefile from the Natural Earth CDN, converts
-it to WGS84 (EPSG:4326) if needed, and loads it via ogr2ogr.
-
-Requires: ogr2ogr (GDAL) — already used by corine_import.py.
 """
 
 import argparse
 import os
-import subprocess
 import sys
 import tempfile
-import urllib.request
 import zipfile
+
+import psycopg
+from shapely.geometry import shape, MultiPolygon
+from shapely.ops import unary_union
 
 NATURAL_EARTH_URL = (
     "https://naciscdn.org/naturalearth/110m/physical/ne_110m_land.zip"
@@ -33,6 +32,8 @@ def download_shapefile(out_dir: str) -> str:
 
     Returns the path to the extracted .shp file.
     """
+    import urllib.request
+
     zip_path = os.path.join(out_dir, "ne_110m_land.zip")
 
     if not os.path.exists(zip_path):
@@ -60,74 +61,73 @@ def download_shapefile(out_dir: str) -> str:
     raise FileNotFoundError("no .shp file found in extracted archive")
 
 
-def load_to_postgis(shp_path: str, table: str, verbose: bool) -> None:
-    """Load the shapefile into PostGIS via ogr2ogr.
+def load_to_postgis(shp_path: str, table: str, verbose: bool) -> int:
+    """Load the shapefile into PostGIS using pyshp + shapely + psycopg.
 
-    First drops the table to ensure a clean load, then creates it fresh.
+    Reads the shapefile, merges all land polygons into a single
+    MultiPolygon, and inserts it as one row.  This is much faster
+    than inserting thousands of small polygons for a land mask.
     """
-    conninfo = os.environ.get(
-        "WILDFRAME_DATABASE_URL",
-        "host=localhost dbname=wildframe",
-    )
-
-    # Extract host/dbname from connection string for ogr2ogr
-    # Format: postgresql://user:pass@host:port/dbname?params
-    import re
-    match = re.search(r"@([^:/]+)", conninfo)
-    host = match.group(1) if match else "localhost"
-
-    match = re.search(r"/([^?]+)", conninfo)
-    dbname = match.group(1) if match else "wildframe"
-
-    # Extract user:pass for ogr2ogr
-    match = re.search(r"://([^@]+)@", conninfo)
-    auth = match.group(1) if match else ""
-
-    cmd = [
-        "ogr2ogr",
-        "-f", "PostgreSQL",
-        f"PG:dbname={dbname} host={host}" + (f" user={auth.split(':')[0]}" if ':' in auth else ""),
-        "-nln", table,
-        "-overwrite",
-        "-t_srs", "EPSG:4326",
-        shp_path,
-    ]
-
-    if verbose:
-        print(f"[land_mask] running: {' '.join(cmd)}")
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"[land_mask] ogr2ogr stderr: {result.stderr}", file=sys.stderr)
-        raise RuntimeError(f"ogr2ogr failed with exit code {result.returncode}")
-
-    if verbose:
-        print(f"[land_mask] ogr2ogr stdout: {result.stdout}")
-
-
-def create_spatial_index(table: str) -> None:
-    """Create a GiST spatial index on the land_mask table."""
-    import psycopg
+    import shapefile as shp
 
     conninfo = os.environ.get(
         "WILDFRAME_DATABASE_URL",
         "host=localhost dbname=wildframe",
     )
 
+    # Read shapefile
+    if verbose:
+        print(f"[land_mask] reading {shp_path} ...")
+    reader = shp.Reader(shp_path)
+    shapes = reader.shapes()
+
+    # Merge all polygons into one MultiPolygon
+    polys = []
+    for s in shapes:
+        geom = shape(s.__geo_interface__)
+        if geom.is_empty:
+            continue
+        if geom.geom_type == "MultiPolygon":
+            polys.extend(geom.geoms)
+        elif geom.geom_type == "Polygon":
+            polys.append(geom)
+    if verbose:
+        print(f"[land_mask] read {len(polys)} polygon(s)")
+
+    merged = unary_union(polys)
+    if verbose:
+        print(f"[land_mask] merged into {merged.geom_type} "
+              f"({merged.area:.1f} sq deg)")
+
+    wkt = merged.wkt
+
+    # Load into PostGIS
     with psycopg.connect(conninfo) as conn:
-        conn.execute(
-            f"CREATE INDEX IF NOT EXISTS {table}_geom_idx "
-            f"ON {table} USING GIST (geom)"
-        )
+        with conn.cursor() as cur:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+            cur.execute(f"DROP TABLE IF EXISTS {table}")
+            cur.execute(f"""
+                CREATE TABLE {table} (
+                    id serial PRIMARY KEY,
+                    geom geometry(MultiPolygon, 4326) NOT NULL
+                )
+            """)
+            cur.execute(
+                f"INSERT INTO {table} (geom) VALUES "
+                f"(ST_GeomFromText(%s, 4326))",
+                [wkt],
+            )
+            cur.execute(
+                f"CREATE INDEX {table}_geom_idx "
+                f"ON {table} USING GIST (geom)"
+            )
         conn.commit()
 
-    print(f"[land_mask] spatial index created on '{table}'")
+    return 1
 
 
 def verify_load(table: str) -> int:
-    """Quick sanity check: count rows in the loaded table."""
-    import psycopg
-
+    """Quick sanity check: count rows and bounding box."""
     conninfo = os.environ.get(
         "WILDFRAME_DATABASE_URL",
         "host=localhost dbname=wildframe",
@@ -136,8 +136,13 @@ def verify_load(table: str) -> int:
     with psycopg.connect(conninfo) as conn:
         row = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
         count = row[0] if row else 0
+        bbox = conn.execute(
+            f"SELECT ST_AsText(ST_Extent(geom)) FROM {table}"
+        ).fetchone()
 
-    print(f"[land_mask] {count} feature(s) loaded into '{table}'")
+    print(f"[land_mask] {count} feature(s) in '{table}'")
+    if bbox and bbox[0]:
+        print(f"[land_mask] extent: {bbox[0]}")
     return count
 
 
@@ -153,18 +158,11 @@ def main() -> int:
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # 1. Download + extract shapefile
         shp_path = download_shapefile(tmpdir)
         if args.verbose:
             print(f"[land_mask] shapefile: {shp_path}")
 
-        # 2. Load into PostGIS
         load_to_postgis(shp_path, args.table, args.verbose)
-
-        # 3. Create spatial index
-        create_spatial_index(args.table)
-
-        # 4. Verify
         count = verify_load(args.table)
 
     print(f"[land_mask] done — {count} feature(s) in '{args.table}'")
