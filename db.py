@@ -1893,6 +1893,71 @@ def worldcover_code_batch(points: list[tuple[float, float]]) -> dict[int, Option
     return out
 
 
+def land_mask_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
+    """Return ``{index: True}`` for points that fall ON LAND.
+
+    Uses the ``land_mask`` table (Natural Earth 110m land polygon) to
+    determine if each point is on land or water.  Points outside the
+    land-mask coverage (e.g. far ocean) are treated as water (fail-closed
+    for the water filter — we drop them to avoid false positives).
+
+    Returns ``{index: True}`` for land points; water points are absent.
+    The caller drops water points by checking membership.
+
+    Fail-open if ``land_mask`` table doesn't exist: returns all points
+    as land (no filtering), so the system degrades gracefully.
+    """
+    if not points:
+        return {}
+    # Check if table exists (fail-open)
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_name = 'land_mask'"
+            ")"
+        ).fetchone()
+        exists = row["exists"]
+    if not exists:
+        # Fail-open: no land mask loaded — treat all points as land
+        return {i: True for i in range(len(points))}
+    bbox = _table_bbox("land_mask")
+    if bbox is None:
+        return {i: True for i in range(len(points))}
+    # Points outside the bbox are water (fail-closed for water filter)
+    keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
+            if _in_bbox(lat, lon, bbox)]
+    if not keep:
+        # All points outside land mask bbox — treat as water
+        return {}
+    out: dict[int, bool] = {}
+    with _conn() as conn:
+        conn.execute(
+            "CREATE TEMP TABLE _lm_pts (idx int, geom geometry) ON COMMIT DROP"
+        )
+        conn.execute("CREATE INDEX ON _lm_pts USING gist (geom)")
+        for start in range(0, len(keep), 1000):
+            batch = keep[start:start + 1000]
+            conn.execute(
+                "INSERT INTO _lm_pts (idx, geom) VALUES "
+                + ", ".join(
+                    "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                    for _ in batch
+                ),
+                [p for idx, (lat, lon) in batch for p in (idx, lon, lat)],
+            )
+        rows = conn.execute(
+            """
+            SELECT DISTINCT p.idx
+            FROM _lm_pts p
+            JOIN land_mask lm ON ST_Contains(lm.geom, p.geom)
+            """
+        ).fetchall()
+    for r in rows:
+        out[int(r["idx"])] = True
+    return out
+
+
 def volcano_hits_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
     """Return ``{index: True}`` for points near a volcano (Step 4 stub).
 

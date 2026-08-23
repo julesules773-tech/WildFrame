@@ -48,6 +48,7 @@ from fire_vision import scan_photo
 import nasa_firms
 import corine
 import worldcover
+import land_mask
 import db
 import photo_storage
 import weather
@@ -4153,15 +4154,18 @@ def _fuse_firms_hotspots(
 
 
 def _gate_firms_by_land_cover(hotspots: list) -> list:
-    """Drop FIRMS detections that fall on non-burnable land-cover classes.
+    """Drop FIRMS detections that fall on water or non-burnable land.
 
-    Two-layer lookup:
+    Three-layer lookup (applied in order):
+      0. Land mask (Natural Earth 110m) — drop water detections globally
+         (ocean, sea, large lakes).  Runs first because it's the cheapest
+         and catches the bulk of false positives.
       1. CORINE CLC2018 (100 m vector, Europe only) — authoritative for
          the Poland/EU beta footprint.
       2. ESA WorldCover 2021 (10 m raster, global) — fallback for points
          outside CORINE coverage (the FIRMS API returns worldwide data).
 
-    Points outside BOTH layers pass through permissively — the gate can
+    Points outside ALL layers pass through permissively — the gate can
     never silently delete fires in uncovered regions.
 
     Side effect: each kept hotspot gets ``h._clc_code`` set to its
@@ -4170,6 +4174,27 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
     ag-burn tagging reuses this one lookup instead of hitting PostGIS
     again.
     """
+    if not hotspots:
+        return hotspots
+
+    # Layer 0: Land mask (Natural Earth 110m) — drop water globally
+    land_hits = db.land_mask_batch(
+        [(h.latitude, h.longitude) for h in hotspots]
+    )
+    water_dropped = 0
+    hotspots_after_land = []
+    for i, h in enumerate(hotspots):
+        if i in land_hits:
+            hotspots_after_land.append(h)
+        else:
+            water_dropped += 1
+    if water_dropped:
+        logger.info(
+            "[firms] Land mask dropped %d hotspot(s) on water (ocean/sea/lake)",
+            water_dropped,
+        )
+    hotspots = hotspots_after_land
+
     if not hotspots:
         return hotspots
 
