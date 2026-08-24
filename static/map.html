@@ -279,36 +279,42 @@
       </div>
     </div>
     <div class="bayesian-controls">
-      <div class="bayesian-control-row">
-        <label class="bayesian-toggle-label">
-          <input type="checkbox" id="bayesian-heatmap-toggle" checked />
-          <span class="toggle-switch"></span>
-          Heatmap
-        </label>
-        <label class="bayesian-toggle-label">
-          <input type="checkbox" id="bayesian-contour-toggle" checked />
-          <span class="toggle-switch"></span>
-          Contour
-        </label>
+      <div class="bayesian-advanced-toggle" id="bayesian-advanced-toggle">
+        <span>⚙ Advanced Options</span>
+        <span class="bayesian-advanced-chevron">▸</span>
       </div>
-      <div class="bayesian-control-row">
-        <label class="bayesian-slider-label">
-          <span>Threshold</span>
-          <input type="range" id="bayesian-threshold" min="0" max="0.9" step="0.01" value="0" />
-        </label>
+      <div class="bayesian-advanced-body hidden" id="bayesian-advanced-body">
+        <div class="bayesian-control-row">
+          <label class="bayesian-toggle-label">
+            <input type="checkbox" id="bayesian-heatmap-toggle" checked />
+            <span class="toggle-switch"></span>
+            Heatmap
+          </label>
+          <label class="bayesian-toggle-label">
+            <input type="checkbox" id="bayesian-contour-toggle" checked />
+            <span class="toggle-switch"></span>
+            Contour
+          </label>
+        </div>
+        <div class="bayesian-control-row">
+          <label class="bayesian-slider-label">
+            <span>Threshold</span>
+            <input type="range" id="bayesian-threshold" min="0" max="0.9" step="0.01" value="0" />
+          </label>
+        </div>
+        <div class="bayesian-control-row bayesian-satellite-row">
+          <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
+            <span class="btn-icon">🛰️</span>
+            <span>Fetch FIRMS</span>
+          </button>
+          <label class="bayesian-toggle-label" title="Auto-fetch NASA FIRMS data every 5 minutes">
+            <input type="checkbox" id="firms-poller-toggle" />
+            <span class="toggle-switch"></span>
+            FIRMS Live
+          </label>
+        </div>
+        <div class="satellite-status" id="satellite-status">Satellite: idle</div>
       </div>
-      <div class="bayesian-control-row bayesian-satellite-row">
-        <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
-          <span class="btn-icon">🛰️</span>
-          <span>Fetch FIRMS</span>
-        </button>
-        <label class="bayesian-toggle-label" title="Auto-fetch NASA FIRMS data every 5 minutes">
-          <input type="checkbox" id="firms-poller-toggle" />
-          <span class="toggle-switch"></span>
-          FIRMS Live
-        </label>
-      </div>
-      <div class="satellite-status" id="satellite-status">Satellite: idle</div>
       <div class="bayesian-control-row bayesian-roadrisk-row">
         <label class="bayesian-toggle-label" title="Overlay roads colored by fire spread risk">
           <input type="checkbox" id="roadrisk-toggle" />

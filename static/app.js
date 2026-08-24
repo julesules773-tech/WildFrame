@@ -4266,6 +4266,16 @@
       });
     }
 
+    // --- Advanced Options collapsible ---
+    const advToggle = document.getElementById("bayesian-advanced-toggle");
+    const advBody = document.getElementById("bayesian-advanced-body");
+    if (advToggle && advBody) {
+      advToggle.addEventListener("click", () => {
+        advToggle.classList.toggle("open");
+        advBody.classList.toggle("hidden");
+      });
+    }
+
     // --- Bayesian Layer Controls ---
     const heatmapToggle = document.getElementById("bayesian-heatmap-toggle");
     if (heatmapToggle) {

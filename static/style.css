@@ -734,6 +734,19 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 /* Controls */
 .bayesian-controls { display: flex; flex-direction: column; gap: 6px; }
 .bayesian-control-row { display: flex; gap: 12px; align-items: center; }
+/* Advanced options collapsible */
+.bayesian-advanced-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 8px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-weight: 600; color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.06); border: 1px solid var(--border);
+  transition: var(--transition); user-select: none;
+}
+.bayesian-advanced-toggle:hover { color: var(--text-secondary); background: rgba(148, 163, 184, 0.12); }
+.bayesian-advanced-chevron { transition: transform 0.2s; font-size: 10px; }
+.bayesian-advanced-toggle.open .bayesian-advanced-chevron { transform: rotate(90deg); }
+.bayesian-advanced-body { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.bayesian-advanced-body.hidden { display: none; }
 .bayesian-toggle-label {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; color: var(--text-secondary); cursor: pointer;
