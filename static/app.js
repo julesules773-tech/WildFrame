@@ -1380,7 +1380,7 @@
       this._regions = [];
       this._showHeatmap = true;
       this._showContour = true;
-      this._threshold = 0.05;
+      this._threshold = 0;
     },
 
     onAdd: function (map) {
@@ -4250,6 +4250,9 @@
 
     const thresholdSlider = document.getElementById("bayesian-threshold");
     if (thresholdSlider) {
+      // Sync STATE from the slider's HTML default on page load so
+      // STATE.bayesian.threshold and the heatmap layer always agree.
+      STATE.bayesian.threshold = parseFloat(thresholdSlider.value);
       thresholdSlider.addEventListener("input", (e) => {
         STATE.bayesian.threshold = parseFloat(e.target.value);
         if (STATE.bayesian.heatmapLayer) {
