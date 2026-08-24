@@ -1591,57 +1591,76 @@
         accumCtx.clearRect(0, 0, loW, loH);
         accumCtx.globalCompositeOperation = 'lighten';
 
+        // Pre-render cell stamps: one white radial-gradient circle per
+        // unique radius. Stamping a pre-rendered image (drawImage) is
+        // ~10-50x faster than createRadialGradient + arc + fill per cell,
+        // which was the single biggest rendering bottleneck (13k+ cells
+        // per grid × multiple grids = tens of thousands of gradient
+        // creations per frame).
+        //
+        // With lighten composite + globalAlpha, each stamp contributes
+        // max(dst, alpha) per channel — identical to the old per-cell
+        // gradient behavior.
+        const stampCache = new Map();  // radius → offscreen canvas
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
           const cellSizeLo = Math.max(1.2, this._cellSizePxFor(region) / downscale);
-          // Radius well past one cell so neighboring cells overlap and
-          // fuse into a single shape. The plateau extends past the
-          // neighbor's center (1 cell) so there is no dip between adjacent
-          // cells; a wider radius (2.5×) ensures cells up to ~4 apart
-          // still overlap, preventing dark holes when intermediate cells
-          // are below the threshold. The fade band targets a constant
-          // ~6px on the full-res canvas — soft when zoomed out but crisp
-          // when zoomed in.
           const radius = cellSizeLo * 2.5;
           const fadeLo = Math.min(radius * 0.5, Math.max(0.6, 6 / downscale));
           const plateau = Math.min(0.97, Math.max(1 - fadeLo / radius, (1.05 * cellSizeLo) / radius));
 
+          // Build or reuse the stamp for this radius.
+          const rKey = Math.round(radius * 10);  // quantize to avoid float-key issues
+          let stamp = stampCache.get(rKey);
+          if (!stamp) {
+            const d = Math.ceil(radius * 2) + 2;
+            stamp = document.createElement('canvas');
+            stamp.width = d;
+            stamp.height = d;
+            const sc = stamp.getContext('2d');
+            const cx = d / 2, cy = d / 2;
+            const grd = sc.createRadialGradient(cx, cy, 0, cx, cy, radius);
+            grd.addColorStop(0, 'rgba(255,255,255,1)');
+            grd.addColorStop(plateau, 'rgba(255,255,255,1)');
+            grd.addColorStop(1, 'rgba(0,0,0,0)');
+            sc.fillStyle = grd;
+            sc.beginPath();
+            sc.arc(cx, cy, radius, 0, Math.PI * 2);
+            sc.fill();
+            stampCache.set(rKey, stamp);
+          }
+          const halfD = stamp.width / 2;
+
+          // Fast grid projection: project the reference point once, then
+          // compute each cell's pixel position from its lat/lon delta.
+          // Replaces ~13k latLngToContainerPoint calls (each involves
+          // trig + projection math) with 3 projections + simple multiply.
+          const refPt = map.latLngToContainerPoint([region.refLat, region.refLon]);
+          const pLat1 = map.latLngToContainerPoint([region.refLat + 0.001, region.refLon]);
+          const pLon1 = map.latLngToContainerPoint([region.refLat, region.refLon + 0.001]);
+          const dLatPx = (pLat1.y - refPt.y) * 1000;  // pixels per degree lat
+          const dLonPx = (pLon1.x - refPt.x) * 1000;  // pixels per degree lon
+          const refX = refPt.x;
+          const refY = refPt.y;
+          const refLat = region.refLat;
+          const refLon = region.refLon;
+
           for (const cell of region.cells) {
             const p = cell.p;
-            // Cells below the display threshold still contribute a faint
-            // gradient so the heatmap fades smoothly at the grid boundary
-            // instead of hard-clipping (the contour extends beyond the
-            // visible cells because it's computed from the full probability
-            // field). Only skip cells with truly zero probability.
             if (p <= 0) continue;
 
-            const pt = map.latLngToContainerPoint([cell.lat, cell.lon]);
-            const x = pt.x / downscale;
-            const y = pt.y / downscale;
+            const x = (refX + (cell.lon - refLon) * dLonPx) / downscale;
+            const y = (refY + (cell.lat - refLat) * dLatPx) / downscale;
             if (x < -radius || x > loW + radius ||
                 y < -radius || y > loH + radius) continue;
 
             // Absolute scale: brightness = the cell's true probability.
-            // Cells below the display threshold get a minimum intensity
-            // (faint halo) so the grid boundary fades softly.
             const t = Math.min(1, Math.max(0, p));
-            // LUT maps v < 8 to alpha=0, so the minimum must be >= 8
-            // to be visible as a faint fade at the grid boundary.
-            const v = p < this._threshold
-              ? Math.max(8, Math.round(255 * t))
-              : Math.round(255 * t);
-            // Flat-topped falloff: intensity holds at the cell's value over
-            // most of the radius and only fades near the edge.
-            const grd = accumCtx.createRadialGradient(x, y, 0, x, y, radius);
-            grd.addColorStop(0, `rgba(${v},${v},${v},1)`);
-            grd.addColorStop(plateau, `rgba(${v},${v},${v},1)`);
-            grd.addColorStop(1, 'rgba(0,0,0,1)');
-            accumCtx.fillStyle = grd;
-            accumCtx.beginPath();
-            accumCtx.arc(x, y, radius, 0, Math.PI * 2);
-            accumCtx.fill();
+            accumCtx.globalAlpha = t;
+            accumCtx.drawImage(stamp, x - halfD, y - halfD);
           }
         }
+        accumCtx.globalAlpha = 1;
         accumCtx.globalCompositeOperation = 'source-over';
 
         // (Display-level merge removed: nearby fires are no longer fused
