@@ -1591,17 +1591,18 @@
         accumCtx.clearRect(0, 0, loW, loH);
         accumCtx.globalCompositeOperation = 'lighten';
 
-        // Pre-render cell stamps: one white radial-gradient circle per
-        // unique radius. Stamping a pre-rendered image (drawImage) is
-        // ~10-50x faster than createRadialGradient + arc + fill per cell,
-        // which was the single biggest rendering bottleneck (13k+ cells
-        // per grid × multiple grids = tens of thousands of gradient
-        // creations per frame).
+        // Direct pixel rendering: write a radial-gradient intensity
+        // field straight into an ImageData buffer, bypassing canvas API
+        // calls entirely.  This eliminates per-cell drawImage overhead
+        // (13k+ GPU compositing calls) — the dominant bottleneck.  The
+        // low-res canvas is tiny (~130k pixels) so the JS pixel loop is
+        // fast (~10-30ms for 13k cells × ~100 pixels each).
         //
-        // With lighten composite + globalAlpha, each stamp contributes
-        // max(dst, alpha) per channel — identical to the old per-cell
-        // gradient behavior.
-        const stampCache = new Map();  // radius → offscreen canvas
+        // Precompute a single radial-gradient lookup table (radius→
+        // intensity falloff) shared by all cells at each unique radius.
+        const fieldData = accumCtx.createImageData(loW, loH);
+        const field = fieldData.data;
+
         for (const region of regions) {
           if (!region.cells || region.cells.length === 0) continue;
           const cellSizeLo = Math.max(1.2, this._cellSizePxFor(region) / downscale);
@@ -1609,37 +1610,28 @@
           const fadeLo = Math.min(radius * 0.5, Math.max(0.6, 6 / downscale));
           const plateau = Math.min(0.97, Math.max(1 - fadeLo / radius, (1.05 * cellSizeLo) / radius));
 
-          // Build or reuse the stamp for this radius.
-          const rKey = Math.round(radius * 10);  // quantize to avoid float-key issues
-          let stamp = stampCache.get(rKey);
-          if (!stamp) {
-            const d = Math.ceil(radius * 2) + 2;
-            stamp = document.createElement('canvas');
-            stamp.width = d;
-            stamp.height = d;
-            const sc = stamp.getContext('2d');
-            const cx = d / 2, cy = d / 2;
-            const grd = sc.createRadialGradient(cx, cy, 0, cx, cy, radius);
-            grd.addColorStop(0, 'rgba(255,255,255,1)');
-            grd.addColorStop(plateau, 'rgba(255,255,255,1)');
-            grd.addColorStop(1, 'rgba(0,0,0,0)');
-            sc.fillStyle = grd;
-            sc.beginPath();
-            sc.arc(cx, cy, radius, 0, Math.PI * 2);
-            sc.fill();
-            stampCache.set(rKey, stamp);
+          // Build gradient falloff LUT: radialDist → intensity (0..1).
+          const rInt = Math.ceil(radius);
+          const gradLut = new Uint8Array(rInt + 1);
+          for (let d = 0; d <= rInt; d++) {
+            const frac = d / radius;
+            if (frac <= plateau) {
+              gradLut[d] = 255;  // flat plateau
+            } else {
+              // Smooth fade from plateau to edge
+              const t = (frac - plateau) / (1 - plateau);
+              gradLut[d] = Math.round(255 * (1 - t * t));  // quadratic ease-out
+            }
           }
-          const halfD = stamp.width / 2;
+          const rSq = radius * radius;
+          const rIntSq = rInt * rInt;
 
-          // Fast grid projection: project the reference point once, then
-          // compute each cell's pixel position from its lat/lon delta.
-          // Replaces ~13k latLngToContainerPoint calls (each involves
-          // trig + projection math) with 3 projections + simple multiply.
+          // Fast grid projection: 3 projections + linear interpolate.
           const refPt = map.latLngToContainerPoint([region.refLat, region.refLon]);
           const pLat1 = map.latLngToContainerPoint([region.refLat + 0.001, region.refLon]);
           const pLon1 = map.latLngToContainerPoint([region.refLat, region.refLon + 0.001]);
-          const dLatPx = (pLat1.y - refPt.y) * 1000;  // pixels per degree lat
-          const dLonPx = (pLon1.x - refPt.x) * 1000;  // pixels per degree lon
+          const dLatPx = (pLat1.y - refPt.y) * 1000;
+          const dLonPx = (pLon1.x - refPt.x) * 1000;
           const refX = refPt.x;
           const refY = refPt.y;
           const refLat = region.refLat;
@@ -1649,19 +1641,49 @@
             const p = cell.p;
             if (p <= 0) continue;
 
-            const x = (refX + (cell.lon - refLon) * dLonPx) / downscale;
-            const y = (refY + (cell.lat - refLat) * dLatPx) / downscale;
-            if (x < -radius || x > loW + radius ||
-                y < -radius || y > loH + radius) continue;
+            const cx = (refX + (cell.lon - refLon) * dLonPx) / downscale;
+            const cy = (refY + (cell.lat - refLat) * dLatPx) / downscale;
+            if (cx < -radius || cx > loW + radius ||
+                cy < -radius || cy > loH + radius) continue;
 
-            // Absolute scale: brightness = the cell's true probability.
-            const t = Math.min(1, Math.max(0, p));
-            accumCtx.globalAlpha = t;
-            accumCtx.drawImage(stamp, x - halfD, y - halfD);
+            // Cell intensity: probability mapped to 0..255.
+            const cellV = p < this._threshold
+              ? Math.max(8, Math.round(255 * Math.min(1, Math.max(0, p))))
+              : Math.round(255 * Math.min(1, Math.max(0, p)));
+
+            // Stamp the radial gradient into the field buffer using
+            // max compositing (equivalent to canvas 'lighten' mode).
+            const x0 = Math.max(0, Math.floor(cx - radius));
+            const x1 = Math.min(loW - 1, Math.ceil(cx + radius));
+            const y0 = Math.max(0, Math.floor(cy - radius));
+            const y1 = Math.min(loH - 1, Math.ceil(cy + radius));
+            const dx = cx - x0;
+            const dy0Base = cy - y0;
+
+            for (let y = y0; y <= y1; y++) {
+              const dy = y - cy;
+              const dySq = dy * dy;
+              const rowBase = y * loW;
+              for (let x = x0; x <= x1; x++) {
+                const dd = (x - cx) * (x - cx) + dySq;
+                if (dd > rIntSq) continue;
+                const dist = Math.round(Math.sqrt(dd));
+                const gradV = gradLut[Math.min(dist, rInt)];
+                const v = (cellV * gradV + 127) >> 8;  // (cellV * gradV/255)
+                if (v <= 0) continue;
+                const idx = (rowBase + x) * 4;
+                if (v > field[idx]) field[idx] = v;  // max compositing (R channel)
+              }
+            }
           }
         }
-        accumCtx.globalAlpha = 1;
-        accumCtx.globalCompositeOperation = 'source-over';
+        // Mirror R→G,B (gray field) and write alpha.
+        for (let i = 0; i < field.length; i += 4) {
+          field[i + 1] = field[i];
+          field[i + 2] = field[i];
+          field[i + 3] = field[i] > 0 ? 255 : 0;
+        }
+        accumCtx.putImageData(fieldData, 0, 0);
 
         // (Display-level merge removed: nearby fires are no longer fused
         // into one connected blob. Each fire cluster renders independently.)
