@@ -376,7 +376,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* ---------- Stats Panel ---------- */
 #stats-panel {
-  position: fixed; top: 80px; right: 16px; z-index: 1001;
+  position: fixed; top: 96px; right: 16px; z-index: 1001;
   display: flex; gap: 2px;
   background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
