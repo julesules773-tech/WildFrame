@@ -116,10 +116,7 @@
         <span class="contact-link-icon">🇵🇱</span>
         <span class="contact-link-text">Poland map</span>
       </a>
-      <button id="bayesian-toggle" class="bayesian-toggle-btn" title="Toggle fire grid probability heatmap">
-        <span class="bayesian-icon">🌀</span>
-        <span class="bayesian-text">Heatmap</span>
-      </button>
+      <!-- Heatmap toggle moved to floating bottom-right controls -->
       <button id="users-only-toggle" class="users-only-btn" title="Show only fires reported by app users (hide satellite data)">
         <span class="users-only-icon">👥</span>
         <span class="users-only-text">Users only</span>
@@ -174,15 +171,20 @@
   </div>
 
 
-  <!-- ======== Upload Panel (floating card) ======== -->
-  <div id="upload-panel">
-    <!-- Collapsed trigger -->
-    <button id="upload-trigger" class="upload-trigger" title="Report a fire">
-      <span class="trigger-icon">+</span>
-      <span class="trigger-text">Report a Wildfire</span>
+  <!-- ======== Floating Controls (bottom-right) ======== -->
+  <div id="floating-controls">
+    <button id="bayesian-toggle" class="floating-ctrl-btn heatmap-btn" title="Toggle fire grid probability heatmap">
+      <span class="floating-ctrl-icon">🌀</span>
+      <span class="floating-ctrl-text">Heatmap</span>
     </button>
+    <button id="upload-trigger" class="floating-ctrl-btn report-btn" title="Report a fire">
+      <span class="floating-ctrl-icon">🔥</span>
+      <span class="floating-ctrl-text">Report</span>
+    </button>
+  </div>
 
-    <!-- Expanded card -->
+  <!-- ======== Upload Card (absolute to floating-controls) ======== -->
+  <div id="upload-panel">
     <div id="upload-card" class="upload-card hidden">
       <div class="card-header">
         <h2>Report a Wildfire</h2>

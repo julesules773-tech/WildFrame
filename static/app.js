@@ -3826,7 +3826,7 @@
       document.querySelector(".about-link"),
       document.querySelector(".faq-link"),
       document.querySelector(".poland-map-link"),
-      document.getElementById("bayesian-toggle"),
+      // bayesian-toggle moved to #floating-controls (always visible)
       document.getElementById("users-only-toggle"),
       document.getElementById("status-badge"),
     ];

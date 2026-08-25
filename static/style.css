@@ -402,25 +402,36 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .dot-medium { width: 14px; height: 14px; background: #f97316; opacity: 0.85; }
 .dot-large { width: 18px; height: 18px; background: #ef4444; opacity: 0.9; }
 
-/* ---------- Upload Panel ---------- */
-#upload-panel { position: fixed; bottom: 24px; right: 24px; z-index: 1002; }
-
-/* Trigger button */
-.upload-trigger {
-  display: flex; align-items: center; gap: 8px;
-  background: linear-gradient(135deg, var(--accent), #dc2626);
-  color: #fff; border: none; border-radius: 50px;
-  padding: 14px 24px; font-size: 15px; font-weight: 600;
-  cursor: pointer; box-shadow: 0 4px 20px var(--accent-glow);
-  transition: var(--transition); position: relative; z-index: 1;
+/* ---------- Floating Controls (bottom-right) ---------- */
+#floating-controls {
+  position: fixed; bottom: 24px; right: 24px; z-index: 1002;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
 }
-.upload-trigger:hover { transform: translateY(-2px); box-shadow: 0 8px 28px var(--accent-glow); }
-.upload-trigger:active { transform: translateY(0); scale: 0.97; }
-.trigger-icon { font-size: 22px; line-height: 1; font-weight: 300; }
+.floating-ctrl-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(30, 35, 50, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: 50px;
+  padding: 12px 20px; font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  transition: var(--transition);
+}
+.floating-ctrl-btn:hover { background: rgba(30, 35, 50, 0.95); color: var(--text-primary); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.floating-ctrl-btn.active { color: var(--text-primary); border-color: var(--accent); }
+.heatmap-btn.active { color: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.15); }
+.floating-ctrl-icon { font-size: 18px; line-height: 1; }
+.report-btn { border-color: rgba(249,115,22,0.3); }
+.report-btn:hover { border-color: var(--accent); color: var(--accent); }
+#floating-controls .hidden { display: none !important; }
+#upload-panel > .hidden { pointer-events: none !important; }
+
+/* Upload Panel (holds only the card now) */
+#upload-panel { position: fixed; bottom: 80px; right: 24px; z-index: 1003; pointer-events: none; }
+#upload-panel > * { pointer-events: auto; }
 
 /* Upload Card */
 .upload-card {
-  position: absolute; bottom: 70px; right: 0; width: 380px;
+  position: relative; bottom: 0; right: 0; width: 380px;
   background: var(--bg-card); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: 0 16px 48px rgba(0,0,0,0.5); overflow: hidden;
