@@ -389,7 +389,7 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 
 /* ---------- Cluster Legend ---------- */
 #cluster-legend {
-  position: fixed; bottom: 24px; left: 16px; z-index: 1001;  /* aligned with the Report button (bottom: 24px) */
+  position: fixed; bottom: 135px; left: 16px; z-index: 1001;
   background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 12px 16px; box-shadow: var(--shadow); min-width: 120px;
