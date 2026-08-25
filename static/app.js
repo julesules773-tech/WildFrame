@@ -3300,23 +3300,16 @@
           try { await FIRE_GATE.pending; } catch (e) { /* gate degrades */ }
         }
       }
-      if (els.fireGateNotice && FIRE_GATE.ready && FIRE_GATE.lastProb != null &&
+      if (FIRE_GATE.ready && FIRE_GATE.lastProb != null &&
           FIRE_GATE.lastProb < FIRE_GATE.minProb && !FIRE_GATE.warned) {
         FIRE_GATE.warned = true;
-        _setGateNotice(
-          "We didn't detect fire or smoke in this photo. You can still submit it — " +
-          "distant smoke or early-stage fires are easy to miss.",
-          true
+        const proceed = confirm(
+          "We didn't detect fire or smoke in this photo. " +
+          "Distant smoke or early-stage fires can be easy to miss.\n\n" +
+          "Do you still want to submit it?"
         );
-        // Make the confirm flow unmistakable: the button itself becomes
-        // the "proceed anyway" action.
-        _setSubmitLabel("Submit anyway");
-        return;
+        if (!proceed) return;
       }
-      // Confirmed — hide the notice so the confirm copy doesn't linger
-      // while the upload runs (or if it fails for an unrelated reason).
-      _setGateNotice("", false);
-      _setSubmitLabel();
 
       STATE.uploading = true;
       els.submitBtn.disabled = true;
