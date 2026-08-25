@@ -236,20 +236,12 @@ def _ensure_table(table: str, conn):
 
 def _load_rows(rows: list, table: str, conn):
     """Bulk-insert rows via COPY into temp table, then convert to geometry."""
-    import io as _io
-
     if not rows:
         return 0
 
-    # Step 1: COPY raw lon/lat values into a temp table (fast bulk load)
-    buf = _io.StringIO()
-    for lon, lat, elev, slope, aspect in rows:
-        buf.write(f"{lon}\t{lat}\t{elev}\t{slope}\t{aspect}\n")
-    buf.seek(0)
-
     with conn.cursor() as cur:
-        cur.execute(f"DROP TABLE IF EXISTS _dem_tmp")
-        cur.execute(f"""
+        cur.execute("DROP TABLE IF EXISTS _dem_tmp")
+        cur.execute("""
             CREATE TEMP TABLE _dem_tmp (
                 lon DOUBLE PRECISION,
                 lat DOUBLE PRECISION,
@@ -258,10 +250,11 @@ def _load_rows(rows: list, table: str, conn):
                 aspect_deg DOUBLE PRECISION
             )
         """)
-        cur.copy_expert(
-            "COPY _dem_tmp FROM STDIN",
-            buf,
-        )
+
+        # Step 1: COPY raw values into temp table (psycopg3 API)
+        with cur.copy("COPY _dem_tmp FROM STDIN") as copy:
+            for lon, lat, elev, slope, aspect in rows:
+                copy.write_row((lon, lat, elev, slope, aspect))
 
         # Step 2: Insert into main table with geometry
         cur.execute(f"""
@@ -306,8 +299,8 @@ def main():
     parser.add_argument("--bbox", default="-25,35,45,72",
                         help="west,south,east,north (default: all of Europe)")
     parser.add_argument("--table", default=DEFAULT_TABLE)
-    parser.add_argument("--sample-res", type=float, default=0.001,
-                        help="Output resolution in degrees (~111m at equator)")
+    parser.add_argument("--sample-res", type=float, default=0.005,
+                        help="Output resolution in degrees (~500m, default 0.005)")
     parser.add_argument("--workers", type=int, default=1,
                         help="Parallel download workers (default: 1)")
     parser.add_argument("--resume", action="store_true",
@@ -350,6 +343,7 @@ def main():
 
         total_rows = 0
         tiles_done = 0
+        BATCH_SIZE = 50_000  # rows per COPY batch
 
         for idx, (key, tile_lat, tile_lon) in enumerate(tiles, 1):
             tile_id = f"{tile_lat}_{tile_lon}"
@@ -369,8 +363,11 @@ def main():
                 continue
 
             if rows:
-                n = _load_rows(rows, args.table, conn)
-                total_rows += n
+                # Stream in batches to avoid holding all rows in memory
+                for i in range(0, len(rows), BATCH_SIZE):
+                    batch = rows[i:i + BATCH_SIZE]
+                    n = _load_rows(batch, args.table, conn)
+                    total_rows += n
                 del rows
                 gc.collect()
 
