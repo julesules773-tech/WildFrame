@@ -2248,6 +2248,7 @@ def _grid_to_json(
                     wind_dir_deg=entry.get("wind_dir_deg", 270.0),
                     moisture_factor=effis_fwi.moisture_factor(_ffmc) if _ffmc > 0 else 1.0,
                     decay_scale=effis_fwi.decay_scale(_dmc) if _dmc > 0 else 1.0,
+                    slope_lookup=db.dem_terrain_lookup,
                 )
 
             # Null (not a fake 3.0/270) until the grid has real weather.
@@ -3314,6 +3315,7 @@ def simulate_fire(grid_id: str):
             wind_speed=wind_speed,
             wind_dir_deg=wind_dir_deg,
             moisture_factor=mf,
+            slope_lookup=db.dem_terrain_lookup,
         )
         grid_copy._compute_probs()
 
@@ -3414,6 +3416,7 @@ def bayesian_predict():
         def _predict_single(grid: BayesianFireGrid, entry: dict) -> None:
             grid.predict(
                 dt=dt, wind_speed=wind_speed, wind_dir_deg=wind_dir, slope_pct=slope_pct,
+                slope_lookup=db.dem_terrain_lookup,
             )
             # Persist the new wind for this grid (so auto-predict inherits it)
             entry["wind_speed"] = wind_speed
@@ -3428,6 +3431,7 @@ def bayesian_predict():
                 mode, gid,
                 lambda g, e: g.predict(
                     dt=dt, wind_speed=wind_speed, wind_dir_deg=wind_dir, slope_pct=slope_pct,
+                    slope_lookup=db.dem_terrain_lookup,
                 ),
             )
         message = f"Predicted {dt:.0f}s ahead for all {len(ids)} grid(s). Per-grid wind NOT overwritten."
@@ -5483,7 +5487,7 @@ def bayesian_demo_start():
     def _seed_start(grid: BayesianFireGrid, entry: dict, _hs=start_step["hotspots"], _ws=start_step["wind_speed"], _wd=start_step["wind_dir_deg"]) -> None:
         for hs in _hs:
             grid.update(Evidence.satellite_hotspot(lat=hs[0], lon=hs[1]))
-        grid.predict(dt=300.0, wind_speed=_ws, wind_dir_deg=_wd)
+        grid.predict(dt=300.0, wind_speed=_ws, wind_dir_deg=_wd, slope_lookup=db.dem_terrain_lookup)
 
     db.mutate_grid("demo", "creek-fire-demo", _seed_start)
 
@@ -5559,6 +5563,7 @@ def bayesian_demo_step():
             dt=1800.0,
             wind_speed=_sd["wind_speed"],
             wind_dir_deg=_sd["wind_dir_deg"],
+            slope_lookup=db.dem_terrain_lookup,
         )
 
     db.mutate_grid("demo", "creek-fire-demo", _advance)

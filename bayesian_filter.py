@@ -1076,6 +1076,7 @@ class BayesianFireGrid:
         moisture_factor: float = 1.0,
         decay_scale: float = 1.0,
         at: float | None = None,
+        slope_lookup=None,
     ) -> None:
         """
         Advance the probability grid by time dt (seconds).
@@ -1093,18 +1094,55 @@ class BayesianFireGrid:
            before. ``decay_scale`` > 1 lengthens the base half-life —
            EFFIS DMC's "deep duff keeps the fire smouldering" effect.
 
+        ``slope_lookup`` is an optional callable ``(lat, lon) -> (slope_pct, aspect_deg)``
+        that returns terrain data from a DEM.  When provided, the average slope
+        at the fire front (burning cells above threshold) is sampled and used
+        instead of the flat ``slope_pct`` parameter, making spread
+        terrain-aware.  Falls back to ``slope_pct`` if the lookup returns no
+        data or if there are no burning cells.
+
         ``at`` overrides the wall clock (used by the backtest harness to
         replay history faithfully); production always leaves it None.
         """
         now = at if at is not None else datetime.now(timezone.utc).timestamp()
         dt_minutes = dt / 60.0
 
+        # --- Terrain-aware slope from DEM ---
+        # If a slope_lookup callback is provided, sample the DEM at the fire
+        # front centroids and use the average uphill slope instead of the flat
+        # slope_pct.  This makes spread faster uphill and slower downhill.
+        effective_slope_pct = slope_pct
+        effective_slope_aspect = slope_aspect_deg
+        if slope_lookup is not None and self.probabilities.size > 0:
+            burning_mask = self.probabilities > burn_threshold
+            burning_count = int(np.sum(burning_mask))
+            if burning_count > 0:
+                # Sample DEM at burning cell centroids (subsample if too many)
+                indices = np.argwhere(burning_mask)
+                if len(indices) > 200:
+                    rng = np.random.default_rng(42)
+                    indices = indices[rng.choice(len(indices), 200, replace=False)]
+                slopes = []
+                aspects = []
+                for i_cell, j_cell in indices:
+                    lat, lon = self.cell_to_latlon(int(i_cell), int(j_cell))
+                    try:
+                        s, a = slope_lookup(lat, lon)
+                        if s is not None and s > 0:
+                            slopes.append(s)
+                            aspects.append(a)
+                    except Exception:
+                        pass
+                if slopes:
+                    effective_slope_pct = sum(slopes) / len(slopes)
+                    effective_slope_aspect = sum(aspects) / len(aspects)
+
         # Compute the spread kernel
         kernel = SpreadKernel(
             wind_speed=wind_speed,
             wind_dir_deg=wind_dir_deg,
-            slope_pct=slope_pct,
-            slope_aspect_deg=slope_aspect_deg,
+            slope_pct=effective_slope_pct,
+            slope_aspect_deg=effective_slope_aspect,
             moisture_factor=moisture_factor,
         )
 

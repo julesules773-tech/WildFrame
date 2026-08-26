@@ -2183,6 +2183,93 @@ def set_poller_active(kind: str, active: bool, params: Optional[dict] = None) ->
     kv_set(f"{kind}_poller", stored)
 
 
+def dem_terrain_batch(points: list[tuple[float, float]]) -> dict[int, tuple[float, float]]:
+    """Look up the nearest DEM terrain data (slope_pct, aspect_deg) for each point.
+
+    ``points`` is a list of ``(lat, lon)``.  Returns ``{index: (slope_pct, aspect_deg)}``
+    for points where a DEM sample exists within ~1 km (nearest-neighbour via GiST).
+    Points outside DEM coverage are absent from the result.
+
+    Fail-open: if the ``dem_terrain`` table doesn't exist, returns empty.
+    """
+    if not points:
+        return {}
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_name = 'dem_terrain'"
+            ")"
+        ).fetchone()
+        if not row["exists"]:
+            return {}
+        # Batch nearest-neighbour lookup using GiST index.
+        # For each input point, find the closest dem_terrain row.
+        # Use a temp table for the join — same pattern as land_cover_codes_batch.
+        conn.execute(
+            "CREATE TEMP TABLE _dem_pts (idx int, geom geometry) ON COMMIT DROP"
+        )
+        conn.execute("CREATE INDEX ON _dem_pts USING gist (geom)")
+        # Batch insert
+        for start in range(0, len(points), 1000):
+            batch = points[start:start + 1000]
+            conn.execute(
+                "INSERT INTO _dem_pts (idx, geom) VALUES "
+                + ", ".join(
+                    "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                    for _ in batch
+                ),
+                [p for idx, (lat, lon) in enumerate(points[start:start + 1000], start)
+                 for p in (idx, lon, lat)],
+            )
+        # Nearest-neighbour: for each input point, find closest dem_terrain row
+        # within ~1 km (0.01° ≈ 1.1 km) to skip far-away matches.
+        rows = conn.execute(
+            """
+            SELECT p.idx, d.slope_pct, d.aspect_deg
+            FROM _dem_pts p
+            JOIN LATERAL (
+              SELECT slope_pct, aspect_deg
+              FROM dem_terrain d
+              ORDER BY d.geom <-> p.geom
+              LIMIT 1
+            ) d ON ST_DWithin(d.geom, p.geom, 0.01)
+            """
+        ).fetchall()
+    out: dict[int, tuple[float, float]] = {}
+    for r in rows:
+        out[int(r["idx"])] = (float(r["slope_pct"]), float(r["aspect_deg"]))
+    return out
+
+
+def dem_terrain_lookup(lat: float, lon: float) -> tuple[float, float]:
+    """Look up the nearest DEM slope and aspect for a single point.
+
+    Returns ``(slope_pct, aspect_deg)`` or ``(0.0, 0.0)`` if no DEM data.
+    """
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_name = 'dem_terrain'"
+            ")"
+        ).fetchone()
+        if not row["exists"]:
+            return (0.0, 0.0)
+        row = conn.execute(
+            """
+            SELECT slope_pct, aspect_deg
+            FROM dem_terrain
+            ORDER BY geom <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+            LIMIT 1
+            """,
+            (lon, lat),
+        ).fetchone()
+        if row is None:
+            return (0.0, 0.0)
+        return (float(row["slope_pct"]), float(row["aspect_deg"]))
+
+
 def ping() -> None:
     """Cheap liveness probe for health checks: round-trips one query through
     the connection pool (raises on DB outage)."""
