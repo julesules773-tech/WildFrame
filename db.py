@@ -147,6 +147,18 @@ def check_connection() -> bool:
         return False
 
 
+def safe_query(fn, *args, default=None, **kwargs):
+    """Run a DB query function, returning *default* if the DB is unreachable.
+
+    Use this for read-only API endpoints that should degrade gracefully
+    instead of returning 500 when the database is down.
+    """
+    try:
+        return fn(*args, **kwargs)
+    except Exception:
+        return default
+
+
 # ---------------------------------------------------------------------------
 # Schema
 # ---------------------------------------------------------------------------

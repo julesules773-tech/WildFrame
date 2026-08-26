@@ -946,10 +946,14 @@ def create_report():
 
 @app.route("/api/clusters", methods=["GET"])
 def get_clusters():
-    demo = _request_mode() == "demo"
-    reports = _load_reports(demo=demo)
-    clusters = _compute_clusters(reports)
-    return jsonify({"clusters": clusters, "count": len(clusters), "mode": "demo" if demo else "production"})
+    try:
+        demo = _request_mode() == "demo"
+        reports = _load_reports(demo=demo)
+        clusters = _compute_clusters(reports)
+        return jsonify({"clusters": clusters, "count": len(clusters), "mode": "demo" if demo else "production"})
+    except Exception as exc:
+        logger.warning("clusters endpoint degraded: %s", exc)
+        return jsonify({"clusters": [], "count": 0, "mode": "production"})
 
 
 @app.route("/api/reports/<report_id>/status", methods=["PUT"])
@@ -2370,10 +2374,11 @@ def bayesian_get_state():
         _spawn_viewport_wind_refresh("demo" if demo else "production", bbox)
         data["mode"] = "demo" if demo else "production"
         return jsonify(data)
-    except Exception:
-        # Never expose exception details (may contain DB credentials)
-        logger.exception("grid data endpoint error")
-        return jsonify({"error": "internal error"}), 500
+    except Exception as exc:
+        # DB down → return empty grids so the map still loads (just no data)
+        # instead of a 500 that blanks the entire page.
+        logger.warning("grid data endpoint degraded: %s", exc)
+        return jsonify({"grids": [], "mode": "production"})
 
 
 
