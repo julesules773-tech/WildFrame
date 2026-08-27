@@ -73,6 +73,108 @@
   };
 
   // -----------------------------------------------------------------------
+  // Offline upload queue (IndexedDB)
+  // -----------------------------------------------------------------------
+  // When the server is unreachable (network error, server down, etc.)
+  // photo uploads are queued in IndexedDB and sent automatically when
+  // connectivity returns.
+  const OfflineQueue = (() => {
+    const DB_NAME = "pyrae-offline-queue";
+    const STORE = "pending-uploads";
+    let _db = null;
+
+    function _open() {
+      if (_db) return Promise.resolve(_db);
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          req.result.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+        };
+        req.onsuccess = () => { _db = req.result; resolve(_db); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function enqueue(formDataFields, photoBlob) {
+      const db = await _open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        const item = {
+          fields: formDataFields,   // plain-object key-value pairs
+          photo: photoBlob,          // Blob of the photo
+          queuedAt: Date.now(),
+          retries: 0,
+        };
+        const req = tx.objectStore(STORE).add(item);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function count() {
+      const db = await _open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).count();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function drain() {
+      const db = await _open();
+      let sent = 0;
+      let failed = 0;
+
+      // Read all items, try to send each one
+      const items = await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      for (const item of items) {
+        try {
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(item.fields)) {
+            fd.set(k, v);
+          }
+          fd.set("photo", item.photo, item.fields._filename || "photo.jpg");
+          const res = await fetch("/api/reports", { method: "POST", body: fd });
+          if (res.ok) {
+            // Remove from queue
+            await new Promise((resolve, reject) => {
+              const tx = db.transaction(STORE, "readwrite");
+              tx.objectStore(STORE).delete(item.id);
+              tx.oncomplete = resolve;
+              tx.onerror = () => reject(tx.error);
+            });
+            sent++;
+          } else if (res.status === 403) {
+            // Don't retry blocked uploads — discard them
+            await new Promise((resolve, reject) => {
+              const tx = db.transaction(STORE, "readwrite");
+              tx.objectStore(STORE).delete(item.id);
+              tx.oncomplete = resolve;
+              tx.onerror = () => reject(tx.error);
+            });
+            failed++;
+          }
+          // Other errors: leave in queue for next drain
+        } catch (e) {
+          // Network still down — stop trying
+          failed++;
+          break;
+        }
+      }
+      return { sent, failed };
+    }
+
+    return { enqueue, count, drain };
+  })();
+
+  // -----------------------------------------------------------------------
   // DOM refs
   // -----------------------------------------------------------------------
   const $ = (s) => document.querySelector(s);
@@ -305,7 +407,7 @@
   // Toast notifications
   // -----------------------------------------------------------------------
   function toast(message, type = "info") {
-    const icons = { success: "✅", error: "❌", info: "ℹ️" };
+    const icons = { success: "✅", error: "❌", info: "ℹ️", warning: "⚠️" };
     const div = document.createElement("div");
     div.className = `toast ${type}`;
     div.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ️"}</span><span class="toast-msg">${message}</span>`;
@@ -318,6 +420,45 @@
       setTimeout(() => div.remove(), 300);
     }, duration);
   }
+
+  // -----------------------------------------------------------------------
+  // Offline queue badge
+  // -----------------------------------------------------------------------
+  function _updateQueueBadge(count) {
+    const trigger = els.uploadTrigger;
+    if (!trigger) return;
+    let badge = trigger.querySelector(".queue-badge");
+    if (count > 0) {
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "queue-badge";
+        trigger.appendChild(badge);
+      }
+      badge.textContent = count;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+
+  // Drain queued uploads when connectivity returns
+  async function _drainOfflineQueue() {
+    const n = await OfflineQueue.count();
+    if (n === 0) return;
+    toast(`Back online — sending ${n} queued report${n > 1 ? "s" : ""}…`, "info");
+    const result = await OfflineQueue.drain();
+    const remaining = await OfflineQueue.count();
+    _updateQueueBadge(remaining);
+    if (result.sent > 0 && remaining === 0) {
+      toast(`All ${result.sent} queued report${result.sent > 1 ? "s" : ""} sent!`, "success");
+      await refreshData();
+    } else if (result.sent > 0) {
+      toast(`${result.sent} sent, ${remaining} remaining`, "info");
+    }
+  }
+
+  window.addEventListener("online", () => {
+    setTimeout(_drainOfflineQueue, 1500); // brief delay for connection to stabilize
+  });
 
   // -----------------------------------------------------------------------
   // Status bar
@@ -3381,8 +3522,43 @@
           STATE.map.setView([data.report.lat, data.report.lon], 15);
         }
       } catch (err) {
-        toast(err.message || "Upload failed. Check your connection.", "error");
-        console.error("Upload error:", err);
+        // Network-level failure — queue the upload for later
+        const isNetworkErr = !navigator.onLine ||
+          err.message?.includes("Failed to fetch") ||
+          err.message?.includes("NetworkError") ||
+          err.message?.includes("Network request failed") ||
+          (err instanceof TypeError && /fetch/i.test(err.message));
+
+        if (isNetworkErr) {
+          try {
+            const file = els.photoInput.files[0];
+            const photoBlob = file ? await new Response(file).blob() : null;
+            const fields = {
+              lat: els.inputLat.value,
+              lon: els.inputLon.value,
+              heading: els.inputHeading?.value || "",
+              captured_at: els.inputCapturedAt?.value || new Date().toISOString(),
+              session_id: STATE.sessionId,
+              description: els.form.querySelector("textarea[name=description]")?.value || "",
+              gate_prob: (FIRE_GATE.ready && FIRE_GATE.lastProb != null)
+                ? String(FIRE_GATE.lastProb) : "",
+              _filename: file?.name || "photo.jpg",
+            };
+            if (photoBlob) await OfflineQueue.enqueue(fields, photoBlob);
+            const n = await OfflineQueue.count();
+            _updateQueueBadge(n);
+            toast(`No connection — report queued for later (${n} pending)`, "warning");
+            resetForm();
+            els.uploadCard.classList.add("hidden");
+            els.uploadTrigger.classList.remove("hidden");
+          } catch (qErr) {
+            console.error("Queue error:", qErr);
+            toast("Upload failed and could not be queued.", "error");
+          }
+        } else {
+          toast(err.message || "Upload failed. Check your connection.", "error");
+          console.error("Upload error:", err);
+        }
       } finally {
         STATE.uploading = false;
         els.submitBtn.disabled = false;
@@ -4204,6 +4380,13 @@
 
     // GPS refresh button
     setupGpsRefresh();
+
+    // Show offline queue badge if there are pending reports
+    OfflineQueue.count().then(n => { if (n > 0) _updateQueueBadge(n); });
+    // Periodically try to drain the queue (every 30s if online)
+    setInterval(async () => {
+      if (navigator.onLine) await _drainOfflineQueue();
+    }, 30000);
 
     // Manual coordinate inputs: sync to hidden fields on keystroke
     if (els.inputLatManual) {

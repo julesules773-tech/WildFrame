@@ -420,7 +420,21 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .floating-ctrl-btn.active { color: var(--text-primary); border-color: var(--accent); }
 .heatmap-btn.active { color: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.15); }
 .floating-ctrl-icon { font-size: 18px; line-height: 1; }
-.report-btn { border-color: rgba(249,115,22,0.3); }
+.report-btn { border-color: rgba(249,115,22,0.3); position: relative; }
+.queue-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: #f97316; color: #fff;
+  font-size: 11px; font-weight: 700;
+  min-width: 18px; height: 18px; line-height: 18px;
+  text-align: center; border-radius: 9px;
+  padding: 0 4px;
+  box-shadow: 0 2px 6px rgba(249,115,22,0.4);
+  animation: queue-pulse 2s ease-in-out infinite;
+}
+@keyframes queue-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
 .report-btn:hover { border-color: var(--accent); color: var(--accent); }
 #floating-controls .hidden { display: none !important; }
 #upload-panel > .hidden { pointer-events: none !important; }
