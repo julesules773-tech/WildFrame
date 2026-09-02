@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Download ESA WorldCover 2021 tiles and load into PostGIS as vector polygons.
 
 Since the target PostGIS installation may lack GDAL/raster support
@@ -87,7 +88,7 @@ def _tile_keys_for_bbox(bbox: tuple[float, float, float, float],
     return keys
 
 
-def _download_tile(key: str) -> bytes | None:
+def _download_tile(key: str) -> "bytes | None":
     """Download a single tile from S3 (public, no auth needed).
 
     Returns None for 404 (tile doesn't exist — e.g. open ocean) so the
@@ -115,57 +116,69 @@ def _download_tile(key: str) -> bytes | None:
 
 
 def _extract_polygons(tiff_path: str, tile_key: str,
-                      simplify: float = 0.005) -> list[tuple[int, str]]:
+                      simplify: float = 0.005,
+                      window_size: int = 1024) -> list[tuple[int, str]]:
     """Extract vector polygons from a GeoTIFF tile on disk.
 
-    Uses a temp file instead of MemoryFile to avoid holding both the raw
-    bytes AND the rasterio array in memory — the file is read directly
-    by rasterio, keeping peak RAM under ~300 MB per tile on a 1 GB VM.
+    Reads the raster in windows (default 1024×1024 pixels) to keep peak
+    RAM under ~50 MB even on large tiles, instead of loading the entire
+    10,800×10,800 array at once (~300 MB).
 
     Returns list of (class_code, wkt_geometry) pairs.
     Polygons are simplified to reduce geometry count.
     """
     import rasterio
     from rasterio.features import shapes
-    from shapely.geometry import shape
+    from shapely.geometry import shape, box
 
-    # Open directly from disk — avoids loading the raw bytes into Python
-    # memory (the 40 MB GeoTIFF stays on disk; rasterio memory-maps it).
+    polygons: list[tuple[int, str]] = []
+
     with rasterio.open(tiff_path) as src:
-        data = src.read(1)  # band 1 = land cover class codes
-        mask = src.dataset_mask()  # alpha mask (0=nodata, 255=valid)
+        h, w = src.height, src.width
         transform = src.transform
 
-        polygons: list[tuple[int, str]] = []
-        for geom, value in shapes(
-            data,
-            transform=transform,
-            mask=mask > 0,  # only polygonize valid pixels
-        ):
-            class_code = int(value)
-            if class_code == 0:
-                continue  # nodata
+        for row_off in range(0, h, window_size):
+            for col_off in range(0, w, window_size):
+                win_h = min(window_size, h - row_off)
+                win_w = min(window_size, w - col_off)
+                window = rasterio.windows.Window(col_off, row_off, win_w, win_h)
 
-            shp = shape(geom)
-            if shp.is_empty:
-                continue
+                data = src.read(1, window=window)
+                mask = src.dataset_mask(window=window)
 
-            # Simplify to reduce vertex count
-            if simplify > 0:
-                shp = shp.simplify(simplify, preserve_topology=True)
+                # Skip windows that are entirely nodata
+                if mask.max() == 0:
+                    del data, mask
+                    continue
 
-            if shp.is_empty:
-                continue
+                win_transform = rasterio.windows.transform(window, transform)
 
-            # Convert MultiPolygon to individual Polygons
-            if shp.geom_type == "MultiPolygon":
-                for part in shp.geoms:
-                    polygons.append((class_code, part.wkt))
-            else:
-                polygons.append((class_code, shp.wkt))
+                for geom, value in shapes(
+                    data,
+                    transform=win_transform,
+                    mask=mask > 0,
+                ):
+                    class_code = int(value)
+                    if class_code == 0:
+                        continue
 
-        # Free the raster data before returning
-        del data, mask
+                    shp = shape(geom)
+                    if shp.is_empty:
+                        continue
+
+                    if simplify > 0:
+                        shp = shp.simplify(simplify, preserve_topology=True)
+
+                    if shp.is_empty:
+                        continue
+
+                    if shp.geom_type == "MultiPolygon":
+                        for part in shp.geoms:
+                            polygons.append((class_code, part.wkt))
+                    else:
+                        polygons.append((class_code, shp.wkt))
+
+                del data, mask
 
         logger.info("  extracted %d polygons from %s", len(polygons), tile_key)
         return polygons

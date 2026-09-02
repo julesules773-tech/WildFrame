@@ -85,8 +85,10 @@ def _job_defer(task_name: str, **kwargs):
                 _job_app_opened = True
     return _job_app.configure_task(name=task_name).defer(**kwargs)
 
-from flask import Flask, jsonify, request, send_from_directory, redirect
+from flask import Flask, jsonify, request, send_from_directory, redirect, session, url_for
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 
@@ -191,6 +193,8 @@ def _check_rate_limit(ip: str, key: str, max_hits: int, window_s: float) -> Opti
 # Rate-limit configs: (key, max_hits, window_seconds)
 UPLOAD_RATE_LIMIT = ("upload", 5, 60)        # 5 uploads per minute
 SAT_CONFIRM_RATE_LIMIT = ("sat_check", 10, 60)  # 10 satellite checks per minute
+LOGIN_RATE_LIMIT = ("login", 5, 60)          # 5 login attempts per minute
+INVITE_RATE_LIMIT = ("invite", 3, 300)       # 3 invite acceptances per 5 min
 
 
 # ---------------------------------------------------------------------------
@@ -199,8 +203,8 @@ SAT_CONFIRM_RATE_LIMIT = ("sat_check", 10, 60)  # 10 satellite checks per minute
 # After the AI scan, reports with verdict "nothing" (no fire/smoke detected)
 # are tracked per IP.  If an IP exceeds ABUSE_NOTHING_THRESHOLD rejections
 # within ABUSE_WINDOW_S, the IP is blocked for ABUSE_BLOCK_DURATION_S.
-# The block is in-memory and resets on server restart — suitable for
-# stopping automated abuse; persistent bans should use nginx or a WAF.
+# Blocks are persisted in Postgres (blocked_ips table) and survive server
+# restarts.  Expired rows are cleaned up lazily on every ~500 requests.
 ABUSE_NOTHING_THRESHOLD = 5     # nothing-verdicts before block
 ABUSE_WINDOW_S = 3600           # sliding window: 1 hour
 ABUSE_BLOCK_DURATION_S = 86400  # block duration: 24 hours
@@ -211,91 +215,41 @@ class AbuseTracker:
 
     After each AI scan that returns "nothing", call ``record_nothing(ip)``.
     ``is_blocked(ip)`` returns True once the threshold is exceeded.
-    """
 
-    def __init__(self):
-        self._lock = threading.Lock()
-        # ip → list of timestamps of nothing-verdict uploads
-        self._nothing_hits: dict[str, list[float]] = {}
-        # ip → expiry timestamp of active block
-        self._blocked_until: dict[str, float] = {}
+    Backed by the ``blocked_ips`` Postgres table (see db.py) so blocks
+    survive server restarts.  The class is a thin wrapper that preserves
+    the same public API the rest of server.py depends on.
+    """
 
     def is_blocked(self, ip: str) -> Optional[float]:
         """Return block expiry timestamp if IP is blocked, else None."""
-        with self._lock:
-            until = self._blocked_until.get(ip)
-            if until and until > time.time():
-                return until
-            # Block expired — clear it
-            if until:
-                del self._blocked_until[ip]
-            return None
+        return db.is_ip_blocked(ip)
 
     def record_nothing(self, ip: str) -> None:
         """Record a nothing-verdict upload and block the IP if over threshold."""
-        now = time.time()
-        cutoff = now - ABUSE_WINDOW_S
-
-        with self._lock:
-            hits = self._nothing_hits.setdefault(ip, [])
-            # Prune old entries
-            hits[:] = [t for t in hits if t > cutoff]
-            hits.append(now)
-
-            if len(hits) >= ABUSE_NOTHING_THRESHOLD:
-                self._blocked_until[ip] = now + ABUSE_BLOCK_DURATION_S
-                logger.warning(
-                    "[abuse] IP %s blocked for %dh — %d nothing-verdicts in %ds",
-                    ip, ABUSE_BLOCK_DURATION_S // 3600,
-                    len(hits), ABUSE_WINDOW_S,
-                )
+        blocked_at = db.record_nothing_hit(
+            ip,
+            threshold=ABUSE_NOTHING_THRESHOLD,
+            window_s=ABUSE_WINDOW_S,
+            block_duration_s=ABUSE_BLOCK_DURATION_S,
+        )
+        if blocked_at:
+            logger.warning(
+                "[abuse] IP %s blocked for %dh (persistent)",
+                ip, ABUSE_BLOCK_DURATION_S // 3600,
+            )
 
     def get_blocked_ips(self) -> list[dict]:
         """Return list of currently blocked IPs with expiry info."""
-        now = time.time()
-        with self._lock:
-            result = []
-            for ip, until in list(self._blocked_until.items()):
-                if until > now:
-                    result.append({
-                        "ip": ip,
-                        "blocked_until": datetime.fromtimestamp(until, tz=timezone.utc).isoformat(),
-                        "remaining_s": round(until - now),
-                    })
-                    # Also include their nothing count
-                    hits = self._nothing_hits.get(ip, [])
-                    cutoff = now - ABUSE_WINDOW_S
-                    recent = [t for t in hits if t > cutoff]
-                    result[-1]["recent_nothing_count"] = len(recent)
-                else:
-                    del self._blocked_until[ip]
-            return result
+        return db.get_blocked_ips()
 
     def unblock(self, ip: str) -> bool:
         """Manually unblock an IP. Returns True if it was blocked."""
-        with self._lock:
-            if ip in self._blocked_until:
-                del self._blocked_until[ip]
-                # Also clear the hit history so a fresh start
-                self._nothing_hits.pop(ip, None)
-                return True
-            return False
+        return db.unblock_ip(ip)
 
     def _cleanup(self) -> None:
-        """Remove expired blocks and old hit records."""
-        now = time.time()
-        cutoff = now - ABUSE_WINDOW_S
-        with self._lock:
-            # Expired blocks
-            expired = [ip for ip, until in self._blocked_until.items()
-                       if until <= now]
-            for ip in expired:
-                del self._blocked_until[ip]
-            # Old hit records (for unblocked IPs)
-            stale = [ip for ip, hits in self._nothing_hits.items()
-                     if not hits or all(t <= cutoff for t in hits)]
-            for ip in stale:
-                del self._nothing_hits[ip]
+        """Remove expired blocks from the database."""
+        db.cleanup_expired_blocked_ips()
 
 
 _abuse_tracker = AbuseTracker()
@@ -313,9 +267,135 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 # version params as a hard bust for any intermediate cache.
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
+
+# ---------------------------------------------------------------------------
+# Simple TTL cache for expensive read-only endpoints
+# ---------------------------------------------------------------------------
+# Avoids recomputing clusters / reloading reports on every 15 s poll.
+# Per-process (not cross-worker), but with 1 gunicorn worker that's fine.
+
+class _TTLCache:
+    """Minimal TTL cache: key → (expiry, value)."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._store: dict[str, tuple[float, object]] = {}
+
+    def get(self, key: str) -> Optional[object]:
+        with self._lock:
+            entry = self._store.get(key)
+            if entry and entry[0] > time.time():
+                return entry[1]
+        return None
+
+    def set(self, key: str, value: object, ttl: float) -> None:
+        with self._lock:
+            self._store[key] = (time.time() + ttl, value)
+
+    def invalidate(self, key: str) -> None:
+        with self._lock:
+            self._store.pop(key, None)
+
+    def invalidate_prefix(self, prefix: str) -> None:
+        with self._lock:
+            to_del = [k for k in self._store if k.startswith(prefix)]
+            for k in to_del:
+                del self._store[k]
+
+
+cache = _TTLCache()
+
+# Cache TTLs (seconds)
+_CACHE_REPORTS_TTL = 10.0    # reports change rarely; 10 s is plenty
+_CACHE_CLUSTERS_TTL = 15.0   # clusters recompute every poll interval
+_CACHE_GRID_TTL = 30.0       # Bayesian grids update less frequently
+
+
+@app.after_request
+def _set_cache_headers(response):
+    """Set Cache-Control headers based on route.
+
+    HTML pages: short cache (5 min) so deploys propagate quickly but
+    repeat visitors get fast loads from Cloudflare/CDN.
+    Static assets: long cache (1 hour) — versioned via ?v= params.
+    API endpoints: no cache (Cloudflare shouldn't cache dynamic data).
+    Health check: never cache.
+    """
+    path = request.path
+    ct = response.content_type or ""
+
+    # Never cache errors
+    if response.status_code >= 400:
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    # Health check
+    if path == "/healthz":
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    # API endpoints (reports, clusters, etc.) — Cloudflare CDN caches briefly
+    # to absorb the 15 s polling flood from hundreds of map clients.
+    if path.startswith("/api/"):
+        response.headers["Cache-Control"] = "public, max-age=8, s-maxage=12"
+        return response
+
+    # Static assets (JS, CSS, images, fonts) — long cache
+    if path.startswith("/uploads/") or path.startswith("/model/"):
+        response.headers["Cache-Control"] = "public, max-age=3600, s-maxage=3600"
+        return response
+
+    # HTML pages — short cache for fast repeat loads
+    if "text/html" in ct:
+        response.headers["Cache-Control"] = "public, max-age=300, s-maxage=300, must-revalidate"
+        return response
+
+    return response
+
+
 # Admin secret for dashboard access.
 # Set env var WILDFRAME_ADMIN_SECRET or use the default (change in production!).
 ADMIN_SECRET = os.environ.get("WILDFRAME_ADMIN_SECRET", "wildframe-admin")
+
+# --- Security startup check ---
+# In production the server REFUSES to start with the default admin secret.
+# WILDFRAME_ENV=production (or FLASK_ENV=production) triggers the hard gate;
+# any other value (or unset) just logs a warning so local dev still works.
+_ENV = os.environ.get("WILDFRAME_ENV", os.environ.get("FLASK_ENV", "development")).lower()
+_IS_PRODUCTION = _ENV in ("production", "prod")
+if ADMIN_SECRET == "wildframe-admin":
+    if _IS_PRODUCTION:
+        raise SystemExit(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  🚫 FATAL: WILDFRAME_ADMIN_SECRET is still the default!   ║\n"
+            "║                                                          ║\n"
+            "║  The server will NOT start with a known admin secret.     ║\n"
+            "║  Set WILDFRAME_ADMIN_SECRET to a strong, unique value     ║\n"
+            "║  before deploying to production.                          ║\n"
+            "║                                                          ║\n"
+            "║  Example:  export WILDFRAME_ADMIN_SECRET=$(openssl rand -hex 32) ║\n"
+            "╚══════════════════════════════════════════════════════════════╝"
+        )
+    else:
+        logger.warning(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  ⚠️  WARNING: WILDFRAME_ADMIN_SECRET is the default.       ║\n"
+            "║  OK for local dev — MUST be changed before production.     ║\n"
+            "║  The admin dashboard is accessible with 'wildframe-admin'. ║\n"
+            "╚══════════════════════════════════════════════════════════════╝"
+        )
+
+# Flask session config for auth
+app.secret_key = os.environ.get("WILDFRAME_SECRET_KEY", os.urandom(32).hex())
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True  # HTTPS only in production
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
+
+# Initialize auth tables on startup
+db.ensure_auth_table()
 
 # --- Corroboration-gated auto-approval -------------------------------
 # A report with a positive AI verdict is auto-confirmed ONLY when an
@@ -383,8 +463,15 @@ def _allowed_file(name: str) -> bool:
 
 
 def _load_reports(demo: bool = False) -> list[dict]:
-    """Load all reports for a mode from Postgres."""
-    return db.list_reports("demo" if demo else "production")
+    """Load reports for a mode from Postgres.
+
+    Only fetches reports captured within the active window (ACTIVE_REPORT_HOURS)
+    so the SQL layer does the filtering instead of Python post-filtering.
+    """
+    return db.list_reports(
+        "demo" if demo else "production",
+        since_hours=ACTIVE_REPORT_HOURS,
+    )
 
 
 def _exif_gps(path: Path) -> Optional[tuple[float, float]]:
@@ -694,6 +781,10 @@ def _auto_approval_decision(
 @app.route("/api/reports", methods=["GET"])
 def list_reports():
     demo = _request_mode() == "demo"
+    cache_key = f"reports:{'demo' if demo else 'prod'}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     reports = _load_reports(demo=demo)
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=ACTIVE_REPORT_HOURS)
@@ -706,7 +797,9 @@ def list_reports():
     for r in active:
         if r.get("status") != "confirmed":
             r.pop("photo_url", None)
-    return jsonify({"reports": active, "count": len(active), "mode": "demo" if demo else "production"})
+    payload = {"reports": active, "count": len(active), "mode": "demo" if demo else "production"}
+    cache.set(cache_key, payload, _CACHE_REPORTS_TTL)
+    return jsonify(payload)
 
 
 @app.route("/api/reports", methods=["POST"])
@@ -933,6 +1026,10 @@ def create_report():
     # Single-row INSERT — concurrent uploads can never clobber each other.
     db.insert_reports([report], "production")
 
+    # Invalidate cached reports/clusters so next poll picks up the new report.
+    cache.invalidate_prefix("reports:")
+    cache.invalidate_prefix("clusters:")
+
     # Auto-approved reports feed the Bayesian grid immediately (same as an
     # admin accept), so the fire starts tracking right away.
     if report.get("status") == "confirmed":
@@ -948,12 +1045,19 @@ def create_report():
 def get_clusters():
     try:
         demo = _request_mode() == "demo"
+        cache_key = f"clusters:{'demo' if demo else 'prod'}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return jsonify(cached)
         reports = _load_reports(demo=demo)
         clusters = _compute_clusters(reports)
-        return jsonify({"clusters": clusters, "count": len(clusters), "mode": "demo" if demo else "production"})
+        payload = {"clusters": clusters, "count": len(clusters), "mode": "demo" if demo else "production"}
+        cache.set(cache_key, payload, _CACHE_CLUSTERS_TTL)
+        return jsonify(payload)
     except Exception as exc:
         logger.warning("clusters endpoint degraded: %s", exc)
         return jsonify({"clusters": [], "count": 0, "mode": "production"})
+
 
 
 @app.route("/api/reports/<report_id>/status", methods=["PUT"])
@@ -968,6 +1072,9 @@ def update_status(report_id: str):
     r = db.update_report_status(report_id, new_status)
     if r is None:
         return jsonify({"error": "Report not found"}), 404
+    # Invalidate cached reports/clusters so the change shows up immediately.
+    cache.invalidate_prefix("reports:")
+    cache.invalidate_prefix("clusters:")
     clusters = _compute_clusters(_load_reports())
     return jsonify({"report": r, "clusters": clusters, "cluster_count": len(clusters)})
 
@@ -1194,6 +1301,26 @@ def index():
 @app.route("/map")
 def map_page():
     return send_from_directory(str(STATIC_DIR), "map.html")
+
+
+@app.route("/login")
+def login_page():
+    return send_from_directory(str(STATIC_DIR), "login.html")
+
+
+@app.route("/invite")
+def invite_page():
+    return send_from_directory(str(STATIC_DIR), "invite.html")
+
+
+@app.route("/dashboard")
+def dashboard_page():
+    return send_from_directory(str(STATIC_DIR), "dashboard.html")
+
+
+@app.route("/confidence")
+def confidence_page():
+    return send_from_directory(str(STATIC_DIR), "confidence.html")
 
 
 @app.route("/contact")
@@ -1454,6 +1581,15 @@ def admin_list_pending():
     if not _require_admin():
         return jsonify({"error": "Unauthorized"}), 401
     pending = db.list_reports("production", status="pending")
+    
+    # Tag reports in industrial zones
+    if pending:
+        industrial_hits = db.industrial_zone_batch(
+            [(r["lat"], r["lon"]) for r in pending]
+        )
+        for i, r in enumerate(pending):
+            r["in_industrial_zone"] = industrial_hits.get(i, False)
+    
     return jsonify({"reports": pending, "count": len(pending)})
 
 
@@ -1488,6 +1624,15 @@ def admin_list_auto_approved():
     # 8s poll; the strip is a human backstop, not an archive.
     reports = db.list_reports("production", status="confirmed", since_hours=ACTIVE_REPORT_HOURS)
     auto = [r for r in reports if r.get("auto_approved")][:20]
+    
+    # Tag reports in industrial zones
+    if auto:
+        industrial_hits = db.industrial_zone_batch(
+            [(r["lat"], r["lon"]) for r in auto]
+        )
+        for i, r in enumerate(auto):
+            r["in_industrial_zone"] = industrial_hits.get(i, False)
+    
     return jsonify({"reports": auto, "count": len(auto)})
 
 
@@ -1553,6 +1698,19 @@ def admin_unblock_ip(ip: str):
     return jsonify({"ok": True, "was_blocked": was_blocked})
 
 
+@app.route("/api/admin/agency-incidents", methods=["GET"])
+def admin_list_agency_incidents():
+    """List all reports submitted via the agency ingest pipeline.
+
+    Returns every report where ``agency IS NOT NULL`` (i.e. came through
+    ``POST /api/agencies/ingest``), sorted newest-first.
+    """
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    reports = db.list_agency_reports("production")
+    return jsonify({"incidents": reports, "count": len(reports)})
+
+
 @app.route("/api/admin/accept/<report_id>", methods=["POST"])
 def admin_accept(report_id: str):
     if not _require_admin():
@@ -1606,6 +1764,552 @@ def admin_reject(report_id: str):
     return jsonify({"success": True,
                     "clusters": clusters,
                     "cluster_count": len(clusters)})
+
+
+# ---------------------------------------------------------------------------
+# Auth — invite-only accounts
+# ---------------------------------------------------------------------------
+
+def _login_required(f):
+    """Decorator: require a valid session."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Login required"}), 401
+        user = db.get_user_by_id(session["user_id"])
+        if not user:
+            session.clear()
+            return jsonify({"error": "Account not found"}), 401
+        request._auth_user = user
+        return f(*args, **kwargs)
+    return decorated
+
+
+def _role_required(*roles):
+    """Decorator: require the authenticated user to have one of the listed roles."""
+    def decorator(f):
+        @wraps(f)
+        @_login_required
+        def decorated(*args, **kwargs):
+            if request._auth_user["role"] not in roles:
+                return jsonify({"error": "Insufficient permissions"}), 403
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+@app.route("/auth/login", methods=["POST"])
+def auth_login():
+    """Authenticate with email + password."""
+    # Rate-limit: 5 attempts per minute per IP
+    rl_err = _check_rate_limit(request.remote_addr, *LOGIN_RATE_LIMIT)
+    if rl_err:
+        return jsonify({"error": "Too many login attempts. Please try again later."}), 429
+
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "Email and password required"}), 400
+
+    user = db.get_user_by_email(email)
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    session.permanent = True
+    session["user_id"] = user["id"]
+    session["role"] = user["role"]
+    return jsonify({
+        "ok": True,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"],
+        },
+    })
+
+
+@app.route("/auth/logout", methods=["POST"])
+def auth_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/auth/me", methods=["GET"])
+def auth_me():
+    """Return current user info, or null if not logged in."""
+    if "user_id" not in session:
+        return jsonify({"user": None})
+    user = db.get_user_by_id(session["user_id"])
+    if not user:
+        session.clear()
+        return jsonify({"user": None})
+    return jsonify({"user": user})
+
+
+@app.route("/auth/accept-invite", methods=["POST"])
+def auth_accept_invite():
+    """Create account via invite token."""
+    # Rate-limit: 3 attempts per 5 minutes per IP
+    rl_err = _check_rate_limit(request.remote_addr, *INVITE_RATE_LIMIT)
+    if rl_err:
+        return jsonify({"error": "Too many attempts. Please try again later."}), 429
+
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    name = (data.get("name") or "").strip()
+
+    if not token or not email or not password:
+        return jsonify({"error": "Token, email, and password required"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+
+    invite = db.validate_invite_token(token)
+    if not invite:
+        return jsonify({"error": "Invalid or expired invite token"}), 400
+
+    if db.get_user_by_email(email):
+        return jsonify({"error": "An account with this email already exists"}), 409
+
+    pw_hash = generate_password_hash(password, method="pbkdf2:sha256", salt_length=16)
+    user = db.create_user(email, pw_hash, name, role=invite["role"])
+    db.consume_invite_token(token, user["id"])
+
+    session.permanent = True
+    session["user_id"] = user["id"]
+    session["role"] = user["role"]
+    return jsonify({"ok": True, "user": user})
+
+
+# --- Admin: invite management ---
+
+@app.route("/api/admin/invite", methods=["POST"])
+def admin_create_invite():
+    """Generate an invite link (admin only)."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    role = data.get("role", "investor")
+    email = data.get("email")
+    if role not in ("investor", "government", "internal"):
+        return jsonify({"error": "Invalid role"}), 400
+
+    token = db.create_invite_token(role=role, email=email, created_by="admin")
+    base_url = request.host_url.rstrip("/")
+    invite_url = f"{base_url}/invite?token={token}"
+    return jsonify({"ok": True, "token": token, "url": invite_url, "role": role})
+
+
+@app.route("/api/admin/invites", methods=["GET"])
+def admin_list_invites():
+    """List pending invite tokens (admin only)."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    invites = db.list_pending_invites()
+    return jsonify({"invites": invites, "count": len(invites)})
+
+
+@app.route("/api/admin/users", methods=["GET"])
+def admin_list_users():
+    """List all users (admin only)."""
+    if not _require_admin():
+        return jsonify({"error": "Unauthorized"}), 401
+    users = db.list_users()
+    return jsonify({"users": users, "count": len(users)})
+
+
+# --- Investor/Government dashboard ---
+
+@app.route("/api/analytics/summary", methods=["GET"])
+def analytics_summary():
+    """Key metrics for the analytics dashboard."""
+    # Public summary — no auth required for the high-level stats
+    with db._conn() as conn:
+        total_reports = conn.execute(
+            "SELECT count(*) FROM reports WHERE mode = 'production'"
+        ).fetchone()["count"]
+        confirmed = conn.execute(
+            "SELECT count(*) FROM reports WHERE mode = 'production' AND status = 'confirmed'"
+        ).fetchone()["count"]
+        active_grids = conn.execute(
+            "SELECT count(*) FROM bayesian_grids"
+        ).fetchone()["count"]
+        # Reports per day (last 30 days)
+        daily = conn.execute("""
+            SELECT date(created_at) AS day, count(*) AS n
+            FROM reports WHERE mode = 'production'
+              AND created_at > now() - interval '30 days'
+            GROUP BY day ORDER BY day
+        """).fetchall()
+        # Top countries
+        countries = conn.execute("""
+            SELECT data->>'country' AS country, count(*) AS n FROM reports
+            WHERE mode = 'production' AND data->>'country' IS NOT NULL AND data->>'country' != ''
+            GROUP BY country ORDER BY n DESC LIMIT 10
+        """).fetchall()
+        # Reports by status
+        by_status = conn.execute("""
+            SELECT status, count(*) AS n FROM reports
+            WHERE mode = 'production' GROUP BY status
+        """).fetchall()
+
+    return jsonify({
+        "total_reports": total_reports,
+        "confirmed_reports": confirmed,
+        "active_fires": active_grids,
+        "reports_by_day": [{"day": str(r["day"]), "count": r["n"]} for r in daily],
+        "reports_by_country": [{"country": r["country"], "count": r["n"]} for r in countries],
+        "reports_by_status": [{"status": r["status"], "count": r["n"]} for r in by_status],
+    })
+
+
+@app.route("/api/analytics/confidence", methods=["GET"])
+def analytics_confidence():
+    """Model confidence metrics — lightweight version."""
+    import math as _math
+
+    EMPTY = {
+        "metrics": {"total_reports": 0, "confirmed_reports": 0, "pending_reports": 0,
+                     "rejected_reports": 0, "active_grids": 0, "resolved_grids": 0, "total_grids": 0},
+        "accuracy": {"grid_confirmed_pct": 0, "grid_coverage_pct": 0, "grids_evaluated": 0,
+                      "ai_recall_pct": 0, "ai_total_scans": 0, "avg_detection_hours": 0,
+                      "median_detection_hours": 0, "detection_sample_size": 0},
+        "case_studies": [], "backtest": [],
+    }
+
+    def _haversine_km(lat1, lon1, lat2, lon2):
+        R = 6371.0
+        dlat = _math.radians(lat2 - lat1)
+        dlon = _math.radians(lon2 - lon1)
+        a = (_math.sin(dlat / 2) ** 2 +
+             _math.cos(_math.radians(lat1)) * _math.cos(_math.radians(lat2)) *
+             _math.sin(dlon / 2) ** 2)
+        return R * 2 * _math.atan2(_math.sqrt(a), _math.sqrt(1 - a))
+
+    try:
+        with db._conn() as conn:
+            # --- Core counts ---
+            total_confirmed = conn.execute(
+                "SELECT count(*) FROM reports WHERE mode='production' AND status='confirmed'").fetchone()["count"]
+            total_pending = conn.execute(
+                "SELECT count(*) FROM reports WHERE mode='production' AND status='pending'").fetchone()["count"]
+            total_rejected = conn.execute(
+                "SELECT count(*) FROM reports WHERE mode='production' AND status='rejected'").fetchone()["count"]
+            total_grids = conn.execute(
+                "SELECT count(*) FROM bayesian_grids").fetchone()["count"]
+
+            # --- Load reports ---
+            reports = conn.execute(
+                "SELECT id, lat, lon, status, source_type, created_at, "
+                "data->>'ai_verdict' AS ai_verdict "
+                "FROM reports WHERE mode='production' ORDER BY created_at"
+            ).fetchall()
+
+            # --- AI accuracy ---
+            ai_with_verdict = [r for r in reports if r["ai_verdict"]]
+            ai_true_positive = sum(1 for r in ai_with_verdict if r["ai_verdict"] in ("fire", "smoke", "both"))
+            ai_recall = round(ai_true_positive / max(len(ai_with_verdict), 1) * 100, 1)
+
+            # --- Load top grids ---
+            top_grids = conn.execute(
+                "SELECT id, centroid_lat AS lat, centroid_lon AS lon, "
+                "updated_at, last_evidence_at, max_p "
+                "FROM bayesian_grids ORDER BY max_p DESC LIMIT 200"
+            ).fetchall()
+
+            # --- Correlate reports ↔ grids (haversine, 10km) ---
+            grid_map = {}
+            for g in top_grids:
+                grid_map[g["id"]] = {
+                    "grid": g, "nearby_reports": 0, "confirmed_reports": 0, "reports": [],
+                }
+            for r in reports:
+                for g in top_grids:
+                    dist = _haversine_km(r["lat"], r["lon"], g["lat"], g["lon"])
+                    if dist < 10.0:
+                        entry = grid_map[g["id"]]
+                        entry["nearby_reports"] += 1
+                        if r["status"] == "confirmed":
+                            entry["confirmed_reports"] += 1
+                        entry["reports"].append(r)
+
+            grids_evaluated = [v for v in grid_map.values() if v["nearby_reports"] > 0]
+            grids_confirmed = sum(1 for v in grids_evaluated if v["confirmed_reports"] > 0)
+            grid_accuracy = round(grids_confirmed / max(len(grids_evaluated), 1) * 100, 1)
+            grid_coverage = round(len(grids_evaluated) / max(len(top_grids), 1) * 100, 1)
+
+            # --- Detection timeline ---
+            detection_times = []
+            for r in reports:
+                if r["status"] != "confirmed":
+                    continue
+                for g in top_grids:
+                    dist = _haversine_km(r["lat"], r["lon"], g["lat"], g["lon"])
+                    if dist < 10.0 and g["last_evidence_at"] > 0:
+                        r_time = r["created_at"].timestamp() if r["created_at"] else 0
+                        hours = (r_time - g["last_evidence_at"]) / 3600.0
+                        if hours >= 0:
+                            detection_times.append(hours)
+            avg_detection_hours = round(sum(detection_times) / max(len(detection_times), 1), 1)
+            detection_times_sorted = sorted(detection_times)
+            median_idx = len(detection_times_sorted) // 2
+            median_detection_hours = round(detection_times_sorted[median_idx], 1) if detection_times_sorted else 0.0
+
+            # --- Case studies ---
+            case_studies = []
+            for v in sorted(grids_evaluated, key=lambda x: x["nearby_reports"], reverse=True)[:5]:
+                g = v["grid"]
+                cs_reports = [
+                    {
+                        "id": r["id"],
+                        "lat": float(r["lat"]),
+                        "lon": float(r["lon"]),
+                        "status": r["status"],
+                        "source_type": r["source_type"],
+                        "ai_verdict": r["ai_verdict"],
+                        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                    }
+                    for r in v["reports"]
+                ]
+                case_studies.append({
+                    "grid_id": g["id"],
+                    "lat": float(g["lat"]),
+                    "lon": float(g["lon"]),
+                    "updated_at": g["updated_at"].isoformat() if hasattr(g["updated_at"], 'isoformat') else str(g["updated_at"]),
+                    "prob_max": float(g.get("max_p") or 0),
+                    "nearby_reports": v["nearby_reports"],
+                    "confirmed_reports": v["confirmed_reports"],
+                    "reports": cs_reports,
+                })
+
+            # --- Backtest headline metrics (weighted averages) ---
+            bt_headline = {"detection_rate_pct": 0, "fires_with_hotspots_pct": 0,
+                           "avg_iou_pct": 0, "median_iou_pct": 0,
+                           "total_fires": 0, "total_sample_size": 0}
+            try:
+                bt_all = conn.execute(
+                    "SELECT total_fires, fires_with_hotspots, fires_predicted, "
+                    "detection_rate_pct, avg_iou_pct, median_iou_pct, sample_size "
+                    "FROM backtest_results"
+                ).fetchall()
+                if bt_all:
+                    total_fires_bt = sum(r["total_fires"] or 0 for r in bt_all)
+                    total_sample = sum(r["sample_size"] or 0 for r in bt_all)
+                    total_hs = sum(r["fires_with_hotspots"] or 0 for r in bt_all)
+                    # Weighted average detection rate
+                    if total_sample > 0:
+                        bt_headline["detection_rate_pct"] = round(
+                            sum((r["detection_rate_pct"] or 0) * (r["sample_size"] or 0)
+                                for r in bt_all) / total_sample, 1)
+                        bt_headline["avg_iou_pct"] = round(
+                            sum((r["avg_iou_pct"] or 0) * (r["sample_size"] or 0)
+                                for r in bt_all) / total_sample, 1)
+                        bt_headline["median_iou_pct"] = round(
+                            sum((r["median_iou_pct"] or 0) * (r["sample_size"] or 0)
+                                for r in bt_all) / total_sample, 1)
+                    bt_headline["fires_with_hotspots_pct"] = round(
+                        total_hs / max(total_fires_bt, 1) * 100, 1)
+                    bt_headline["total_fires"] = total_fires_bt
+                    bt_headline["total_sample_size"] = total_sample
+            except Exception:
+                pass
+
+            # --- Choose headline values: live data when available, backtest fallback ---
+            # Prediction Accuracy: use live grid confirmed % if we have enough data
+            if len(grids_evaluated) >= 5:
+                headline_accuracy = grid_accuracy
+                headline_accuracy_src = "live"
+            else:
+                headline_accuracy = bt_headline["detection_rate_pct"]
+                headline_accuracy_src = "backtest"
+
+            # AI Detection Recall: use live AI recall if we have enough scans
+            if len(ai_with_verdict) >= 5:
+                headline_recall = ai_recall
+                headline_recall_src = "live"
+            else:
+                headline_recall = bt_headline["fires_with_hotspots_pct"]
+                headline_recall_src = "backtest"
+
+            # Median Detection Time: only from live data (not in backtest)
+            headline_detection_hours = median_detection_hours if detection_times else None
+            headline_detection_src = "live" if detection_times else None
+
+            response = {
+                "metrics": {
+                    "total_reports": total_confirmed + total_pending + total_rejected,
+                    "confirmed_reports": total_confirmed,
+                    "pending_reports": total_pending,
+                    "rejected_reports": total_rejected,
+                    "active_grids": total_grids,
+                    "resolved_grids": 0, "total_grids": total_grids,
+                },
+                "accuracy": {
+                    "grid_confirmed_pct": headline_accuracy,
+                    "grid_confirmed_src": headline_accuracy_src,
+                    "grid_coverage_pct": grid_coverage,
+                    "grids_evaluated": len(grids_evaluated),
+                    "ai_recall_pct": headline_recall,
+                    "ai_recall_src": headline_recall_src,
+                    "ai_total_scans": len(ai_with_verdict),
+                    "avg_detection_hours": avg_detection_hours if detection_times else None,
+                    "median_detection_hours": headline_detection_hours,
+                    "median_detection_src": headline_detection_src,
+                    "detection_sample_size": len(detection_times),
+                },
+                "bt_headline": bt_headline,
+                "case_studies": case_studies,
+            }
+
+            # --- Backtest results (historical validation section) ---
+            try:
+                bt_rows = conn.execute(
+                    "SELECT year, state, total_fires, fires_with_hotspots, fires_predicted, "
+                    "detection_rate_pct, avg_iou_pct, median_iou_pct, avg_area_error_pct, "
+                    "sample_size, created_at "
+                    "FROM backtest_results ORDER BY created_at DESC LIMIT 6"
+                ).fetchall()
+                response["backtest"] = [
+                    {
+                        "year": r["year"], "state": r["state"],
+                        "total_fires": r["total_fires"],
+                        "fires_with_hotspots": r["fires_with_hotspots"],
+                        "fires_predicted": r["fires_predicted"],
+                        "detection_rate_pct": r["detection_rate_pct"],
+                        "avg_iou_pct": r["avg_iou_pct"],
+                        "median_iou_pct": r["median_iou_pct"],
+                        "avg_area_error_pct": r["avg_area_error_pct"],
+                        "sample_size": r["sample_size"],
+                        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                    }
+                    for r in bt_rows
+                ]
+            except Exception:
+                response["backtest"] = []
+
+    except Exception:
+        response = EMPTY
+
+    return jsonify(response)
+
+
+# --- Investment tracking ---
+
+@app.route("/api/investments", methods=["GET"])
+def list_investments():
+    """List investments (newest first). Optional ?category= filter."""
+    category = request.args.get("category")
+    limit = min(int(request.args.get("limit", 100)), 500)
+    items = db.list_investments(limit=limit, category=category)
+    return jsonify({"investments": items, "count": len(items)})
+
+
+@app.route("/api/investments", methods=["POST"])
+def create_investment():
+    """Record a new investment/spend entry (government/internal only)."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not logged in"}), 401
+    user = db.get_user_by_id(user_id)
+    if not user or user.get("role") not in ("government", "internal"):
+        return jsonify({"error": "government or internal role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    amount = data.get("amount")
+    category = data.get("category", "other")
+    if amount is None:
+        return jsonify({"error": "amount is required"}), 400
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return jsonify({"error": "amount must be a number"}), 400
+    if category not in db.INVESTMENT_CATEGORIES:
+        return jsonify({"error": f"invalid category: {category}"}), 400
+
+    entry = db.insert_investment(
+        amount=amount,
+        category=category,
+        description=data.get("description", ""),
+        date=data.get("date"),
+        created_by=user.get("name") or user.get("email"),
+        data=data.get("data"),
+    )
+    return jsonify({"investment": entry, "created": True}), 201
+
+
+@app.route("/api/investments/<int:investment_id>", methods=["DELETE"])
+def delete_investment(investment_id):
+    """Delete an investment entry (government/internal only)."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not logged in"}), 401
+    user = db.get_user_by_id(user_id)
+    if not user or user.get("role") not in ("government", "internal"):
+        return jsonify({"error": "government or internal role required"}), 403
+
+    deleted = db.delete_investment(investment_id)
+    if not deleted:
+        return jsonify({"error": "not found"}), 404
+    return jsonify({"deleted": True})
+
+
+@app.route("/api/investments/summary", methods=["GET"])
+def investment_summary():
+    """Aggregate investment stats for the dashboard."""
+    return jsonify(db.investment_summary())
+
+
+@app.route("/api/export", methods=["GET"])
+def export_data():
+    """Export fire reports as CSV or JSON."""
+    fmt = request.args.get("format", "json")
+    limit = min(int(request.args.get("limit", 10000)), 50000)
+    status = request.args.get("status")  # optional filter
+
+    with db._conn() as conn:
+        if status:
+            rows = conn.execute(
+                "SELECT id, lat, lon, status, source_type, ai_verdict, "
+                "  created_at, country, heading "
+                "FROM reports WHERE mode = 'production' AND status = %s "
+                "ORDER BY created_at DESC LIMIT %s",
+                (status, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, lat, lon, status, source_type, ai_verdict, "
+                "  created_at, country, heading "
+                "FROM reports WHERE mode = 'production' "
+                "ORDER BY created_at DESC LIMIT %s",
+                (limit,),
+            ).fetchall()
+
+    reports = [dict(r) for r in rows]
+    for r in reports:
+        if r.get("created_at"):
+            r["created_at"] = r["created_at"].isoformat()
+
+    if fmt == "csv":
+        import csv, io
+        buf = io.StringIO()
+        if reports:
+            writer = csv.DictWriter(buf, fieldnames=reports[0].keys())
+            writer.writeheader()
+            writer.writerows(reports)
+        from flask import Response
+        return Response(
+            buf.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment;filename=pyrae_reports.csv"},
+        )
+    return jsonify({"reports": reports, "count": len(reports)})
 
 
 # ---------------------------------------------------------------------------
@@ -3074,63 +3778,22 @@ def _require_agency_key():
     return None
 
 
-@app.route("/api/agencies/ingest", methods=["POST"])
-def agencies_ingest():
-    """Ingest one normalized agency incident (CAP / GeoJSON / GeoRSS adapter
-    output). This is the front door for the government-feed pipeline: a
-    Lambda (push) or a poller job (pull) calls this with a canonical
-    incident dict and gets idempotent, staleness-guarded storage plus
-    Bayesian grid evidence fusion in one shot.
-
-    Auth: when ``WILDFRAME_AGENCY_API_KEY`` (or kv_store ``agency_api_key``)
-    is configured, the request must carry the matching ``X-Agency-Key``
-    header; otherwise the endpoint fails open with a warning (local dev).
-
-    Expected body (all adapter outputs must converge on this shape):
-
-    .. code-block:: json
-
-        {
-          "agency": "gov-cap:meteoalarm",   // CAP sender, or namespaced feed name
-          "incident_id": "cap-2026-0810-004",  // CAP identifier / feed item id
-          "action": "create",               // create | update | cancel | delete
-          "sent_at": "2026-08-10T09:30:00Z", // staleness clock — only newer wins
-          "lat": 51.106,
-          "lon": 18.941,
-          "status": "confirmed",            // optional; create defaults confirmed
-          "source_type": "government",
-          "severity": "Extreme",            // optional, stored in data blob
-          "data": {}                         // optional extra metadata
-        }
-
-    Returns the authoritative stored report (newest version wins) plus
-    ``created``/``stale`` flags and the grid mutation outcome.
-
-    Grid dispatch:
-      - create/update (confirmed) → find-or-create grid at the point and fuse
-        strong positive evidence (Evidence.agency_confirm).
-      - cancel/delete → mark the report ``cancelled``, find the NEAREST
-        EXISTING grid (never create one) and fuse negative evidence
-        (Evidence.agency_cancel), decaying the fire rather than deleting it.
-    """
-    auth_error = _require_agency_key()
-    if auth_error is not None:
-        return auth_error
-
-    data = request.get_json(silent=True) or {}
+def _process_agency_incident(data: dict) -> tuple[dict, int]:
+    """Core agency incident processing logic, shared by the ingest endpoint
+    and the dashboard test proxy.  Returns (response_dict, http_status)."""
     mode = data.get("mode", "production")
     if mode not in ("production", "demo"):
-        return jsonify({"error": "invalid mode"}), 400
+        return {"error": "invalid mode"}, 400
 
     agency = data.get("agency")
     incident_id = data.get("incident_id")
     action = data.get("action", "create")
     if not agency or not incident_id:
-        return jsonify({"error": "agency and incident_id are required"}), 400
+        return {"error": "agency and incident_id are required"}, 400
     if action not in ("create", "update", "cancel", "delete"):
-        return jsonify({"error": f"invalid action: {action}"}), 400
+        return {"error": f"invalid action: {action}"}, 400
     if data.get("lat") is None or data.get("lon") is None:
-        return jsonify({"error": "lat and lon are required"}), 400
+        return {"error": "lat and lon are required"}, 400
 
     # Normalize into the canonical report shape the rest of the system uses.
     incident = dict(data)
@@ -3184,14 +3847,80 @@ def agencies_ingest():
         ))
         grid_result = {"fused": True, "grid_id": grid_id}
 
-    return jsonify({
+    return {
         "report": stored,
         "action": action,
         "created": created,
         "stale": stale,
         "duplicate": duplicate,
         "grid": grid_result,
-    })
+    }, 200
+
+
+@app.route("/api/agencies/ingest", methods=["POST"])
+def agencies_ingest():
+    """Ingest one normalized agency incident (CAP / GeoJSON / GeoRSS adapter
+    output). This is the front door for the government-feed pipeline: a
+    Lambda (push) or a poller job (pull) calls this with a canonical
+    incident dict and gets idempotent, staleness-guarded storage plus
+    Bayesian grid evidence fusion in one shot.
+
+    Auth: when ``WILDFRAME_AGENCY_API_KEY`` (or kv_store ``agency_api_key``)
+    is configured, the request must carry the matching ``X-Agency-Key``
+    header; otherwise the endpoint fails open with a warning (local dev).
+
+    Expected body (all adapter outputs must converge on this shape):
+
+    .. code-block:: json
+
+        {
+          "agency": "gov-cap:meteoalarm",   // CAP sender, or namespaced feed name
+          "incident_id": "cap-2026-0810-004",  // CAP identifier / feed item id
+          "action": "create",               // create | update | cancel | delete
+          "sent_at": "2026-08-10T09:30:00Z", // staleness clock — only newer wins
+          "lat": 51.106,
+          "lon": 18.941,
+          "status": "confirmed",            // optional; create defaults confirmed
+          "source_type": "government",
+          "severity": "Extreme",            // optional, stored in data blob
+          "data": {}                         // optional extra metadata
+        }
+
+    Returns the authoritative stored report (newest version wins) plus
+    ``created``/``stale`` flags and the grid mutation outcome.
+
+    Grid dispatch:
+      - create/update (confirmed) → find-or-create grid at the point and fuse
+        strong positive evidence (Evidence.agency_confirm).
+      - cancel/delete → mark the report ``cancelled``, find the NEAREST
+        EXISTING grid (never create one) and fuse negative evidence
+        (Evidence.agency_cancel), decaying the fire rather than deleting it.
+    """
+    auth_error = _require_agency_key()
+    if auth_error is not None:
+        return auth_error
+
+    data = request.get_json(silent=True) or {}
+    body, status = _process_agency_incident(data)
+    return jsonify(body), status
+
+
+@app.route("/api/agencies/ingest-test", methods=["POST"])
+def agencies_ingest_test():
+    """Dashboard test proxy — same as /api/agencies/ingest but session-auth'd
+    instead of X-Agency-Key.  Forces demo mode so test incidents never
+    pollute production data."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not logged in"}), 401
+    user = db.get_user_by_id(user_id)
+    if not user or user.get("role") not in ("government", "internal"):
+        return jsonify({"error": "government or internal role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    data["mode"] = "demo"  # force demo mode for test incidents
+    body, status = _process_agency_incident(data)
+    return jsonify(body), status
 
 
 # ---------------------------------------------------------------------------
@@ -4259,6 +4988,48 @@ def _gate_firms_by_land_cover(hotspots: list) -> list:
     return kept
 
 
+def _gate_firms_by_industrial_zone(hotspots: list) -> list:
+    """Drop FIRMS detections that fall inside industrial zones.
+
+    Industrial zones are imported from OSM landuse=industrial polygons.
+    Fires in industrial areas are more likely to be industrial incidents
+    (factory fires, smoke stacks) rather than wildfires.
+
+    This filter runs AFTER the land-cover gate, so hotspots here have
+    already been validated as being on burnable land.
+
+    Fail-open: if osm_industrial_zones table doesn't exist or is empty,
+    all hotspots pass through.
+    """
+    if not hotspots:
+        return hotspots
+
+    # Query industrial zones for all hotspots
+    industrial_hits = db.industrial_zone_batch(
+        [(h.latitude, h.longitude) for h in hotspots]
+    )
+
+    if not industrial_hits:
+        return hotspots
+
+    # Filter out hotspots in industrial zones
+    kept = []
+    industrial_dropped = 0
+    for i, h in enumerate(hotspots):
+        if i in industrial_hits:
+            industrial_dropped += 1
+            continue
+        kept.append(h)
+
+    if industrial_dropped:
+        logger.info(
+            "[firms] Industrial zone gate dropped %d hotspot(s) in industrial areas",
+            industrial_dropped,
+        )
+
+    return kept
+
+
 def _tag_ag_burn(hotspots: list) -> int:
     """Tag FIRMS detections on cropland as agricultural burning (Step 3).
 
@@ -4587,6 +5358,32 @@ def _fetch_nasa_firms_pass(
             "stale_grids_purged": stale_purged,
         }
 
+    # --- Industrial zone gate (Step 1b) ---
+    # Drop detections in OSM industrial areas (factories, refineries,
+    # power plants) — these are more likely industrial fires/smoke
+    # than wildfires. Fail-open if table doesn't exist.
+    raw_after_land = len(all_hotspots)
+    all_hotspots = _gate_firms_by_industrial_zone(all_hotspots)
+    industrial_dropped = raw_after_land - len(all_hotspots)
+    if industrial_dropped:
+        logger.info(
+            "[firms] Industrial zone gate dropped %d hotspot(s) in industrial areas",
+            industrial_dropped,
+        )
+
+    if not all_hotspots:
+        print("[firms] All hotspots filtered out by industrial zone gate")
+        stale_purged = db.purge_stale_grids("production", max_age_hours=24.0)
+        if stale_purged:
+            logger.info("[firms] Expired %d stale production grid(s) (no evidence in 24h)", stale_purged)
+        return {
+            "injected": 0, "grids_hit": 0, "grids_considered": 0,
+            "firms_hotspots": 0, "new_grids": 0,
+            "land_cover_dropped": land_cover_dropped,
+            "industrial_dropped": industrial_dropped,
+            "stale_grids_purged": stale_purged,
+        }
+
     # --- Static-source mask (Step 2 of the filtering plan) ---
     # Tag hotspots that land on a persistent industrial cell (refinery
     # flare, steel mill) so the fusion step below injects them at reduced
@@ -4746,6 +5543,7 @@ def _fetch_nasa_firms_pass(
         "grids_considered": post_count,
         "firms_hotspots": total_hotspots,
         "land_cover_dropped": land_cover_dropped,
+        "industrial_dropped": industrial_dropped,
         "static_downweighted": static_downweighted,
         "ag_downweighted": ag_downweighted,
         "volcanic_tagged": volcanic_tagged,

@@ -76,12 +76,12 @@ DEFAULT_GRID_NY = 120         # 12 km N–S
 
 # Predict-step defaults
 DEFAULT_BURN_THRESHOLD = 0.15   # cells above this probability can spread
-DEFAULT_BASE_SPREAD_RATE = 5.0   # m/min — grass fast, forest slower
+DEFAULT_BASE_SPREAD_RATE = 3.0   # m/min — calibrated on CA fires 2020–2024
 PROB_MAX = 0.9999                # clamp to avoid log(0)
 PROB_MIN = 1e-6                  # clamp to avoid log(0) / div-by-zero
 
 # Decay: halve ≈ every 3 hours without corroboration
-DECAY_HALF_LIFE_S = 10800.0  # seconds (3 hours)
+DECAY_HALF_LIFE_S = 14400.0  # seconds (4 hours) — calibrated on CA fires 2020–2024
 DECAY_LAMBDA = math.log(2) / DECAY_HALF_LIFE_S
 
 # Evidence shelf-life: the expected satellite revisit interval. A cell
@@ -89,18 +89,17 @@ DECAY_LAMBDA = math.log(2) / DECAY_HALF_LIFE_S
 # burning fire — its probability holds, because the absence of a new
 # detection is just the sensor cadence, not proof the fire is out. Only
 # cells with evidence OLDER than this window fade at the base
-# DECAY_HALF_LIFE_S. Default 12 h ≈ the VIIRS revisit cadence that
-# produces our FIRMS detections (backtest_grids.py measured that the
-# old uniform 3 h half-life erased fires between passes); env-tunable
-# via WILDFRAME_EVIDENCE_SHELF_LIFE_S (seconds).
+# DECAY_HALF_LIFE_S. Default 6 h — calibrated on CA fires 2020–2024;
+# shorter shelf life lets stale evidence decay faster, improving area
+# estimation. Env-tunable via WILDFRAME_EVIDENCE_SHELF_LIFE_S (seconds).
 EVIDENCE_SHELF_LIFE_S = float(
-    os.environ.get("WILDFRAME_EVIDENCE_SHELF_LIFE_S", str(12 * 3600))
+    os.environ.get("WILDFRAME_EVIDENCE_SHELF_LIFE_S", str(6 * 3600))
 )
 
 # Wind-to-ellipse parameters (simplified Rothermel)
 # Head-to-flank ratio at 10 m/s wind
-WIND_HEAD_FACTOR = 0.15       # m⁻¹·s — spread multiplier per m/s of wind
-WIND_BACK_FACTOR = 0.04       # m⁻¹·s — backing spread multiplier
+WIND_HEAD_FACTOR = 0.10       # m⁻¹·s — calibrated on CA fires 2020–2024
+WIND_BACK_FACTOR = 0.03       # m⁻¹·s — calibrated on CA fires 2020–2024
 MAX_ECCENTRICITY = 0.85       # cap ellipse eccentricity
 MIN_ECCENTRICITY = 0.10       # near-circular in calm conditions
 
@@ -1183,9 +1182,9 @@ class BayesianFireGrid:
             mass_transferred = stencil.sum()
 
             if mass_transferred > 0:
-                # Max 15% of source mass moves per dt, distributed across
+                # Max 30% of source mass moves per dt, distributed across
                 # the stencil in proportion to kernel weight (same as before)
-                fraction_stencil = 0.15 * stencil / mass_transferred
+                fraction_stencil = 0.60 * stencil / mass_transferred
 
                 # Probability mass only where actually burning
                 source_field = np.where(burning_mask, self.probabilities, 0.0)

@@ -271,6 +271,47 @@ CREATE TABLE IF NOT EXISTS feedback (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback (created_at DESC);
+
+-- IP blocklist: persistent storage for the abuse tracker.
+-- Replaces the in-memory dict that was lost on server restart.
+CREATE TABLE IF NOT EXISTS blocked_ips (
+    ip            TEXT PRIMARY KEY,
+    blocked_until TIMESTAMPTZ,          -- NULL = accumulating hits, not yet blocked
+    nothing_hits  JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Idempotent: drop NOT NULL if the table was created before we
+-- switched to NULL-when-not-blocked semantics.
+ALTER TABLE blocked_ips ALTER COLUMN blocked_until DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS investments (
+    id          serial PRIMARY KEY,
+    amount      numeric(12,2) NOT NULL,      -- positive = spent, negative = revenue
+    category    text NOT NULL DEFAULT 'other',
+    description text,
+    date        date NOT NULL DEFAULT CURRENT_DATE,
+    created_by  text,
+    data        jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_investments_date ON investments (date);
+CREATE INDEX IF NOT EXISTS idx_investments_category ON investments (category);
+
+-- OSM industrial zones: imported from OpenStreetMap landuse=industrial
+-- polygons via industrial_zones_import.py. Used to filter out FIRMS
+-- detections that are likely industrial fires/smoke rather than wildfires.
+CREATE TABLE IF NOT EXISTS osm_industrial_zones (
+    id          serial PRIMARY KEY,
+    osm_id      bigint NOT NULL,              -- OSM way/relation id
+    osm_type    text NOT NULL DEFAULT 'way',   -- 'way' or 'relation'
+    name        text,                          -- optional name tag
+    geom        geometry(Geometry, 4326) NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_industrial_osm_id 
+    ON osm_industrial_zones (osm_id, osm_type);
+CREATE INDEX IF NOT EXISTS idx_industrial_geom 
+    ON osm_industrial_zones USING GIST (geom);
 """
 
 
@@ -478,6 +519,31 @@ def list_reports(
     if status is not None:
         clauses.append("status = %s")
         params.append(status)
+    sql = (
+        "SELECT id, status, data FROM reports WHERE "
+        + " AND ".join(clauses)
+        + " ORDER BY captured_at DESC NULLS LAST"
+    )
+    with _conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [_row_to_report(r) for r in rows]
+
+
+def list_agency_reports(
+    mode: str,
+    since_hours: Optional[float] = None,
+) -> list[dict]:
+    """Fetch reports submitted via the agency ingest pipeline.
+
+    Queries on the ``agency`` column (set for all agency incidents, NULL for
+    citizen/photo reports) so the filter runs server-side — the admin UI
+    doesn't have to download every report just to show agency ones.
+    """
+    clauses = ["mode = %s", "agency IS NOT NULL"]
+    params: list[Any] = [mode]
+    if since_hours is not None:
+        clauses.append("captured_at >= %s")
+        params.append(datetime.now(timezone.utc) - timedelta(hours=since_hours))
     sql = (
         "SELECT id, status, data FROM reports WHERE "
         + " AND ".join(clauses)
@@ -1905,6 +1971,65 @@ def worldcover_code_batch(points: list[tuple[float, float]]) -> dict[int, Option
     return out
 
 
+def industrial_zone_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
+    """Return ``{index: True}`` for points that fall INSIDE an industrial zone.
+
+    Uses the ``osm_industrial_zones`` table (imported from OSM
+    landuse=industrial polygons) to identify industrial areas where
+    FIRMS detections are likely industrial fires/smoke rather than
+    wildfires.
+
+    Fail-open if table doesn't exist: returns empty dict (no industrial
+    filtering), so the system degrades gracefully.
+    """
+    if not points:
+        return {}
+    # Check if table exists (fail-open)
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT EXISTS ("
+            "  SELECT 1 FROM information_schema.tables"
+            "  WHERE table_name = 'osm_industrial_zones'"
+            ")"
+        ).fetchone()
+        exists = row["exists"]
+    if not exists:
+        return {}
+    bbox = _table_bbox("osm_industrial_zones")
+    if bbox is None:
+        return {}
+    keep = [(i, (lat, lon)) for i, (lat, lon) in enumerate(points)
+            if _in_bbox(lat, lon, bbox)]
+    if not keep:
+        return {}
+    out: dict[int, bool] = {}
+    with _conn() as conn:
+        conn.execute(
+            "CREATE TEMP TABLE _ind_pts (idx int, geom geometry) ON COMMIT DROP"
+        )
+        conn.execute("CREATE INDEX ON _ind_pts USING gist (geom)")
+        for start in range(0, len(keep), 1000):
+            batch = keep[start:start + 1000]
+            conn.execute(
+                "INSERT INTO _ind_pts (idx, geom) VALUES "
+                + ", ".join(
+                    "(%s, ST_SetSRID(ST_MakePoint(%s, %s), 4326))"
+                    for _ in batch
+                ),
+                [p for idx, (lat, lon) in batch for p in (idx, lon, lat)],
+            )
+        rows = conn.execute(
+            """
+            SELECT DISTINCT p.idx
+            FROM _ind_pts p
+            JOIN osm_industrial_zones iz ON ST_Intersects(iz.geom, p.geom)
+            """
+        ).fetchall()
+    for r in rows:
+        out[int(r["idx"])] = True
+    return out
+
+
 def land_mask_batch(points: list[tuple[float, float]]) -> dict[int, bool]:
     """Return ``{index: True}`` for points that fall ON LAND.
 
@@ -2282,8 +2407,415 @@ def dem_terrain_lookup(lat: float, lon: float) -> tuple[float, float]:
         return (float(row["slope_pct"]), float(row["aspect_deg"]))
 
 
+# ---------------------------------------------------------------------------
+# Auth — invite-only user accounts
+# ---------------------------------------------------------------------------
+
+# Role hierarchy: internal > government > investor
+ROLE_HIERARCHY = {"internal": 3, "government": 2, "investor": 1}
+
+
+def ensure_auth_table() -> None:
+    """Create the users and invite_tokens tables if they don't exist.
+    Fails gracefully — if the table can't be created (e.g. no DB connection),
+    auth features just won't work but the server still starts.
+    """
+    try:
+      with _conn() as conn:
+        conn.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id            serial PRIMARY KEY,
+                email         text UNIQUE NOT NULL,
+                password_hash text NOT NULL,
+                name          text NOT NULL DEFAULT '',
+                role          text NOT NULL DEFAULT 'investor'
+                              CHECK (role IN ('investor', 'government', 'internal')),
+                created_at    timestamptz NOT NULL DEFAULT now()
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS invite_tokens (
+                id         serial PRIMARY KEY,
+                token      text UNIQUE NOT NULL,
+                role       text NOT NULL DEFAULT 'investor'
+                           CHECK (role IN ('investor', 'government', 'internal')),
+                email      text,
+                created_by text,
+                used       boolean NOT NULL DEFAULT false,
+                used_by    integer REFERENCES users(id),
+                created_at timestamptz NOT NULL DEFAULT now(),
+                expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days')
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger("db").warning("ensure_auth_table failed: %s", e)
+
+
+def create_invite_token(role: str = "investor",
+                         email: str = None,
+                         created_by: str = "admin") -> str:
+    """Generate a one-time invite token. Returns the token string."""
+    import secrets
+    token = secrets.token_urlsafe(32)
+    with _conn() as conn:
+        conn.execute(
+            "INSERT INTO invite_tokens (token, role, email, created_by) "
+            "VALUES (%s, %s, %s, %s)",
+            (token, role, email, created_by),
+        )
+        conn.commit()
+    return token
+
+
+def validate_invite_token(token: str) -> Optional[dict]:
+    """Check if an invite token is valid (not used, not expired).
+    Returns {"role": ..., "email": ...} or None."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT role, email FROM invite_tokens "
+            "WHERE token = %s AND used = false AND expires_at > now()",
+            (token,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {"role": row["role"], "email": row["email"]}
+
+
+def consume_invite_token(token: str, user_id: int) -> bool:
+    """Mark an invite token as used. Returns True on success."""
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE invite_tokens SET used = true, used_by = %s "
+            "WHERE token = %s AND used = false",
+            (user_id, token),
+        )
+        conn.commit()
+    return True
+
+
+def create_user(email: str, password_hash: str, name: str,
+                 role: str = "investor") -> dict:
+    """Create a new user. Returns the user dict."""
+    with _conn() as conn:
+        row = conn.execute(
+            "INSERT INTO users (email, password_hash, name, role) "
+            "VALUES (%s, %s, %s, %s) "
+            "RETURNING id, email, name, role, created_at",
+            (email, password_hash, name, role),
+        ).fetchone()
+        conn.commit()
+    return dict(row)
+
+
+def get_user_by_email(email: str) -> Optional[dict]:
+    """Look up a user by email."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT id, email, name, role, password_hash, created_at "
+            "FROM users WHERE email = %s",
+            (email,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> Optional[dict]:
+    """Look up a user by ID (no password hash)."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT id, email, name, role, created_at "
+            "FROM users WHERE id = %s",
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def list_users() -> list[dict]:
+    """Return all users (no password hashes)."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, email, name, role, created_at FROM users ORDER BY id"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def list_pending_invites() -> list[dict]:
+    """Return unused, non-expired invite tokens."""
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT id, token, role, email, created_by, created_at, expires_at "
+            "FROM invite_tokens "
+            "WHERE used = false AND expires_at > now() "
+            "ORDER BY created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# IP blocklist — persistent abuse tracker
+# ---------------------------------------------------------------------------
+# Replaces the in-memory AbuseTracker dicts in server.py.  Blocks now
+# survive server restarts.  Nothing-hits are kept as a JSONB array of
+# epoch timestamps, pruned on each write so the array stays small.
+
+def is_ip_blocked(ip: str) -> Optional[float]:
+    """Return block expiry (epoch) if *ip* is blocked, else None."""
+    try:
+        with _conn() as conn:
+            row = conn.execute(
+                "SELECT blocked_until FROM blocked_ips WHERE ip = %s",
+                (ip,),
+            ).fetchone()
+    except psycopg.errors.UndefinedTable:
+        return None
+    if not row or row["blocked_until"] is None:
+        return None
+    until = row["blocked_until"].timestamp()
+    if until <= time.time():
+        # Expired — clean up lazily
+        try:
+            with _conn() as conn:
+                conn.execute("DELETE FROM blocked_ips WHERE ip = %s", (ip,))
+        except Exception:
+            pass
+        return None
+    return until
+
+
+def record_nothing_hit(
+    ip: str,
+    threshold: int,
+    window_s: float,
+    block_duration_s: float,
+) -> Optional[float]:
+    """Append a nothing-verdict timestamp for *ip*.
+
+    Returns the block expiry (epoch) if the IP was just blocked,
+    else None.  The hit list is pruned to ``window_s`` on each write.
+    """
+    now = time.time()
+    cutoff = now - window_s
+    try:
+        with _conn() as conn:
+            # 1. Check if this IP is already actively blocked.
+            #    blocked_until IS NOT NULL means the threshold was crossed
+            #    and the block is in effect.
+            existing = conn.execute(
+                "SELECT blocked_until FROM blocked_ips WHERE ip = %s",
+                (ip,),
+            ).fetchone()
+            if existing and existing["blocked_until"] is not None:
+                until_ts = existing["blocked_until"].timestamp()
+                if until_ts > now:
+                    # Genuinely blocked — append hit for bookkeeping
+                    # but don't change the block expiry.
+                    conn.execute(
+                        """
+                        UPDATE blocked_ips SET nothing_hits = (
+                            SELECT coalesce(jsonb_agg(val), '[]'::jsonb)
+                            FROM jsonb_array_elements(
+                                blocked_ips.nothing_hits || %s::jsonb
+                            ) AS val
+                            WHERE (val::text)::double precision > %s
+                        ) WHERE ip = %s
+                        """,
+                        (json.dumps(now), cutoff, ip),
+                    )
+                    return None
+                # Block expired — clear it and fall through to re-accumulate.
+                conn.execute(
+                    "DELETE FROM blocked_ips WHERE ip = %s", (ip,),
+                )
+                existing = None
+
+            # 2. Not blocked (or new IP) — UPSERT the hit with
+            #    blocked_until = NULL (not yet blocked).
+            conn.execute(
+                """
+                INSERT INTO blocked_ips (ip, blocked_until, nothing_hits)
+                VALUES (%s, NULL, %s::jsonb)
+                ON CONFLICT (ip) DO UPDATE SET
+                    nothing_hits = (
+                        SELECT coalesce(jsonb_agg(val), '[]'::jsonb)
+                        FROM jsonb_array_elements(
+                            blocked_ips.nothing_hits || %s::jsonb
+                        ) AS val
+                        WHERE (val::text)::double precision > %s
+                    )
+                """,
+                (ip, json.dumps([now]), json.dumps(now), cutoff),
+            )
+
+            # 3. Check if this hit crosses the threshold.
+            row = conn.execute(
+                "SELECT jsonb_array_length(nothing_hits) AS hit_count "
+                "FROM blocked_ips WHERE ip = %s",
+                (ip,),
+            ).fetchone()
+
+            hit_count = row["hit_count"] if row else 0
+            if hit_count >= threshold:
+                # Threshold crossed — set blocked_until now.
+                conn.execute(
+                    "UPDATE blocked_ips SET blocked_until = to_timestamp(%s + %s) "
+                    "WHERE ip = %s",
+                    (now, block_duration_s, ip),
+                )
+                return now + block_duration_s
+    except psycopg.errors.UndefinedTable:
+        # Table not created yet — degrade to no-op (same as old
+        # in-memory tracker being empty).
+        pass
+    return None
+
+
+def get_blocked_ips() -> list[dict]:
+    """Return all currently blocked IPs with metadata."""
+    now = time.time()
+    try:
+        with _conn() as conn:
+            rows = conn.execute(
+                "SELECT ip, blocked_until, nothing_hits FROM blocked_ips "
+                "WHERE blocked_until > now() ORDER BY blocked_until DESC"
+            ).fetchall()
+    except psycopg.errors.UndefinedTable:
+        return []
+    result = []
+    for r in rows:
+        until = r["blocked_until"].timestamp()
+        raw = r["nothing_hits"]
+        hits = raw if isinstance(raw, list) else json.loads(raw or "[]")
+        cutoff = now - 3600  # ABUSE_WINDOW_S from server.py
+        recent = [t for t in hits if t > cutoff]
+        result.append({
+            "ip": r["ip"],
+            "blocked_until": r["blocked_until"].isoformat(),
+            "remaining_s": round(until - now),
+            "recent_nothing_count": len(recent),
+        })
+    return result
+
+
+def unblock_ip(ip: str) -> bool:
+    """Remove block + hit history for *ip*.  Returns True if it was blocked."""
+    try:
+        with _conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM blocked_ips WHERE ip = %s", (ip,)
+            )
+            return cur.rowcount > 0
+    except psycopg.errors.UndefinedTable:
+        return False
+
+
+def cleanup_expired_blocked_ips() -> int:
+    """Delete rows whose block has expired.  Returns count deleted."""
+    try:
+        with _conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM blocked_ips WHERE blocked_until <= now()"
+            )
+            return cur.rowcount
+    except psycopg.errors.UndefinedTable:
+        return 0
+
+
 def ping() -> None:
     """Cheap liveness probe for health checks: round-trips one query through
     the connection pool (raises on DB outage)."""
     with _conn() as conn:
         conn.execute("SELECT 1")
+
+
+# ---------------------------------------------------------------------------
+# Investments
+# ---------------------------------------------------------------------------
+
+INVESTMENT_CATEGORIES = (
+    "infrastructure", "development", "api_costs", "personnel",
+    "marketing", "data", "other",
+)
+
+
+def insert_investment(amount: float, category: str, description: str = "",
+                       date: str = None, created_by: str = None,
+                       data: dict = None) -> dict:
+    """Record one investment/spend entry. Returns the created row."""
+    if category not in INVESTMENT_CATEGORIES:
+        raise ValueError(f"Invalid category: {category}")
+    with _conn() as conn:
+        row = conn.execute(
+            "INSERT INTO investments (amount, category, description, date, created_by, data) "
+            "VALUES (%s, %s, %s, COALESCE(%s, CURRENT_DATE), %s, %s) "
+            "RETURNING id, amount, category, description, date, created_by, data, created_at",
+            (amount, category, description, date, created_by, Jsonb(data or {})),
+        ).fetchone()
+        conn.commit()
+    return dict(row)
+
+
+def list_investments(limit: int = 100, category: str = None) -> list[dict]:
+    """List investments, newest first."""
+    with _conn() as conn:
+        if category:
+            rows = conn.execute(
+                "SELECT id, amount, category, description, date, created_by, data, created_at "
+                "FROM investments WHERE category = %s ORDER BY date DESC, id DESC LIMIT %s",
+                (category, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id, amount, category, description, date, created_by, data, created_at "
+                "FROM investments ORDER BY date DESC, id DESC LIMIT %s",
+                (limit,),
+            ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def delete_investment(investment_id: int) -> bool:
+    """Delete one investment entry. Returns True if deleted."""
+    with _conn() as conn:
+        cur = conn.execute("DELETE FROM investments WHERE id = %s", (investment_id,))
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def investment_summary() -> dict:
+    """Aggregate investment stats for the dashboard."""
+    with _conn() as conn:
+        totals = conn.execute("""
+            SELECT
+                COALESCE(SUM(amount), 0) AS total_invested,
+                COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total_spent,
+                COALESCE(SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END), 0) AS total_revenue,
+                count(*) AS entry_count
+            FROM investments
+        """).fetchone()
+
+        by_category = conn.execute("""
+            SELECT category,
+                   COALESCE(SUM(amount), 0) AS total,
+                   count(*) AS entries
+            FROM investments
+            GROUP BY category ORDER BY total DESC
+        """).fetchall()
+
+        by_month = conn.execute("""
+            SELECT date_trunc('month', date) AS month,
+                   COALESCE(SUM(amount), 0) AS total,
+                   count(*) AS entries
+            FROM investments
+            GROUP BY month ORDER BY month
+        """).fetchall()
+
+    return {
+        "total_invested": float(totals["total_invested"]),
+        "total_spent": float(totals["total_spent"]),
+        "total_revenue": float(totals["total_revenue"]),
+        "net": float(totals["total_invested"]),
+        "entry_count": totals["entry_count"],
+        "by_category": [{"category": r["category"], "total": float(r["total"]), "entries": r["entries"]} for r in by_category],
+        "by_month": [{"month": r["month"].strftime("%Y-%m") if r["month"] else None, "total": float(r["total"]), "entries": r["entries"]} for r in by_month],
+    }

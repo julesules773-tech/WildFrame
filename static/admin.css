@@ -212,6 +212,12 @@
 .sat-none { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
 .sat-unchecked { background: rgba(148, 163, 184, 0.08); color: var(--text-muted); }
 
+/* Industrial zone badge */
+.industrial-badge {
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+  white-space: nowrap; background: rgba(251, 146, 60, 0.15); color: #fb923c;
+}
+
 /* Processing state */
 .card-processing {
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -248,18 +254,21 @@
 .fires-section.collapsed .fires-list,
 .auto-approved-section.collapsed .auto-approved-list,
 .feedback-section.collapsed .feedback-list,
-.blocked-ips-section.collapsed .blocked-ips-list { display: none; }
+.blocked-ips-section.collapsed .blocked-ips-list,
+.agency-section.collapsed .agency-list { display: none; }
 
 /* A collapsed section is just its header — reclaim the vertical space for
    the reports grid (they were being squeezed off-screen before). */
 .fires-section.collapsed,
 .auto-approved-section.collapsed,
 .feedback-section.collapsed,
-.blocked-ips-section.collapsed { margin-bottom: 8px; padding-bottom: 10px; }
+.blocked-ips-section.collapsed,
+.agency-section.collapsed { margin-bottom: 8px; padding-bottom: 10px; }
 .fires-section.collapsed .fires-header,
 .auto-approved-section.collapsed .auto-approved-header,
 .feedback-section.collapsed .feedback-header,
-.blocked-ips-section.collapsed .blocked-ips-header { margin-bottom: 0; }
+.blocked-ips-section.collapsed .blocked-ips-header,
+.agency-section.collapsed .agency-header { margin-bottom: 0; }
 
 /* ---------- Live fires (active grids + EFFIS fuel moisture) ---------- */
 .fires-section {
@@ -551,6 +560,92 @@
 }
 .unblock-btn:hover { background: rgba(239, 68, 68, 0.25); }
 .unblock-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- Agency-sent incidents ---------- */
+.agency-section {
+  flex-shrink: 0;
+  margin: 0 20px 20px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  border-radius: var(--radius);
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.05);
+}
+.agency-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.agency-title {
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+}
+.agency-count {
+  font-size: 11.5px; color: var(--text-muted); font-weight: 500;
+}
+.agency-filters {
+  display: flex; gap: 8px; align-items: center;
+  margin-left: auto;
+}
+.agency-search {
+  padding: 5px 10px; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text-primary); font-size: 12px; outline: none;
+  width: 180px; transition: border-color 0.2s;
+}
+.agency-search::placeholder { color: var(--text-muted); }
+.agency-search:focus { border-color: rgba(168, 85, 247, 0.5); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.1); }
+.agency-status-filter {
+  padding: 5px 10px; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text-primary); font-size: 12px; outline: none;
+  cursor: pointer; transition: border-color 0.2s;
+}
+.agency-status-filter:focus { border-color: rgba(168, 85, 247, 0.5); }
+.agency-list {
+  max-height: 340px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-right: 4px;
+}
+.agency-list::-webkit-scrollbar { width: 6px; }
+.agency-list::-webkit-scrollbar-track { background: transparent; }
+.agency-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.agency-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 12px;
+  background: rgba(168, 85, 247, 0.04);
+  border: 1px solid rgba(168, 85, 247, 0.12);
+  border-radius: var(--radius-sm);
+  transition: opacity 0.3s ease, background 0.2s ease;
+}
+.agency-row:hover { background: rgba(168, 85, 247, 0.07); }
+.agency-row.cancelled { opacity: 0.55; }
+.agency-row.cancelled .agency-title { text-decoration: line-through; }
+.agency-body { flex: 1; min-width: 0; }
+.agency-head {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.agency-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap;
+}
+.agency-badge--confirmed { background: rgba(34, 197, 94, 0.15); color: #6ee7b7; }
+.agency-badge--cancelled { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+.agency-badge--pending { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.agency-source { font-size: 12px; color: var(--text-secondary); }
+.agency-time { font-size: 11px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.agency-details {
+  font-size: 12px; line-height: 1.5; color: var(--text-secondary);
+  margin-top: 4px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.agency-sev {
+  display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px;
+  border-radius: 999px; margin-left: 4px;
+}
+.agency-sev--Extreme { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+.agency-sev--Severe { background: rgba(249, 115, 22, 0.18); color: #f97316; }
+.agency-sev--Moderate { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.agency-sev--Minor { background: rgba(52, 211, 153, 0.15); color: #34d399; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {

@@ -118,6 +118,28 @@
       <div id="blocked-ips-list" class="blocked-ips-list"></div>
     </div>
 
+    <!-- Agency-sent incidents (CAP / REST ingest pipeline) -->
+    <div id="agency-section" class="agency-section hidden">
+      <div class="agency-header">
+        <button id="agency-toggle" class="collapse-toggle" title="Collapse / expand agency incidents"
+          aria-expanded="true">
+          <span class="chevron">▾</span>
+        </button>
+        <span class="agency-title">🏛️ Agency incidents</span>
+        <span id="agency-count" class="agency-count"></span>
+        <div class="agency-filters">
+          <input id="agency-search" type="text" class="agency-search" placeholder="Search agency / ID…" autocomplete="off" />
+          <select id="agency-status-filter" class="agency-status-filter">
+            <option value="all">All statuses</option>
+            <option value="confirmed">✅ Confirmed</option>
+            <option value="cancelled">❌ Cancelled</option>
+            <option value="pending">⏳ Pending</option>
+          </select>
+        </div>
+      </div>
+      <div id="agency-list" class="agency-list"></div>
+    </div>
+
     <!-- Toast container (reuse same style) -->
     <div id="admin-toast-container"></div>
   </div>

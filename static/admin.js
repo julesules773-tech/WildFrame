@@ -52,6 +52,12 @@
     blockedIpsList: $("#blocked-ips-list"),
     blockedIpsCount: $("#blocked-ips-count"),
     blockedIpsToggle: $("#blocked-ips-toggle"),
+    agencySection: $("#agency-section"),
+    agencyList: $("#agency-list"),
+    agencyCount: $("#agency-count"),
+    agencyToggle: $("#agency-toggle"),
+    agencySearch: $("#agency-search"),
+    agencyStatusFilter: $("#agency-status-filter"),
     toastContainer: $("#admin-toast-container"),
   };
 
@@ -61,14 +67,14 @@
   // Both secondary sections start COLLAPSED so the reports grid — the
   // primary moderation workspace — gets the full height instead of being
   // squeezed by the fires / auto-approved panels. The choice sticks.
-  const SECTION_UI_KEY = "wf.admin.sectionsCollapsed";
-  let uiState = { firesCollapsed: true, autoCollapsed: true, feedbackCollapsed: true, blockedIpsCollapsed: true };
+  const SECTION_UI_KEY = "wf.admin.sectionsCollapsed";  let uiState = { firesCollapsed: true, autoCollapsed: true, feedbackCollapsed: true, blockedIpsCollapsed: true, agencyCollapsed: false };
   try {
     const saved = JSON.parse(localStorage.getItem(SECTION_UI_KEY) || "{}");
     if (typeof saved.firesCollapsed === "boolean") uiState.firesCollapsed = saved.firesCollapsed;
     if (typeof saved.autoCollapsed === "boolean") uiState.autoCollapsed = saved.autoCollapsed;
     if (typeof saved.feedbackCollapsed === "boolean") uiState.feedbackCollapsed = saved.feedbackCollapsed;
     if (typeof saved.blockedIpsCollapsed === "boolean") uiState.blockedIpsCollapsed = saved.blockedIpsCollapsed;
+    if (typeof saved.agencyCollapsed === "boolean") uiState.agencyCollapsed = saved.agencyCollapsed;
   } catch (e) { /* ignore malformed storage */ }
 
   function applySectionState() {
@@ -78,14 +84,17 @@
       btn.setAttribute("aria-expanded", String(!collapsed));
       btn.title = collapsed ? "Expand" : "Collapse";
     };
+
     if (els.firesSection) els.firesSection.classList.toggle("collapsed", uiState.firesCollapsed);
     if (els.autoSection) els.autoSection.classList.toggle("collapsed", uiState.autoCollapsed);
     if (els.feedbackSection) els.feedbackSection.classList.toggle("collapsed", uiState.feedbackCollapsed);
     if (els.blockedIpsSection) els.blockedIpsSection.classList.toggle("collapsed", uiState.blockedIpsCollapsed);
+    if (els.agencySection) els.agencySection.classList.toggle("collapsed", uiState.agencyCollapsed);
     toggle(els.firesToggle, uiState.firesCollapsed);
     toggle(els.autoToggle, uiState.autoCollapsed);
     toggle(els.feedbackToggle, uiState.feedbackCollapsed);
     toggle(els.blockedIpsToggle, uiState.blockedIpsCollapsed);
+    toggle(els.agencyToggle, uiState.agencyCollapsed);
   }
 
   function toggleSection(key) {
@@ -170,6 +179,7 @@
       showDashboard();
       await loadPending();
       loadBlockedIPs();
+      loadAgencyIncidents();
     } catch (err) {
       els.loginError.textContent = "Connection error. Is the server running?";
       els.loginError.classList.remove("hidden");
@@ -198,6 +208,7 @@
       renderReports();
       loadAutoApproved();
       loadFires();
+      loadAgencyIncidents();
     } catch (err) {
       if (err.message !== "Session expired. Please log in again.") {
         console.error("Failed to load reports:", err);
@@ -256,6 +267,9 @@
       const cancelled = r.status === "cancelled"
         ? `<span class="sat-badge sat-none" title="This report was cancelled (agency cancel / fire contained)">❌ Cancelled</span>`
         : "";
+      const industrialBadge = r.in_industrial_zone
+        ? `<span class="industrial-badge" title="This report is in an OSM industrial zone (factory, refinery, etc.)">🏭 Industrial zone</span>`
+        : "";
       const row = document.createElement("div");
       row.className = "auto-approved-row" + (cancelled ? " cancelled" : "");
       row.id = `auto-${r.id}`;
@@ -267,7 +281,7 @@
           }
         </div>
         <div class="auto-meta">
-          <div class="auto-title">🤖 Auto-approved via ${src} — ${clsTag}${confTxt}${cancelled}</div>
+          <div class="auto-title">🤖 Auto-approved via ${src} — ${clsTag}${confTxt}${cancelled} ${industrialBadge}</div>
           <div class="auto-sub">${new Date(r.captured_at).toLocaleString()} · ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
         </div>
         <button class="card-btn reject-btn auto-reject-btn" data-id="${r.id}" title="Reject and delete this auto-approved report">
@@ -477,6 +491,116 @@
   }
 
   // -----------------------------------------------------------------------
+  // Agency-sent incidents (CAP / REST ingest pipeline)
+  // -----------------------------------------------------------------------
+  let agencyIncidents = [];
+  let agencyFilterText = "";
+  let agencyFilterStatus = "all";
+
+  async function loadAgencyIncidents() {
+    if (!STATE.secret) return;
+    try {
+      const res = await adminFetch("/api/admin/agency-incidents");
+      const data = await res.json();
+      agencyIncidents = data.incidents || [];
+      renderAgencyIncidents();
+    } catch (err) {
+      if (err.message !== "Session expired. Please log in again.") {
+        console.error("Failed to load agency incidents:", err);
+      }
+    }
+  }
+
+  function filterAgencyIncidents() {
+    const q = agencyFilterText.toLowerCase();
+    const status = agencyFilterStatus;
+    return agencyIncidents.filter((r) => {
+      // Status filter
+      if (status !== "all" && r.status !== status) return false;
+      // Text search — match against agency name, incident ID, source type, action
+      if (q) {
+        const d = r.data || {};
+        const hay = [
+          r.agency, d.agency, r.incident_id, d.incident_id,
+          r.source_type, d.source_type, d.action,
+          r.severity, d.severity,
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderAgencyIncidents() {
+    if (!els.agencySection || !els.agencyList) return;
+    const rows = filterAgencyIncidents();
+    els.agencyList.innerHTML = "";
+
+    els.agencySection.classList.remove("hidden");
+
+    if (agencyIncidents.length === 0) {
+      els.agencyList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">No agency incidents</div>';
+      els.agencyCount.textContent = '';
+      return;
+    }
+    const total = agencyIncidents.length;
+    const shown = rows.length;
+    const filterActive = agencyFilterText || agencyFilterStatus !== "all";
+    els.agencyCount.textContent = filterActive
+      ? `${shown} of ${total} — filtered`
+      : `${total} — newest first`;
+
+    if (rows.length === 0) {
+      els.agencyList.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">No matching incidents</div>';
+      return;
+    }
+
+    rows.forEach((r) => {
+      const statusCls = r.status === "cancelled" ? "cancelled"
+        : r.status === "confirmed" ? "confirmed" : "pending";
+      const statusLabel = r.status
+        ? r.status.charAt(0).toUpperCase() + r.status.slice(1)
+        : "Unknown";
+
+      // Extract severity and agency name from the data blob
+      const d = r.data || {};
+      const agencyName = r.agency || d.agency || "—";
+      const incidentId = r.incident_id || d.incident_id || "—";
+      const severity = r.severity || d.severity || null;
+      const action = d.action || "—";
+      const sourceType = r.source_type || d.source_type || "—";
+
+      const sevBadge = severity
+        ? `<span class="agency-sev agency-sev--${severity}">${severity}</span>`
+        : "";
+
+      const ts = r.captured_at
+        ? new Date(r.captured_at).toLocaleString()
+        : r.sent_at ? new Date(r.sent_at).toLocaleString() : "—";
+
+      const row = document.createElement("div");
+      row.className = "agency-row" + (r.status === "cancelled" ? " cancelled" : "");
+      row.innerHTML = `
+        <div class="agency-body">
+          <div class="agency-head">
+            <span class="agency-badge agency-badge--${statusCls}">${statusLabel}</span>
+            <span class="agency-source" title="Agency name">${esc(agencyName)}</span>
+            ${sevBadge}
+            <span class="agency-time">${ts}</span>
+          </div>
+          <div class="agency-details">
+            <strong>ID:</strong> ${esc(incidentId)}
+            &nbsp;·&nbsp; <strong>Action:</strong> ${esc(action)}
+            &nbsp;·&nbsp; <strong>Source:</strong> ${esc(sourceType)}
+            &nbsp;·&nbsp; <strong>Location:</strong> ${r.lat != null ? r.lat.toFixed(4) : "—"}, ${r.lon != null ? r.lon.toFixed(4) : "—"}
+          </div>
+        </div>
+      `;
+      els.agencyList.appendChild(row);
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Live fires — active Bayesian grids with EFFIS fuel-moisture context
   // -----------------------------------------------------------------------
   // Display-only tier thresholds (the model's math lives server-side).
@@ -665,6 +789,12 @@
         satBadge = `<span class="sat-badge sat-unchecked">🛰️ Not checked</span>`;
       }
 
+      // Industrial zone badge
+      const inIndustrialZone = r.in_industrial_zone || false;
+      const industrialBadge = inIndustrialZone
+        ? `<span class="industrial-badge" title="This report is in an OSM industrial zone (factory, refinery, etc.)">🏭 Industrial zone</span>`
+        : "";
+
       card.innerHTML = `
         <div class="card-photo">
           ${r.photo_url
@@ -695,6 +825,7 @@
             <span class="card-label">Satellite</span>
             <span class="card-value">${satBadge}</span>
           </div>
+          ${industrialBadge ? `<div class="card-info-row"><span class="card-label">Zone</span><span class="card-value">${industrialBadge}</span></div>` : ""}
         </div>
         <div class="card-actions">
           <button class="card-btn accept-btn" data-id="${r.id}" title="Confirm this report">
@@ -920,6 +1051,7 @@
         loadAutoApproved();
         loadFeedback();
         loadBlockedIPs();
+        loadAgencyIncidents();
       }
     }, ms);
   }
@@ -966,6 +1098,16 @@
     if (els.autoToggle) els.autoToggle.addEventListener("click", () => toggleSection("autoCollapsed"));
     if (els.feedbackToggle) els.feedbackToggle.addEventListener("click", () => toggleSection("feedbackCollapsed"));
     if (els.blockedIpsToggle) els.blockedIpsToggle.addEventListener("click", () => toggleSection("blockedIpsCollapsed"));
+    if (els.agencyToggle) els.agencyToggle.addEventListener("click", () => toggleSection("agencyCollapsed"));
+    // Agency filters: re-render on every keystroke / selection change
+    if (els.agencySearch) els.agencySearch.addEventListener("input", (e) => {
+      agencyFilterText = e.target.value;
+      renderAgencyIncidents();
+    });
+    if (els.agencyStatusFilter) els.agencyStatusFilter.addEventListener("change", (e) => {
+      agencyFilterStatus = e.target.value;
+      renderAgencyIncidents();
+    });
     applySectionState();
 
     // Start polling

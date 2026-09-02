@@ -638,6 +638,12 @@
     // Layer switcher (bottom-left, above the cluster severity legend)
     L.control.layers({ "Dark": darkLayer, "Light": lightLayer, "Satellite": satelliteLayer }, null, { position: "bottomleft" }).addTo(STATE.map);
 
+    // Toggle body.light-mode when the user switches to the Light basemap
+    // so popups, toasts, search results, and panels match the lighter tiles.
+    STATE.map.on("baselayerchange", (e) => {
+      document.body.classList.toggle("light-mode", e.layer === lightLayer);
+    });
+
     // Add a locate button
     L.control.locate({
       position: "topleft",
@@ -1868,11 +1874,19 @@
         // Pass 4: upscale the low-res colored field to the map canvas with
         // bilinear smoothing — this interpolation is what turns the
         // per-cell samples into one continuous, box-free heatmap.
+        //
+        // Use loW*downscale (not canvasW) as the destination size so
+        // the upscale factor exactly matches the downscale used for cell
+        // positioning.  Math.ceil(canvasW/downscale)*downscale >= canvasW
+        // always, so the draw fills the canvas (excess is clipped).  This
+        // eliminates the sub-pixel drift between the heatmap blob and the
+        // contour that occurred when canvasW/loW ≈ downscale but wasn't
+        // exact — the mismatch caused visible contour shift on zoom.
         ctx.save();
         ctx.globalAlpha = 0.92;
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(blurCanvas, 0, 0, canvasW, canvasH);
+        ctx.drawImage(blurCanvas, 0, 0, loW * downscale, loH * downscale);
         ctx.restore();
       }
 
@@ -3456,6 +3470,8 @@
 
       STATE.uploading = true;
       els.submitBtn.disabled = true;
+      els.submitBtn.classList.add("loading");
+      _setSubmitLabel("Submitting…");
       els.progressBar.classList.remove("hidden");
       els.progressBar.classList.add("active");
 
@@ -3523,11 +3539,12 @@
         }
       } catch (err) {
         // Network-level failure — queue the upload for later
+        const errMsg = err.message || "";
         const isNetworkErr = !navigator.onLine ||
-          err.message?.includes("Failed to fetch") ||
-          err.message?.includes("NetworkError") ||
-          err.message?.includes("Network request failed") ||
-          (err instanceof TypeError && /fetch/i.test(err.message));
+          errMsg.indexOf("Failed to fetch") !== -1 ||
+          errMsg.indexOf("NetworkError") !== -1 ||
+          errMsg.indexOf("Network request failed") !== -1 ||
+          (err instanceof TypeError && /fetch/i.test(errMsg));
 
         if (isNetworkErr) {
           try {
@@ -3536,13 +3553,13 @@
             const fields = {
               lat: els.inputLat.value,
               lon: els.inputLon.value,
-              heading: els.inputHeading?.value || "",
-              captured_at: els.inputCapturedAt?.value || new Date().toISOString(),
+              heading: (els.inputHeading && els.inputHeading.value) || "",
+              captured_at: (els.inputCapturedAt && els.inputCapturedAt.value) || new Date().toISOString(),
               session_id: STATE.sessionId,
-              description: els.form.querySelector("textarea[name=description]")?.value || "",
+              description: (els.form.querySelector("textarea[name=description]") || {}).value || "",
               gate_prob: (FIRE_GATE.ready && FIRE_GATE.lastProb != null)
                 ? String(FIRE_GATE.lastProb) : "",
-              _filename: file?.name || "photo.jpg",
+              _filename: (file && file.name) || "photo.jpg",
             };
             if (photoBlob) await OfflineQueue.enqueue(fields, photoBlob);
             const n = await OfflineQueue.count();
@@ -3562,6 +3579,8 @@
       } finally {
         STATE.uploading = false;
         els.submitBtn.disabled = false;
+        els.submitBtn.classList.remove("loading");
+        _setSubmitLabel();
         els.progressBar.classList.remove("active");
         els.progressBar.classList.add("hidden");
       }
