@@ -1,7 +1,7 @@
 flask==3.1.1
 gunicorn==23.0.0   # production WSGI server (web process / Docker CMD)
 pillow==11.2.1
-numpy==2.0.2   # 2.2.x requires Python ≥3.10; the project runs 3.9 locally and 3.12 in Docker, so pin the last 3.9–3.12-compatible line (2.0.x)
+numpy>=2.1,<2.3  # imagecodecs/tifffile require ≥2.1; cap below 2.3 for safety
 python-dotenv==1.0.1   # .env loading (server.py / worker.py / migrate.py)
 requests               # Open-Meteo weather API client (weather.py)
 
