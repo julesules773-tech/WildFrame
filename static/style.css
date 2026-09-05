@@ -150,6 +150,64 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .top-actions { display: flex; align-items: center; gap: 12px; }
 
+/* ---------- Language picker ---------- */
+.lang-picker { position: relative; }
+.lang-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(148,163,184,0.08); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  font-size: 13px; color: var(--text-primary); transition: var(--transition);
+}
+.lang-btn:hover { background: rgba(148,163,184,0.15); border-color: rgba(148,163,184,0.35); }
+.lang-flag { font-size: 16px; }
+.lang-code { font-weight: 600; letter-spacing: 0.5px; }
+.lang-chevron { font-size: 10px; opacity: 0.5; }
+.lang-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px; min-width: 160px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000;
+}
+.lang-dropdown.hidden { display: none !important; }
+.lang-option {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+  background: transparent; cursor: pointer; font-size: 13px;
+  color: var(--text-primary); text-align: left; transition: background 0.15s;
+}
+.lang-option:hover { background: rgba(148,163,184,0.12); }
+.lang-option.active { background: rgba(255,60,0,0.1); color: var(--accent); font-weight: 600; }
+
+/* ---------- Map picker ---------- */
+.map-picker { position: relative; }
+.map-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(148,163,184,0.08); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  font-size: 13px; color: var(--text-primary); transition: var(--transition);
+}
+.map-btn:hover { background: rgba(148,163,184,0.15); border-color: rgba(148,163,184,0.35); }
+.map-flag { font-size: 16px; }
+.map-code { font-weight: 600; letter-spacing: 0.5px; }
+.map-chevron { font-size: 10px; opacity: 0.5; }
+.map-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px; min-width: 170px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000;
+}
+.map-dropdown.hidden { display: none !important; }
+.map-option {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+  background: transparent; cursor: pointer; font-size: 13px;
+  color: var(--text-primary); text-align: left; text-decoration: none;
+  transition: background 0.15s;
+}
+.map-option:hover { background: rgba(148,163,184,0.12); }
+.map-option.active { background: rgba(255,60,0,0.1); color: var(--accent); font-weight: 600; }
+.map-opt-flag { font-size: 16px; }
+
 /* ---------- Search box (top bar) ---------- */
 .search-box { position: relative; flex: 1 1 220px; max-width: 380px; margin: 0 18px; }
 .search-box-icon {
@@ -495,6 +553,8 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 .floating-ctrl-btn:hover { background: rgba(30, 35, 50, 0.95); color: var(--text-primary); border-color: rgba(255,255,255,0.15); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .floating-ctrl-btn.active { color: var(--text-primary); border-color: var(--accent); }
 .heatmap-btn.active { color: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 12px rgba(34, 211, 238, 0.15); }
+.esa-btn { border-color: rgba(34, 197, 94, 0.3); }
+.esa-btn.active { color: #22c55e; border-color: #22c55e; box-shadow: 0 0 12px rgba(34, 197, 94, 0.15); }
 .floating-ctrl-icon { font-size: 18px; line-height: 1; }
 .report-btn { border-color: rgba(249,115,22,0.3); position: relative; }
 .queue-badge {

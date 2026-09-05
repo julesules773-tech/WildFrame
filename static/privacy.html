@@ -48,21 +48,23 @@
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main">
 
     <!-- ======== Hero ======== -->
     <section class="hero">
-      <p class="hero-eyebrow">PRIVACY POLICY</p>
-      <h1 class="hero-title">Privacy <span class="hero-accent">Policy</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">PRIVACY POLICY</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Privacy</span> <span class="hero-accent" data-i18n="hero_title_accent">Policy</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Last updated: <strong>[Date]</strong>. This policy explains what
         Pyrae collects, why we collect it, and how it is stored, shared, and
         protected.
@@ -71,110 +73,103 @@
 
     <!-- ======== What we collect ======== -->
     <section class="section">
-      <h2 class="section-title">1. What we collect</h2>
+      <h2 class="section-title" data-i18n="collect_title">1. What we collect</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">📸</div>
-          <h3>Photos</h3>
-          <p>Images you upload when reporting a possible fire. Photos are used to verify and screen reports, and confirmed reports may appear publicly on the map.</p>
+          <h3 data-i18n="collect_photos_title">Photos</h3>
+          <p data-i18n="collect_photos_desc">Images you upload when reporting a possible fire. Photos are used to verify and screen reports, and confirmed reports may appear publicly on the map.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📍</div>
-          <h3>Location</h3>
-          <p>GPS coordinates of your report (from your device or the photo's metadata). We use them to place the fire on the map and model its spread.</p>
+          <h3 data-i18n="collect_location_title">Location</h3>
+          <p data-i18n="collect_location_desc">GPS coordinates of your report (from your device or the photo's metadata). We use them to place the fire on the map and model its spread.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🕒</div>
-          <h3>Time &amp; device data</h3>
-          <p>When the photo was taken, your device's reported heading (if available), and an anonymous session identifier used to group your uploads.</p>
+          <h3 data-i18n="collect_device_title">Time &amp; device data</h3>
+          <p data-i18n="collect_device_desc">When the photo was taken, your device's reported heading (if available), and an anonymous session identifier used to group your uploads.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== How we use it ======== -->
     <section class="section">
-      <h2 class="section-title">2. How we use your data</h2>
+      <h2 class="section-title" data-i18n="use_title">2. How we use your data</h2>
       <ul class="audience-list">
-        <li><b>Fire detection &amp; mapping</b> — to place reports on the live map and confirm incidents.</li>
-        <li><b>AI screening</b> — photos are analysed by a computer-vision model to detect visible fire and smoke.</li>
-        <li><b>Satellite corroboration</b> — report locations are cross-checked against NASA FIRMS satellite hotspot data.</li>
-        <li><b>Risk modelling</b> — locations and timestamps feed our Bayesian spread and road-risk estimates.</li>
+        <li data-i18n="use_detect"><b>Fire detection &amp; mapping</b> — to place reports on the live map and confirm incidents.</li>
+        <li data-i18n="use_ai"><b>AI screening</b> — photos are analysed by a computer-vision model to detect visible fire and smoke.</li>
+        <li data-i18n="use_satellite"><b>Satellite corroboration</b> — report locations are cross-checked against NASA FIRMS satellite hotspot data.</li>
+        <li data-i18n="use_risk"><b>Risk modelling</b> — locations and timestamps feed our Bayesian spread and road-risk estimates.</li>
       </ul>
     </section>
 
     <!-- ======== Storage & retention ======== -->
     <section class="section">
-      <h2 class="section-title">3. Where data is stored &amp; how long</h2>
+      <h2 class="section-title" data-i18n="storage_title">3. Where data is stored &amp; how long</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">☁️</div>
-          <h3>Storage</h3>
-          <p>Photos are stored in Amazon S3 (us-east-1). Reports and map data are stored in a managed PostgreSQL database (Neon, us-east-1).</p>
+          <h3 data-i18n="storage_where_title">Storage</h3>
+          <p data-i18n="storage_where_desc">Photos are stored in Amazon S3 (us-east-1). Reports and map data are stored in a managed PostgreSQL database (Neon, us-east-1).</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">⏳</div>
-          <h3>Retention</h3>
-          <p>Reports remain visible on the public map for 48 hours. Records are kept longer for safety, moderation, and verification purposes; rejected reports and their photos are deleted.</p>
+          <h3 data-i18n="storage_retention_title">Retention</h3>
+          <p data-i18n="storage_retention_desc">Reports remain visible on the public map for 48 hours. Records are kept longer for safety, moderation, and verification purposes; rejected reports and their photos are deleted.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🔐</div>
-          <h3>Access</h3>
-          <p>All traffic is served over HTTPS. Moderator actions (accept/reject) are protected by an access-controlled admin interface.</p>
+          <h3 data-i18n="storage_access_title">Access</h3>
+          <p data-i18n="storage_access_desc">All traffic is served over HTTPS. Moderator actions (accept/reject) are protected by an access-controlled admin interface.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Sharing ======== -->
     <section class="section">
-      <h2 class="section-title">4. Sharing</h2>
+      <h2 class="section-title" data-i18n="sharing_title">4. Sharing</h2>
       <ul class="audience-list">
-        <li><b>Public map</b> — confirmed incidents (including the photo and location) are shown publicly to help others.</li>
-        <li><b>Service providers</b> — we share limited data with the processors that power the service: Roboflow (AI photo analysis), NASA FIRMS (satellite data), Open-Meteo (weather), and EFFIS / Copernicus Emergency Management Service (fire-weather indices).</li>
-        <li><b>No sale</b> — we do not sell your personal data.</li>
-        <li><b>Legal</b> — we may disclose data where required by law or to protect safety.</li>
+        <li data-i18n="sharing_public"><b>Public map</b> — confirmed incidents (including the photo and location) are shown publicly to help others.</li>
+        <li data-i18n="sharing_providers"><b>Service providers</b> — we share limited data with the processors that power the service: Roboflow (AI photo analysis), NASA FIRMS (satellite data), Open-Meteo (weather), and EFFIS / Copernicus Emergency Management Service (fire-weather indices).</li>
+        <li><b data-i18n="sharing_no_sale">No sale</b> — <span data-i18n="sharing_no_sale_desc">we do not sell your personal data.</span></li>
+        <li data-i18n="sharing_legal"><b>Legal</b> — we may disclose data where required by law or to protect safety.</li>
       </ul>
     </section>
 
     <!-- ======== Contact ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">5. Your choices &amp; contact</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="contact_title">5. Your choices &amp; contact</h2>
+      <p class="contact-lead" data-i18n="contact_lead">
         You can request deletion of a report, ask questions about this
         policy, or reach our data protection contact:
       </p>
       <p class="contact-lead" style="font-size: 13px; opacity: 0.8;">
-        <b>Fire-weather data:</b> fuel-moisture and fire-weather indices
-        (FFMC, DMC, ISI) are provided by the European Forest Fire Information
-        System (EFFIS) of the European Commission's Joint Research Centre and
-        the Copernicus Emergency Management Service — © European Union,
-        licensed under CC BY 4.0.
+        <b data-i18n="fire_weather_label">Fire-weather data:</b> <span data-i18n="fire_weather_desc">fuel-moisture and fire-weather indices (FFMC, DMC, ISI) are provided by the European Forest Fire Information System (EFFIS) of the European Commission's Joint Research Centre and the Copernicus Emergency Management Service — © European Union, licensed under CC BY 4.0.</span>
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary"
            href="mailto:contact@pyrae.example?subject=Privacy%20request">
-          ✉️ &nbsp;Email us
+          ✉️ &nbsp;<span data-i18n="contact_email">Email us</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/map">
-          🔥 &nbsp;Explore the live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore the live map</span>
         </a>
       </div>
       <div class="contact-details">
         <div class="contact-detail">
-          <span class="contact-detail-label">Email</span>
+          <span class="contact-detail-label" data-i18n="detail_email_label">Email</span>
           <span class="contact-detail-value">contact@pyrae.example</span>
         </div>
         <div class="contact-detail">
-          <span class="contact-detail-label">Entity</span>
+          <span class="contact-detail-label" data-i18n="detail_entity_label">Entity</span>
           <span class="contact-detail-value">[Your legal entity / name]</span>
         </div>
         <div class="contact-detail">
-          <span class="contact-detail-label">Effective date</span>
+          <span class="contact-detail-label" data-i18n="detail_date_label">Effective date</span>
           <span class="contact-detail-value">[Date]</span>
         </div>
       </div>
-      <p class="contact-lead" style="margin-top: 20px; font-size: 13px; opacity: 0.75;">
-        <!-- TODO: review with legal counsel before public launch. Placeholders to fill: [Date], [Your legal entity / name], and the contact email above. -->
-      </p>
     </section>
 
   </main>
@@ -182,6 +177,210 @@
   <footer class="contact-footer">
     <span class="contact-footer-brand">🔥 Pyrae</span>
   </footer>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Back to map",
+      hero_eyebrow: "PRIVACY POLICY",
+      hero_title_pre: "Privacy",
+      hero_title_accent: "Policy",
+      hero_sub: "Last updated: [Date]. This policy explains what Pyrae collects, why we collect it, and how it is stored, shared, and protected.",
+      collect_title: "1. What we collect",
+      collect_photos_title: "Photos",
+      collect_photos_desc: "Images you upload when reporting a possible fire. Photos are used to verify and screen reports, and confirmed reports may appear publicly on the map.",
+      collect_location_title: "Location",
+      collect_location_desc: "GPS coordinates of your report (from your device or the photo's metadata). We use them to place the fire on the map and model its spread.",
+      collect_device_title: "Time & device data",
+      collect_device_desc: "When the photo was taken, your device's reported heading (if available), and an anonymous session identifier used to group your uploads.",
+      use_title: "2. How we use your data",
+      use_detect: "Fire detection & mapping \u2014 to place reports on the live map and confirm incidents.",
+      use_ai: "AI screening \u2014 photos are analysed by a computer-vision model to detect visible fire and smoke.",
+      use_satellite: "Satellite corroboration \u2014 report locations are cross-checked against NASA FIRMS satellite hotspot data.",
+      use_risk: "Risk modelling \u2014 locations and timestamps feed our Bayesian spread and road-risk estimates.",
+      storage_title: "3. Where data is stored & how long",
+      storage_where_title: "Storage",
+      storage_where_desc: "Photos are stored in Amazon S3 (us-east-1). Reports and map data are stored in a managed PostgreSQL database (Neon, us-east-1).",
+      storage_retention_title: "Retention",
+      storage_retention_desc: "Reports remain visible on the public map for 48 hours. Records are kept longer for safety, moderation, and verification purposes; rejected reports and their photos are deleted.",
+      storage_access_title: "Access",
+      storage_access_desc: "All traffic is served over HTTPS. Moderator actions (accept/reject) are protected by an access-controlled admin interface.",
+      sharing_title: "4. Sharing",
+      sharing_public: "Public map \u2014 confirmed incidents (including the photo and location) are shown publicly to help others.",
+      sharing_providers: "Service providers \u2014 we share limited data with the processors that power the service: Roboflow, NASA FIRMS, Open-Meteo, and EFFIS / Copernicus.",
+      sharing_no_sale: "No sale",
+      sharing_no_sale_desc: "we do not sell your personal data.",
+      sharing_legal: "Legal \u2014 we may disclose data where required by law or to protect safety.",
+      contact_title: "5. Your choices & contact",
+      contact_lead: "You can request deletion of a report, ask questions about this policy, or reach our data protection contact:",
+      fire_weather_label: "Fire-weather data:",
+      fire_weather_desc: "fuel-moisture and fire-weather indices are provided by the European Forest Fire Information System (EFFIS) and the Copernicus Emergency Management Service.",
+      contact_email: "Email us",
+      cta_map: "Explore the live map",
+      detail_email_label: "Email",
+      detail_entity_label: "Entity",
+      detail_date_label: "Effective date"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "DATENSCHUTZ",
+      hero_title_pre: "Datenschutz-",
+      hero_title_accent: "Richtlinie",
+      hero_sub: "Letzte Aktualisierung: [Datum]. Diese Richtlinie erkl\u00e4rt, was Pyrae erhebt, warum wir es erheben und wie es gespeichert, geteilt und gesch\u00fctzt wird.",
+      collect_title: "1. Was wir erheben",
+      collect_photos_title: "Fotos",
+      collect_photos_desc: "Bilder, die Sie beim Melden eines m\u00f6glichen Feuers hochladen. Fotos werden zur Verifizierung und Filterung von Meldungen verwendet.",
+      collect_location_title: "Standort",
+      collect_location_desc: "GPS-Koordinaten Ihres Berichts (vom Ger\u00e4t oder den Metadaten des Fotos). Wir verwenden sie, um das Feuer auf der Karte zu platzieren.",
+      collect_device_title: "Zeit- & Ger\u00e4tedaten",
+      collect_device_desc: "Wann das Foto aufgenommen wurde, die Ger\u00e4teausrichtung (falls verf\u00fcgbar) und eine anonyme Sitzungsidentifikation.",
+      use_title: "2. Wie wir Ihre Daten verwenden",
+      use_detect: "Feuererkennung & Kartierung \u2014 um Meldungen auf der Live-Karte zu platzieren und Vorf\u00e4lle zu best\u00e4tigen.",
+      use_ai: "KI-Sichtung \u2014 Fotos werden von einem Computer-Vision-Modell analysiert.",
+      use_satellite: "Satellitenbest\u00e4tigung \u2014 Meldungsorte werden gegen NASA-FIRMS-Satellitendaten gepr\u00fcft.",
+      use_risk: "Risikomodellierung \u2014 Standorte und Zeitstempel speisen unsere bayesschen Ausbreitungs- und Stra\u00dfenrisiko-Sch\u00e4tzungen.",
+      storage_title: "3. Wo Daten gespeichert werden & wie lange",
+      storage_where_title: "Speicherung",
+      storage_where_desc: "Fotos werden in Amazon S3 (us-east-1) gespeichert. Meldungen und Kartendaten in einer verwalteten PostgreSQL-Datenbank (Neon).",
+      storage_retention_title: "Aufbewahrung",
+      storage_retention_desc: "Meldungen bleiben 48 Stunden auf der \u00f6ffentlichen Karte sichtbar. Aufnahmen werden l\u00e4nger f\u00fcr Sicherheits- und Verifizierungszwecke aufbewahrt.",
+      storage_access_title: "Zugriff",
+      storage_access_desc: "Der gesamte Datenverkehr erfolgt \u00fcber HTTPS. Moderatorenaktionen sind durch eine zugriffsgesch\u00fctzte Admin-Schnittstelle gesch\u00fctzt.",
+      sharing_title: "4. Weitergabe",
+      sharing_public: "\u00d6ffentliche Karte \u2014 best\u00e4tigte Vorf\u00e4lle (einschlie\u00dflich Foto und Standort) werden \u00f6ffentlich angezeigt.",
+      sharing_providers: "Dienstleister \u2014 wir geben begrenzte Daten an Verarbeiter weiter: Roboflow, NASA FIRMS, Open-Meteo und EFFIS / Copernicus.",
+      sharing_no_sale: "Kein Verkauf",
+      sharing_no_sale_desc: "wir verkaufen Ihre pers\u00f6nlichen Daten nicht.",
+      sharing_legal: "Rechtlich \u2014 wir k\u00f6nnen Daten offenlegen, wo es gesetzlich erforderlich ist.",
+      contact_title: "5. Ihre Auswahlm\u00f6glichkeiten & Kontakt",
+      contact_lead: "Sie k\u00f6nnen L\u00f6schung eines Berichts anfordern, Fragen zu dieser Richtlinie stellen oder unseren Datenschutzkontakt erreichen:",
+      fire_weather_label: "Wetterdaten:",
+      fire_weather_desc: "Brennstoff-Feuchtigkeits- und Feuerwetterindizes werden vom European Forest Fire Information System (EFFIS) und dem Copernicus Emergency Management Service bereitgestellt.",
+      contact_email: "E-Mail senden",
+      cta_map: "Live-Karte erkunden",
+      detail_email_label: "E-Mail",
+      detail_entity_label: "Rechtseinheit",
+      detail_date_label: "Geltungsdatum"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "POLITIQUE DE CONFIDENTIALIT\u00c9",
+      hero_title_pre: "Politique de",
+      hero_title_accent: "confidentialit\u00e9",
+      hero_sub: "Derni\u00e8re mise \u00e0 jour : [Date]. Cette politique explique ce que Pyrae collecte, pourquoi nous le collectons, et comment il est stock\u00e9, partag\u00e9 et prot\u00e9g\u00e9.",
+      collect_title: "1. Ce que nous collectons",
+      collect_photos_title: "Photos",
+      collect_photos_desc: "Images que vous t\u00e9l\u00e9chargez lors du signalement d\u2019un incendie possible. Les photos servent \u00e0 v\u00e9rifier et filtrer les signalements.",
+      collect_location_title: "Position",
+      collect_location_desc: "Coordonn\u00e9es GPS de votre signalement (de votre appareil ou des m\u00e9tadonn\u00e9es de la photo). Nous les utilisons pour placer l\u2019incendie sur la carte.",
+      collect_device_title: "Donn\u00e9es temporelles et d\u2019appareil",
+      collect_device_desc: "Quand la photo a \u00e9t\u00e9 prise, l\u2019orientation de votre appareil (si disponible) et un identifiant de session anonyme.",
+      use_title: "2. Comment nous utilisons vos donn\u00e9es",
+      use_detect: "D\u00e9tection et cartographie des incendies \u2014 pour placer les signalements sur la carte en direct.",
+      use_ai: "Analyse IA \u2014 les photos sont analys\u00e9es par un mod\u00e8le de vision par ordinateur.",
+      use_satellite: "Corroboration satellitaire \u2014 les positions sont v\u00e9rifi\u00e9es contre les donn\u00e9es NASA FIRMS.",
+      use_risk: "Mod\u00e9lisation des risques \u2014 les positions et timestamps alimentent nos estimations bay\u00e9siennes.",
+      storage_title: "3. Où les donn\u00e9es sont stock\u00e9es et pendant combien de temps",
+      storage_where_title: "Stockage",
+      storage_where_desc: "Les photos sont stock\u00e9es dans Amazon S3 (us-east-1). Les signalements et donn\u00e9es cartographiques dans une base PostgreSQL (Neon).",
+      storage_retention_title: "R\u00e9tention",
+      storage_retention_desc: "Les signalements restent visibles 48 heures sur la carte publique. Les enregistrements sont conserv\u00e9s plus longtemps pour la s\u00e9curit\u00e9 et la v\u00e9rification.",
+      storage_access_title: "Acc\u00e8s",
+      storage_access_desc: "Tout le trafic est servi via HTTPS. Les actions de mod\u00e9ration sont prot\u00e9g\u00e9es par une interface administrateur contr\u00f4l\u00e9e.",
+      sharing_title: "4. Partage",
+      sharing_public: "Carte publique \u2014 les incidents confirm\u00e9s (y compris photo et position) sont affich\u00e9s publiquement.",
+      sharing_providers: "Prestataires \u2014 nous partageons des donn\u00e9es limit\u00e9es avec Roboflow, NASA FIRMS, Open-Meteo et EFFIS / Copernicus.",
+      sharing_no_sale: "Pas de vente",
+      sharing_no_sale_desc: "nous ne vendons pas vos donn\u00e9es personnelles.",
+      sharing_legal: "Juridique \u2014 nous pouvons divulguer des donn\u00e9es lorsque la loi l\u2019exige.",
+      contact_title: "5. Vos choix et contact",
+      contact_lead: "Vous pouvez demander la suppression d\u2019un signalement, poser des questions ou contacter notre responsable de la protection des donn\u00e9es :",
+      fire_weather_label: "Donn\u00e9es m\u00e9t\u00e9o-feu :",
+      fire_weather_desc: "Les indices de temps et de combustible sont fournis par EFFIS et le service Copernicus.",
+      contact_email: "Envoyez-nous un e-mail",
+      cta_map: "Explorer la carte en direct",
+      detail_email_label: "E-mail",
+      detail_entity_label: "Entit\u00e9",
+      detail_date_label: "Date d\u2019entr\u00e9e en vigueur"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Volver al mapa",
+      hero_eyebrow: "POL\u00cdTICA DE PRIVACIDAD",
+      hero_title_pre: "Pol\u00edtica de",
+      hero_title_accent: "privacidad",
+      hero_sub: "\u00daltima actualizaci\u00f3n: [Fecha]. Esta pol\u00edtica explica qu\u00e9 recopila Pyrae, por qu\u00e9 lo recopila y c\u00f3mo se almacena, comparte y protege.",
+      collect_title: "1. Qu\u00e9 recopilamos",
+      collect_photos_title: "Fotos",
+      collect_photos_desc: "Im\u00e1genes que sube al reportar un posible incendio. Las fotos se usan para verificar y filtrar reportes.",
+      collect_location_title: "Ubicaci\u00f3n",
+      collect_location_desc: "Coordenadas GPS de su reporte (de su dispositivo o los metadatos de la foto). Las usamos para colocar el incendio en el mapa.",
+      collect_device_title: "Datos de tiempo y dispositivo",
+      collect_device_desc: "Cu\u00e1ndo se tom\u00f3 la foto, la orientaci\u00f3n del dispositivo (si est\u00e1 disponible) y un identificador de sesi\u00f3n an\u00f3nimo.",
+      use_title: "2. C\u00f3mo usamos sus datos",
+      use_detect: "Detecci\u00f3n y mapeo de incendios \u2014 para colocar reportes en el mapa en tiempo real.",
+      use_ai: "Filtrado con IA \u2014 las fotos son analizadas por un modelo de visi\u00f3n por computadora.",
+      use_satellite: "Corroboraci\u00f3n satelital \u2014 las ubicaciones se verifican contra datos NASA FIRMS.",
+      use_risk: "Modelado de riesgos \u2014 las ubicaciones y marcas de tiempo alimentan nuestras estimaciones bayesianas.",
+      storage_title: "3. D\u00f3nde se almacenan los datos y por cu\u00e1nto tiempo",
+      storage_where_title: "Almacenamiento",
+      storage_where_desc: "Las fotos se almacenan en Amazon S3 (us-east-1). Los reportes y datos del mapa en una base de datos PostgreSQL (Neon).",
+      storage_retention_title: "Retenci\u00f3n",
+      storage_retention_desc: "Los reportes permanecen visibles 48 horas en el mapa p\u00fablico. Los registros se conservan m\u00e1s tiempo para seguridad y verificaci\u00f3n.",
+      storage_access_title: "Acceso",
+      storage_access_desc: "Todo el tr\u00e1fico se sirve por HTTPS. Las acciones de moderaci\u00f3n est\u00e1n protegidas por una interfaz de administrador con control de acceso.",
+      sharing_title: "4. Compartir",
+      sharing_public: "Mapa p\u00fablico \u2014 los incidentes confirmados (incluyendo foto y ubicaci\u00f3n) se muestran p\u00fablicamente.",
+      sharing_providers: "Proveedores \u2014 compartimos datos limitados con Roboflow, NASA FIRMS, Open-Meteo y EFFIS / Copernicus.",
+      sharing_no_sale: "No venta",
+      sharing_no_sale_desc: "no vendemos sus datos personales.",
+      sharing_legal: "Legal \u2014 podemos divulgar datos cuando la ley lo requiera.",
+      contact_title: "5. Sus opciones y contacto",
+      contact_lead: "Puede solicitar la eliminaci\u00f3n de un reporte, hacer preguntas o contactar a nuestro responsable de protecci\u00f3n de datos:",
+      fire_weather_label: "Datos meteorol\u00f3gicos:",
+      fire_weather_desc: "\u00cdndices de tiempo y combustible proporcionados por EFFIS y el servicio Copernicus.",
+      contact_email: "Env\u00edenos un email",
+      cta_map: "Explorar el mapa en vivo",
+      detail_email_label: "Email",
+      detail_entity_label: "Entidad",
+      detail_date_label: "Fecha efectiva"
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "POLITYKA PRYWATNOŚCI",
+      hero_title_pre: "Twoja",
+      hero_title_accent: "prywatność",
+      hero_sub: "Jak zbieramy, wykorzystujemy i chronimy Twoje dane.",
+      section_intro_title: "Wprowadzenie",
+      section_intro_p1: "Pyrae szanuje Twoją prywatność. Niniejsza polityka wyjaśnia, jakie dane zbieramy, jak je wykorzystujemy i jakie masz prawa.",
+      section_data_title: "Jakie dane zbieramy",
+      section_data_p1: "Raporty obywateli: zdjęcia, lokalizację GPS i opis pożaru, który zgłaszasz.",
+      section_data_p2: "Dane satelitarne: Publiczne dane NASA FIRMS VIIRS o gorących punktach, których używamy do weryfikacji raportów.",
+      section_data_p3: "Dane techniczne: Adres IP, typ przeglądarki i dane analityczne do utrzymania usługi.",
+      section_use_title: "Jak wykorzystujemy dane",
+      section_use_p1: "Przetwarzamy raporty, aby wykrywać i weryfikować pożary na mapie w czasie rzeczywistym.",
+      section_use_p2: "Używamy danych satelitarnych do korygowania i uzupełniania raportów obywateli.",
+      section_use_p3: "Dane techniczne pomagają nam utrzymywać i ulepszać działanie platformy.",
+      section_share_title: "Udostępnianie danych",
+      section_share_p1: "Nie sprzedajemy ani nie udostępniamy danych osobowych stronom trzecim.",
+      section_share_p2: "Dane o pożarach (bez danych osobowych) mogą być udostępniane instytucjom ratunkowym i badawczym.",
+      section_rights_title: "Twoje prawa",
+      section_rights_p1: "Masz prawo dostępu do swoich danych, ich usunięcia i wycofania zgody na ich przetwarzanie.",
+      section_contact_title: "Kontakt w sprawie prywatności",
+      section_contact_p1: "W pywatnościowych sprawach skontaktuj się z nami pod adresem: prywatnosc@pyrae.co",
+      detail_title: "Szczegóły",
+      detail_entity_label: "Podmiot",
+      detail_date_label: "Data wejścia w życie"
+    }
+  });
+  </script>
 
 </body>
 </html>

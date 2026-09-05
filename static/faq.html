@@ -68,7 +68,7 @@
         "name": "What is the Fire Grid heatmap?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "The Fire Grid is a Bayesian probability surface built from all evidence — satellite hotspots, citizen reports and agency alerts — showing how likely each area is to be burning and where a fire may spread. The stats panel shows burned area (cells above 25% probability — the active fire zone) and risk area (cells above 5% — the broader spread potential)."
+          "text": "The Fire Grid is a Bayesian probability surface built from all evidence — satellite hotspots, citizen reports and agency alerts — showing how likely each area is to be burning and where a fire may spread."
         }
       },
       {
@@ -121,21 +121,23 @@
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main">
 
     <!-- ======== Hero ======== -->
     <section class="hero">
-      <p class="hero-eyebrow">HELP &amp; FEEDBACK</p>
-      <h1 class="hero-title">Frequently asked <span class="hero-accent">questions</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">HELP &amp; FEEDBACK</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Frequently asked</span> <span class="hero-accent" data-i18n="hero_title_accent">questions</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Answers to the most common questions about Pyrae — and a place to
         send your suggestions, bug reports, and feedback.
       </p>
@@ -143,11 +145,11 @@
 
     <!-- ======== FAQ ======== -->
     <section class="section">
-      <h2 class="section-title">Questions</h2>
+      <h2 class="section-title" data-i18n="questions_title">Questions</h2>
       <div class="faq-list">
         <details class="faq-item" open>
-          <summary>What is Pyrae?</summary>
-          <p>
+          <summary data-i18n="q1_summary">What is Pyrae?</summary>
+          <p data-i18n="q1_answer">
             Pyrae is an early wildfire detection platform. It combines
             photo reports from citizens, AI fire/smoke analysis, live NASA
             satellite data, and predictive spread modelling into a single
@@ -155,8 +157,8 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>How do I report a fire?</summary>
-          <p>
+          <summary data-i18n="q2_summary">How do I report a fire?</summary>
+          <p data-i18n="q2_answer">
             Tap the <b>Report</b> button on the map, attach a photo of what
             you see, and let the app use your location (or pick the spot
             manually). Your report is screened automatically and, if
@@ -164,8 +166,8 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>How accurate is the detection?</summary>
-          <p>
+          <summary data-i18n="q3_summary">How accurate is the detection?</summary>
+          <p data-i18n="q3_answer">
             Every photo is screened by a computer-vision model that outputs
             confidence scores for fire and smoke. Reports are additionally
             cross-checked against satellite hotspot data. High-confidence
@@ -175,16 +177,16 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>Are my photos and location public?</summary>
-          <p>
+          <summary data-i18n="q4_summary">Are my photos and location public?</summary>
+          <p data-i18n="q4_answer">
             Confirmed reports — including the photo and location — are shown
             publicly on the map to help others. You can see the full details
             in our <a href="/privacy">privacy policy</a>.
           </p>
         </details>
         <details class="faq-item">
-          <summary>Why do some fires disappear from the map?</summary>
-          <p>
+          <summary data-i18n="q5_summary">Why do some fires disappear from the map?</summary>
+          <p data-i18n="q5_answer">
             Fires disappear when they stop being detected — by satellite, by
             new reports, or both — for an extended period. That usually means
             the fire has been contained or is no longer active. Fires also
@@ -192,14 +194,14 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>What is the "Fire Grid" heatmap?</summary>
-          <p>
+          <summary data-i18n="q6_summary">What is the "Fire Grid" heatmap?</summary>
+          <p data-i18n="q6_answer">
             The Fire Grid is a Bayesian probability field showing where each
             fire is likely to spread. The hotter the color, the higher the
             model's confidence that area will burn, based on wind, terrain,
             fuel moisture, and observed detections.
           </p>
-          <p>
+          <p data-i18n="q6_answer2">
             The stats panel shows two area metrics derived from this grid:
             <b>Burned area</b> counts cells with a burn probability above
             25% — the high-confidence active fire zone — while
@@ -209,8 +211,8 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>Who is Pyrae for?</summary>
-          <p>
+          <summary data-i18n="q7_summary">Who is Pyrae for?</summary>
+          <p data-i18n="q7_answer">
             Everyone: citizens who want to report what they see, communities
             near fire-prone areas, and professionals — utilities, forestry
             operators, and emergency agencies — who need an earlier common
@@ -218,8 +220,8 @@
           </p>
         </details>
         <details class="faq-item">
-          <summary>Is Pyrae an emergency service?</summary>
-          <p>
+          <summary data-i18n="q8_summary">Is Pyrae an emergency service?</summary>
+          <p data-i18n="q8_answer">
             No. Pyrae is an early-warning and situational-awareness tool. If
             you are in danger, always call your local emergency number first.
           </p>
@@ -229,40 +231,40 @@
 
     <!-- ======== Feedback form ======== -->
     <section class="section feedback-section">
-      <h2 class="section-title">Suggestions, bug reports &amp; questions</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="feedback_title">Suggestions, bug reports &amp; questions</h2>
+      <p class="contact-lead" data-i18n="feedback_lead">
         Found a bug? Have an idea for a feature? Want to ask something not
         covered above? Let us know — every submission is read.
       </p>
 
       <form id="feedback-form" class="feedback-form" novalidate>
         <div class="feedback-field">
-          <label for="feedback-category">Type</label>
+          <label for="feedback-category" data-i18n="feedback_type_label">Type</label>
           <select id="feedback-category" name="category" required>
-            <option value="suggestion">💡 Suggestion</option>
-            <option value="bug">🐞 Bug report</option>
-            <option value="question">❓ Question</option>
-            <option value="other">🗂️ Other</option>
+            <option value="suggestion">💡 <span data-i18n="feedback_type_suggestion">Suggestion</span></option>
+            <option value="bug">🐞 <span data-i18n="feedback_type_bug">Bug report</span></option>
+            <option value="question">❓ <span data-i18n="feedback_type_question">Question</span></option>
+            <option value="other">🗂️ <span data-i18n="feedback_type_other">Other</span></option>
           </select>
         </div>
 
         <div class="feedback-row">
           <div class="feedback-field">
-            <label for="feedback-name">Name <span class="feedback-optional">(optional)</span></label>
+            <label for="feedback-name"><span data-i18n="feedback_name_label">Name</span> <span class="feedback-optional" data-i18n="feedback_optional">(optional)</span></label>
             <input id="feedback-name" name="name" type="text" maxlength="120"
-                   placeholder="How should we address you?" autocomplete="name" />
+                   data-i18n-placeholder="feedback_name_placeholder" placeholder="How should we address you?" autocomplete="name" />
           </div>
           <div class="feedback-field">
-            <label for="feedback-email">Email <span class="feedback-optional">(optional)</span></label>
+            <label for="feedback-email"><span data-i18n="feedback_email_label">Email</span> <span class="feedback-optional" data-i18n="feedback_optional2">(optional)</span></label>
             <input id="feedback-email" name="email" type="email" maxlength="200"
                    placeholder="you@example.com" autocomplete="email" />
           </div>
         </div>
 
         <div class="feedback-field">
-          <label for="feedback-message">Message</label>
+          <label for="feedback-message" data-i18n="feedback_message_label">Message</label>
           <textarea id="feedback-message" name="message" rows="6" maxlength="4000"
-                    placeholder="Tell us what happened, what you'd like to see, or what you're wondering about…"
+                    data-i18n-placeholder="feedback_message_placeholder" placeholder="Tell us what happened, what you'd like to see, or what you're wondering about\u2026"
                     required></textarea>
         </div>
 
@@ -271,7 +273,7 @@
 
         <div class="feedback-actions">
           <button type="submit" class="contact-btn contact-btn--primary feedback-submit">
-            ✉️ &nbsp;Send feedback
+            ✉️ &nbsp;<span data-i18n="feedback_submit">Send feedback</span>
           </button>
         </div>
 
@@ -284,6 +286,219 @@
   <footer class="contact-footer">
     <span class="contact-footer-brand">🔥 Pyrae</span>
   </footer>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Back to map",
+      hero_eyebrow: "HELP & FEEDBACK",
+      hero_title_pre: "Frequently asked",
+      hero_title_accent: "questions",
+      hero_sub: "Answers to the most common questions about Pyrae \u2014 and a place to send your suggestions, bug reports, and feedback.",
+      questions_title: "Questions",
+      q1_summary: "What is Pyrae?",
+      q1_answer: "Pyrae is an early wildfire detection platform. It combines photo reports from citizens, AI fire/smoke analysis, live NASA satellite data, and predictive spread modelling into a single live map of active fires and their risk.",
+      q2_summary: "How do I report a fire?",
+      q2_answer: "Tap the Report button on the map, attach a photo of what you see, and let the app use your location (or pick the spot manually). Your report is screened automatically and, if confirmed, appears on the map.",
+      q3_summary: "How accurate is the detection?",
+      q3_answer: "Every photo is screened by a computer-vision model that outputs confidence scores for fire and smoke. Reports are additionally cross-checked against satellite hotspot data. High-confidence detections are shown as fires; lower-confidence ones are flagged for review.",
+      q4_summary: "Are my photos and location public?",
+      q4_answer: "Confirmed reports \u2014 including the photo and location \u2014 are shown publicly on the map to help others.",
+      q5_summary: "Why do some fires disappear from the map?",
+      q5_answer: "Fires disappear when they stop being detected \u2014 by satellite, by new reports, or both \u2014 for an extended period. That usually means the fire has been contained or is no longer active.",
+      q6_summary: "What is the \"Fire Grid\" heatmap?",
+      q6_answer: "The Fire Grid is a Bayesian probability field showing where each fire is likely to spread. The hotter the color, the higher the model\u2019s confidence that area will burn.",
+      q6_answer2: "The stats panel shows two area metrics: Burned area (cells above 25% probability) and Risk area (cells above 5%, the broader spread zone).",
+      q7_summary: "Who is Pyrae for?",
+      q7_answer: "Everyone: citizens who want to report what they see, communities near fire-prone areas, and professionals \u2014 utilities, forestry operators, and emergency agencies.",
+      q8_summary: "Is Pyrae an emergency service?",
+      q8_answer: "No. Pyrae is an early-warning and situational-awareness tool. If you are in danger, always call your local emergency number first.",
+      feedback_title: "Suggestions, bug reports & questions",
+      feedback_lead: "Found a bug? Have an idea for a feature? Want to ask something not covered above? Let us know \u2014 every submission is read.",
+      feedback_type_label: "Type",
+      feedback_type_suggestion: "Suggestion",
+      feedback_type_bug: "Bug report",
+      feedback_type_question: "Question",
+      feedback_type_other: "Other",
+      feedback_name_label: "Name",
+      feedback_optional: "(optional)",
+      feedback_name_placeholder: "How should we address you?",
+      feedback_email_label: "Email",
+      feedback_optional2: "(optional)",
+      feedback_message_label: "Message",
+      feedback_message_placeholder: "Tell us what happened, what you\u2019d like to see, or what you\u2019re wondering about\u2026",
+      feedback_submit: "Send feedback"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "HILFE & FEEDBACK",
+      hero_title_pre: "H\u00e4ufig gestellte",
+      hero_title_accent: "Fragen",
+      hero_sub: "Antworten auf die h\u00e4ufigsten Fragen zu Pyrae \u2014 und ein Ort f\u00fcr Ihre Vorschl\u00e4ge, Fehlerberichte und Feedback.",
+      questions_title: "Fragen",
+      q1_summary: "Was ist Pyrae?",
+      q1_answer: "Pyrae ist eine Plattform zur fr\u00fchen Waldbranderkennung. Sie kombiniert Fotomeldungen von B\u00fcrgern, KI-Feuer/Rauch-Analyse, Live-NASA-Satellitendaten und vorausschauendes Ausbreitungsmodell in einer einzigen Live-Karte.",
+      q2_summary: "Wie melde ich ein Feuer?",
+      q2_answer: "Tippen Sie auf die Schaltfl\u00e4che Melden auf der Karte, f\u00fcgen Sie ein Foto bei und lassen Sie die App Ihren Standort verwenden (oder w\u00e4hlen Sie den Ort manuell).",
+      q3_summary: "Wie genau ist die Erkennung?",
+      q3_answer: "Jedes Foto wird von einem Computer-Vision-Modell auf Flammen und Rauch gepr\u00fcft. Meldungen werden zus\u00e4tzlich gegen Satelliten-Hotspot-Daten gepr\u00fcft.",
+      q4_summary: "Sind meine Fotos und mein Standort \u00f6ffentlich?",
+      q4_answer: "Best\u00e4tigte Meldungen \u2014 einschlie\u00dflich Foto und Standort \u2014 werden \u00f6ffentlich auf der Karte angezeigt, um anderen zu helfen.",
+      q5_summary: "Warum verschwinden manche Feuer von der Karte?",
+      q5_answer: "Feuer verschwinden, wenn sie f\u00fcr l\u00e4ngere Zeit nicht mehr erkannt werden \u2014 weder durch Satelliten noch durch neue Meldungen.",
+      q6_summary: "Was ist die Feuerraster-Heatmap?",
+      q6_answer: "Das Feuerraster ist ein bayessches Wahrscheinlichkeitsfeld, das zeigt, wohin sich jedes Feuer wahrscheinlich ausbreitet.",
+      q6_answer2: "Das Statistik-Panel zeigt zwei Fl\u00e4chenmetriken: Verbrannte Fl\u00e4che (Zellen \u00fcber 25%) und Risikofl\u00e4che (Zellen \u00fcber 5%).",
+      q7_summary: "F\u00fcr wen ist Pyrae?",
+      q7_answer: "F\u00fcr alle: B\u00fcrger, die Feuer melden m\u00f6chten, Gemeinschaften in brandgef\u00e4hrdeten Gebieten und Fachleute \u2014 Versorger, Forstwirte und Einsatzkr\u00e4fte.",
+      q8_summary: "Ist Pyrae ein Notdienst?",
+      q8_answer: "Nein. Pyrae ist ein Fr\u00fchwarn- und Situationsbewusstseinswerkzeug. Rufen Sie bei Gefahr immer zuerst Ihre lokale Notrufnummer an.",
+      feedback_title: "Vorschl\u00e4ge, Fehlerberichte & Fragen",
+      feedback_lead: "Einen Fehler gefunden? Eine Feature-Idee? Etwas gefragt, das oben nicht beantwortet wurde? Lassen Sie es uns wissen.",
+      feedback_type_label: "Typ",
+      feedback_type_suggestion: "Vorschlag",
+      feedback_type_bug: "Fehlerbericht",
+      feedback_type_question: "Frage",
+      feedback_type_other: "Sonstiges",
+      feedback_name_label: "Name",
+      feedback_optional: "(optional)",
+      feedback_name_placeholder: "Wie sollen wir Sie ansprechen?",
+      feedback_email_label: "E-Mail",
+      feedback_optional2: "(optional)",
+      feedback_message_label: "Nachricht",
+      feedback_message_placeholder: "Erz\u00e4hlen Sie uns, was passiert ist, was Sie sich w\u00fcnschen oder wor\u00fcber Sie nachdenken\u2026",
+      feedback_submit: "Feedback senden"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "AIDE & COMMENTAIRES",
+      hero_title_pre: "Questions",
+      hero_title_accent: "fr\u00e9quentes",
+      hero_sub: "R\u00e9ponses aux questions les plus fr\u00e9quentes sur Pyrae \u2014 et un endroit pour envoyer vos suggestions, rapports de bugs et commentaires.",
+      questions_title: "Questions",
+      q1_summary: "Qu\u2019est-ce que Pyrae ?",
+      q1_answer: "Pyrae est une plateforme de d\u00e9tection pr\u00e9coce d\u2019incendies. Elle combine signalements photo de citoyens, analyse IA feux/fum\u00e9e, donn\u00e9es satellite NASA en direct et mod\u00e9lisation pr\u00e9dictive.",
+      q2_summary: "Comment signaler un incendie ?",
+      q2_answer: "Appuyez sur le bouton Signaler sur la carte, joignez une photo et laissez l\u2019application utiliser votre position (ou choisissez manuellement l\u2019emplacement).",
+      q3_summary: "La d\u00e9tection est-elle fiable ?",
+      q3_answer: "Chaque photo est v\u00e9rifi\u00e9e par un mod\u00e8le de vision par ordinateur. Les signalements sont \u00e9galement recoup\u00e9s avec les donn\u00e9es de points chauds satellitaires.",
+      q4_summary: "Mes photos et ma position sont-elles publiques ?",
+      q4_answer: "Les signalements confirm\u00e9s \u2014 photo et position incluses \u2014 sont affich\u00e9s publiquement sur la carte pour aider les autres.",
+      q5_summary: "Pourquoi certains incendies disparaissent-ils de la carte ?",
+      q5_answer: "Les incendies disparaissent lorsqu\u2019ils ne sont plus d\u00e9tect\u00e9s \u2014 par satellite, par de nouveaux signalements, ou les deux \u2014 pendant une p\u00e9riode prolong\u00e9e.",
+      q6_summary: "Qu\u2019est-ce que la carte thermique du Grille du Feu ?",
+      q6_answer: "La Grille du Feu est un champ bay\u00e9sien de probabilit\u00e9 montrant o\u00f9 chaque incendie est susceptible de se propager.",
+      q6_answer2: "Le panneau de stats montre deux m\u00e9triques : Surface br\u00fbl\u00e9e (cellules au-dessus de 25%) et Surface \u00e0 risque (cellules au-dessus de 5%).",
+      q7_summary: "Pour qui est Pyrae ?",
+      q7_answer: "Pour tous : citoyens qui veulent signaler ce qu\u2019ils voient, communaut\u00e9s pr\u00e8s de zones \u00e0 risque, et professionnels \u2014 services publics, forestiers et secours.",
+      q8_summary: "Pyrae est-il un service d\u2019urgence ?",
+      q8_answer: "Non. Pyrae est un outil d\u2019alerte pr\u00e9coce. En cas de danger, appelez toujours votre num\u00e9ro d\u2019urgence local en priorit\u00e9.",
+      feedback_title: "Suggestions, rapports de bugs & questions",
+      feedback_lead: "Un bug trouv\u00e9 ? Une id\u00e9e de fonctionnalit\u00e9 ? Une question non couverte ci-dessus ? Faites-le nous savoir.",
+      feedback_type_label: "Type",
+      feedback_type_suggestion: "Suggestion",
+      feedback_type_bug: "Rapport de bug",
+      feedback_type_question: "Question",
+      feedback_type_other: "Autre",
+      feedback_name_label: "Nom",
+      feedback_optional: "(optionnel)",
+      feedback_name_placeholder: "Comment devrions-nous vous appeler ?",
+      feedback_email_label: "E-mail",
+      feedback_optional2: "(optionnel)",
+      feedback_message_label: "Message",
+      feedback_message_placeholder: "Dites-nous ce qui s\u2019est pass\u00e9, ce que vous aimeriez voir, ou ce qui vous intrigue\u2026",
+      feedback_submit: "Envoyer le commentaire"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Volver al mapa",
+      hero_eyebrow: "AYUDA Y COMENTARIOS",
+      hero_title_pre: "Preguntas",
+      hero_title_accent: "frecuentes",
+      hero_sub: "Respuestas a las preguntas m\u00e1s comunes sobre Pyrae \u2014 y un lugar para enviar sus sugerencias, reportes de errores y comentarios.",
+      questions_title: "Preguntas",
+      q1_summary: "\u00bfQu\u00e9 es Pyrae?",
+      q1_answer: "Pyrae es una plataforma de detecci\u00f3n temprana de incendios. Combina reportes fotogr\u00e1ficos ciudadanos, an\u00e1lisis IA de fuego/humo, datos satelitales NASA en tiempo real y modelado predictivo de propagaci\u00f3n.",
+      q2_summary: "\u00bfC\u00f3mo reporto un incendio?",
+      q2_answer: "Toque el bot\u00f3n Reportar en el mapa, adjunte una foto y deje que la app use su ubicaci\u00f3n (o elija el punto manualmente).",
+      q3_summary: "\u00bfQu\u00e9 tan precisa es la detecci\u00f3n?",
+      q3_answer: "Cada foto es revisada por un modelo de visi\u00f3n por computadora. Los reportes adem\u00e1s se verifican contra datos de puntos calientes satelitales.",
+      q4_summary: "\u00bfMis fotos y ubicaci\u00f3n son p\u00fablicas?",
+      q4_answer: "Los reportes confirmados \u2014 incluyendo foto y ubicaci\u00f3n \u2014 se muestran p\u00fablicamente en el mapa para ayudar a otros.",
+      q5_summary: "\u00bfPor qu\u00e9 algunos incendios desaparecen del mapa?",
+      q5_answer: "Los incendios desaparecen cuando dejan de ser detectados \u2014 por sat\u00e9lite, por nuevos reportes, o ambos \u2014 durante un per\u00edodo prolongado.",
+      q6_summary: "\u00bfQu\u00e9 es el mapa de calor de la Cuadr\u00edcula del Fuego?",
+      q6_answer: "La Cuadr\u00edcula del Fuego es un campo bayesiano de probabilidad que muestra d\u00f3nde es probable que se propague cada incendio.",
+      q6_answer2: "El panel de estad\u00edsticas muestra dos m\u00e9tricas: Superficie quemada (celdas por encima del 25%) y Superficie en riesgo (celdas por encima del 5%).",
+      q7_summary: "\u00bfPara qui\u00e9n es Pyrae?",
+      q7_answer: "Para todos: ciudadanos que quieren reportar lo que ven, comunidades pr\u00f3ximas a zonas propensas a incendios, y profesionales \u2014 servicios p\u00fablicos, forestales y de emergencia.",
+      q8_summary: "\u00bfPyrae es un servicio de emergencia?",
+      q8_answer: "No. Pyrae es una herramienta de alerta temprana. En caso de peligro, llame siempre primero a su n\u00famero de emergencia local.",
+      feedback_title: "Sugerencias, reportes de errores y preguntas",
+      feedback_lead: "\u00bfEncontr\u00f3 un error? \u00bfTiene una idea de funcionalidad? \u00bfQuiere preguntar algo no cubierto arriba? H\u00e1ganoslo saber.",
+      feedback_type_label: "Tipo",
+      feedback_type_suggestion: "Sugerencia",
+      feedback_type_bug: "Reporte de error",
+      feedback_type_question: "Pregunta",
+      feedback_type_other: "Otro",
+      feedback_name_label: "Nombre",
+      feedback_optional: "(opcional)",
+      feedback_name_placeholder: "\u00bfC\u00f3mo le gustar\u00eda que lo llam\u00e1ramos?",
+      feedback_email_label: "Email",
+      feedback_optional2: "(opcional)",
+      feedback_message_label: "Mensaje",
+      feedback_message_placeholder: "Cu\u00e9ntenos qu\u00e9 pas\u00f3, qu\u00e9 le gustar\u00eda ver, o sobre qu\u00e9 tiene curiosidad\u2026",
+      feedback_submit: "Enviar comentario"
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "POMOC I OPINIE",
+      hero_title_pre: "Często zadawane",
+      hero_title_accent: "pytania",
+      hero_sub: "Odpowiedzi na najczęstsze pytania o Pyrae \u2014 i miejsce, aby przesłać sugestie, zgłoszenia błędów i opinie.",
+      questions_title: "Pytania",
+      q1_summary: "Czym jest Pyrae?",
+      q1_answer: "Pyrae to platforma wczesnego wykrywania pożarów lasów. Łączy raporty fotograficzne obywateli, analizę AI ognia/dymu, dane satelitarne NASA na żywo i predykcyjne modelowanie rozprzestrzeniania na jednej mapie aktywnych pożarów i ich ryzyka.",
+      q2_summary: "Jak zgłosić pożar?",
+      q2_answer: "Dotknij przycisku Zgłoś na mapie, dołącz zdjęcie tego, co widzisz, i zezwól aplikacji na użycie Twojej lokalizacji (lub wybierz miejsce ręcznie). Twoje zgłoszenie jest automatycznie sprawdzane i po potwierdzeniu pojawia się na mapie.",
+      q3_summary: "Jak dokładne jest wykrywanie?",
+      q3_answer: "Każde zdjęcie jest sprawdzane przez model wizji komputerowej, który generuje wyniki pewnością ognia i dymu. Zgłoszenia są dodatkowo weryfikowane wobec danych o gorących punktach satelitarnych. Wykrycia o wysokiej pewności są wyświetlane jako pożary; te o niższej są oznaczane do przeglądu.",
+      q4_summary: "Czy moje zdjęcia i lokalizacja są publiczne?",
+      q4_answer: "Potwierdzone zgłoszenia \u2014 w tym zdjęcie i lokalizacja \u2014 są publicznie wyświetlane na mapie, aby pomóc innym.",
+      q5_summary: "Dlaczego niektóre pożary znikają z mapy?",
+      q5_answer: "Pożary znikają, gdy przestają być wykrywane \u2014 przez satelitę, nowe zgłoszenia lub oba \u2014 przez dłuższy czas. Zazwyczaj oznacza to, że pożar został opanowany lub nie jest już aktywny. Pożary znikają również po 48 godzinach na publicznej mapie.",
+      q6_summary: "Czym jest mapa cieplna \u201eSiatki Pożarów\u201d?",
+      q6_answer: "Siatka Pożarów to pole prawdopodobieństwa bayesowskiego pokazujące, gdzie każdy pożar może się rozprzestrzeniać. Im gorętszy kolor, tym większe przekonanie modelu, że dany obszar zostanie spalony, w oparciu o wiatr, teren, wilgotność paliwa i zaobserwowane wykrycia.",
+      q6_answer2: "Panel statystyk wyświetla dwa wskaźniki powierzchni: Powierzchnia spalona (komórki z prawdopodobieństwem powyżej 25%) i Powierzchnia ryzyka (komórki powyżej 5%, szersza strefa rozprzestrzeniania). Razem pokazują rdzeń pożaru i jego potencjalny zasięg.",
+      q7_summary: "Dla kogo jest Pyrae?",
+      q7_answer: "Dla wszystkich: obywateli, którzy chcą zgłaszać to, co widzą, społeczności w pobliżu obszarów podatnych na pożary oraz profesjonalistów \u2014 służby utilistyczne, leśnicy i służby ratunkowe, którzy potrzebują wcześniejszego wspólnego obrazu sytuacyjnego.",
+      q8_summary: "Czy Pyrae jest służbą ratunkową?",
+      q8_answer: "Nie. Pyrae jest narzędziem wczesnego ostrzegania i świadomości sytuacyjnej. Jeśli jesteś w niebezpieczeństwie, zawsze zadzwoń najpierw pod lokalny numer alarmowy.",
+      feedback_title: "Sugestie, zgłoszenia błędów & pytania",
+      feedback_lead: "Znalazłeś błąd? Masz pomysł na funkcję? Chcesz zapytać o coś, czego nie ma powyżej? Daj nam znać \u2014 każde zgłoszenie jest czytane.",
+      feedback_type_label: "Typ",
+      feedback_type_suggestion: "Sugestia",
+      feedback_type_bug: "Zgłoszenie błędu",
+      feedback_type_question: "Pytanie",
+      feedback_type_other: "Inne",
+      feedback_name_label: "Imię",
+      feedback_optional: "(opcjonalne)",
+      feedback_name_placeholder: "Jak powinniśmy się do Ciebie zwracać?",
+      feedback_email_label: "E-mail",
+      feedback_optional2: "(opcjonalne)",
+      feedback_message_label: "Wiadomość",
+      feedback_message_placeholder: "Powiedz nam, co się stało, co chciałbyś zobaczyć lub czego dotyczy Twoje pytanie\u2026",
+      feedback_submit: "Wyślij opinię"
+    }
+  });
+  </script>
 
   <script>
     (function () {
@@ -315,7 +530,7 @@
         };
         var btn = form.querySelector(".feedback-submit");
         btn.disabled = true;
-        btn.textContent = "Sending…";
+        btn.textContent = "Sending\u2026";
         statusEl.className = "feedback-status";
         statusEl.textContent = "";
 
@@ -336,18 +551,18 @@
               form.reset();
             } else {
               statusEl.textContent = r.data && r.data.error
-                ? "Couldn't send: " + r.data.error
-                : "Couldn't send. Please try again in a moment.";
+                ? "Couldn\u2019t send: " + r.data.error
+                : "Couldn\u2019t send. Please try again in a moment.";
               statusEl.className = "feedback-status feedback-status--error";
             }
           })
           .catch(function () {
-            statusEl.textContent = "Couldn't reach the server. Please try again.";
+            statusEl.textContent = "Couldn\u2019t reach the server. Please try again.";
             statusEl.className = "feedback-status feedback-status--error";
           })
           .finally(function () {
             btn.disabled = false;
-            btn.textContent = "✉️  Send feedback";
+            btn.textContent = "\u2709\ufe0f  Send feedback";
           });
       });
     })();

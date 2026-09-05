@@ -96,40 +96,50 @@
     <div class="top-actions">
       <a href="/" class="home-link" title="Back to landing page">
         <span class="contact-link-icon">🏠</span>
-        Home
+        <span data-i18n="nav_map">Home</span>
       </a>
       <a href="/admin" class="admin-link admin-link--hidden" title="Admin moderation dashboard">
         <span class="admin-link-icon">🛡️</span>
-        <span class="admin-link-text">Admin</span>
+        <span class="admin-link-text" data-i18n="admin_link">Admin</span>
       </a>
       <a href="/contact" class="contact-link" title="Contact & partnerships">
         <span class="contact-link-icon">✉️</span>
-        <span class="contact-link-text">Contact</span>
+        <span class="contact-link-text" data-i18n="contact_link">Contact</span>
       </a>
       <a href="/privacy" class="privacy-link" title="Privacy policy">
         <span class="contact-link-icon">🔒</span>
-        <span class="contact-link-text">Privacy</span>
+        <span class="contact-link-text" data-i18n="privacy_link">Privacy</span>
       </a>
       <a href="/about" class="about-link" title="Who we are">
         <span class="contact-link-icon">🧭</span>
-        <span class="contact-link-text">Who we are</span>
+        <span class="contact-link-text" data-i18n="about_link">Who we are</span>
       </a>
       <a href="/faq" class="faq-link" title="Frequently asked questions & feedback">
         <span class="contact-link-icon">❓</span>
-        <span class="contact-link-text">FAQ</span>
+        <span class="contact-link-text" data-i18n="faq_link">FAQ</span>
       </a>
-      <a href="/map/poland" class="poland-map-link" title="Live wildfire map of Poland">
-        <span class="contact-link-icon">🇵🇱</span>
-        <span class="contact-link-text">Poland map</span>
-      </a>
+      <div class="map-picker" id="map-picker">
+        <button class="map-btn" id="map-btn" title="Select country map" aria-label="Select country map" aria-expanded="false">
+          <span class="map-flag">🌍</span>
+          <span class="map-code" data-i18n="map_picker_label">Maps</span>
+          <span class="map-chevron">▾</span>
+        </button>
+        <div class="map-dropdown hidden" id="map-dropdown">
+          <a href="/map" class="map-option" data-map="global"><span class="map-opt-flag">🌍</span> <span data-i18n="map_global">Global map</span></a>
+          <a href="/map/france" class="map-option" data-map="france"><span class="map-opt-flag">🇫🇷</span> <span data-i18n="map_france">France</span></a>
+          <a href="/map/germany" class="map-option" data-map="germany"><span class="map-opt-flag">🇩🇪</span> <span data-i18n="map_germany">Germany</span></a>
+          <a href="/map/spain" class="map-option" data-map="spain"><span class="map-opt-flag">🇪🇸</span> <span data-i18n="map_spain">Spain</span></a>
+          <a href="/map/poland" class="map-option" data-map="poland"><span class="map-opt-flag">🇵🇱</span> <span data-i18n="map_poland">Poland</span></a>
+        </div>
+      </div>
       <!-- Heatmap toggle moved to floating bottom-right controls -->
       <button id="users-only-toggle" class="users-only-btn" title="Show only fires reported by app users (hide satellite data)">
         <span class="users-only-icon">👥</span>
-        <span class="users-only-text">Users only</span>
+        <span class="users-only-text" data-i18n="users_only_btn">Users only</span>
       </button>
       <div class="status-badge" id="status-badge">
         <span class="dot"></span>
-        <span id="status-text">Initializing…</span>
+        <span id="status-text" data-i18n="status_init">Initializing…</span>
       </div>
       <!-- Mobile overflow: secondary controls collapse into a ⋯ menu on
            narrow screens (app.js moves them in/out via _layoutTopBar). -->
@@ -147,32 +157,32 @@
   <div id="stats-panel">
     <div class="stat-item">
       <span class="stat-value" id="stat-reports">0</span>
-      <span class="stat-label">Reports</span>
+      <span class="stat-label" data-i18n="stat_reports">Reports</span>
     </div>
     <div class="stat-item">
       <span class="stat-value" id="stat-clusters">0</span>
-      <span class="stat-label">Clusters</span>
+      <span class="stat-label" data-i18n="stat_clusters">Clusters</span>
     </div>
     <div class="stat-item">
       <span class="stat-value" id="stat-pending">0</span>
-      <span class="stat-label">Pending</span>
+      <span class="stat-label" data-i18n="stat_pending_label">Pending</span>
     </div>
   </div>
 
   <!-- ======== Cluster Legend ======== -->
   <div id="cluster-legend">
-    <div class="legend-title">Cluster Severity</div>
+    <div class="legend-title" data-i18n="cluster_severity">Cluster Severity</div>
     <div class="legend-item">
       <span class="legend-dot dot-small"></span>
-      <span>1 report</span>
+      <span data-i18n="cluster_1">1 report</span>
     </div>
     <div class="legend-item">
       <span class="legend-dot dot-medium"></span>
-      <span>2–3 reports</span>
+      <span data-i18n="cluster_2_3">2–3 reports</span>
     </div>
     <div class="legend-item">
       <span class="legend-dot dot-large"></span>
-      <span>4+ reports</span>
+      <span data-i18n="cluster_4_plus">4+ reports</span>
     </div>
   </div>
 
@@ -181,15 +191,15 @@
   <div id="floating-controls">
     <button id="bayesian-toggle" class="floating-ctrl-btn heatmap-btn" title="Toggle fire grid probability heatmap">
       <span class="floating-ctrl-icon">🌀</span>
-      <span class="floating-ctrl-text">Heatmap</span>
+      <span class="floating-ctrl-text" data-i18n="heatmap_btn">Heatmap</span>
     </button>
     <button id="esa-extent-toggle" class="floating-ctrl-btn esa-btn" title="Show ESA WorldCover data extent">
       <span class="floating-ctrl-icon">🛰️</span>
-      <span class="floating-ctrl-text">ESA extent</span>
+      <span class="floating-ctrl-text" data-i18n="esa_btn">ESA extent</span>
     </button>
     <button id="upload-trigger" class="floating-ctrl-btn report-btn" title="Report a fire">
       <span class="floating-ctrl-icon">🔥</span>
-      <span class="floating-ctrl-text">Report</span>
+      <span class="floating-ctrl-text" data-i18n="report_btn">Report</span>
     </button>
   </div>
 
@@ -197,19 +207,19 @@
   <div id="upload-panel">
     <div id="upload-card" class="upload-card hidden">
       <div class="card-header">
-        <h2>Report a Wildfire</h2>
+        <h2 data-i18n="upload_title">Report a Wildfire</h2>
         <button id="card-close" class="card-close" title="Close">&times;</button>
       </div>
       <div class="card-body">
         <div class="location-status" id="location-status">
-          <span id="loc-text">Acquiring GPS…</span>
+          <span id="loc-text" data-i18n="loc_acquiring">Acquiring GPS…</span>
           <button id="gps-refresh-btn" class="gps-refresh-btn" title="Re-acquire GPS location">
             <span class="refresh-icon">⟳</span>
           </button>
         </div>
 
         <div class="manual-coords hidden" id="manual-coords">
-          <div class="manual-coords-heading">Or enter coordinates manually:</div>
+          <div class="manual-coords-heading" data-i18n="manual_coords">Or enter coordinates manually:</div>
           <div class="coord-inputs">
             <input type="text" id="input-lat-manual" class="coord-input" placeholder="Latitude (e.g. 37.745)" inputmode="decimal" autocomplete="off" />
             <input type="text" id="input-lon-manual" class="coord-input" placeholder="Longitude (e.g. -119.593)" inputmode="decimal" autocomplete="off" />
@@ -219,7 +229,7 @@
         <div class="photo-preview" id="photo-preview">
           <div class="preview-placeholder" id="preview-placeholder">
             <span class="camera-icon">📷</span>
-            <p>Tap to take a photo</p>
+            <p data-i18n="tap_photo">Tap to take a photo</p>
           </div>
           <img id="preview-image" class="hidden" alt="Photo preview" />
         </div>
@@ -240,7 +250,7 @@
 
           <button type="submit" id="submit-btn" class="submit-btn" disabled>
             <span class="btn-icon">🔥</span>
-            <span>Submit Report</span>
+            <span data-i18n="submit_report">Submit Report</span>
           </button>
         </form>
 
@@ -255,7 +265,7 @@
   <div id="bayesian-panel" class="bayesian-panel hidden">
     <div class="bayesian-header">
       <span class="bayesian-pulse"></span>
-      <span class="bayesian-title">Heatmap</span>
+      <span class="bayesian-title" data-i18n="heatmap_btn">Heatmap</span>
       <button id="bayesian-collapse-btn" class="bayesian-collapse-btn" title="Collapse panel" aria-label="Collapse panel">▾</button>
     </div>
     <div class="bayesian-legend">
@@ -274,25 +284,25 @@
     </div>
     <div class="bayesian-stats" id="bayesian-stats">
       <div class="bayesian-stat-row">
-        <span class="bayesian-stat-label">Max prob:</span>
+        <span class="bayesian-stat-label" data-i18n="stat_max_prob">Max prob:</span>
         <span id="bayesian-stat-maxp" class="bayesian-stat-value">0.00</span>
       </div>
       <div class="bayesian-stat-row">
-        <span class="bayesian-stat-label" title="Cells with >25% burn probability — high-confidence active fire zone">Burned area:</span>
+        <span class="bayesian-stat-label" data-i18n="stat_burned_area" title="Cells with >25% burn probability — high-confidence active fire zone">Burned area:</span>
         <span id="bayesian-stat-burned" class="bayesian-stat-value">— ha</span>
       </div>
       <div class="bayesian-stat-row">
-        <span class="bayesian-stat-label" title="Cells with >5% burn probability — broader spread-risk zone visible on the heatmap">Risk area:</span>
+        <span class="bayesian-stat-label" data-i18n="stat_risk_area" title="Cells with >5% burn probability — broader spread-risk zone visible on the heatmap">Risk area:</span>
         <span id="bayesian-stat-risk" class="bayesian-stat-value">— ha</span>
       </div>
       <div class="bayesian-stat-row">
-        <span class="bayesian-stat-label">Cells >10%:</span>
+        <span class="bayesian-stat-label" data-i18n="stat_cells">Cells >10%:</span>
         <span id="bayesian-stat-cells" class="bayesian-stat-value">0</span>
       </div>
     </div>
     <div class="bayesian-controls">
       <div class="bayesian-advanced-toggle" id="bayesian-advanced-toggle">
-        <span>⚙ Advanced Options</span>
+        <span data-i18n="advanced_options">⚙ Advanced Options</span>
         <span class="bayesian-advanced-chevron">▸</span>
       </div>
       <div class="bayesian-advanced-body hidden" id="bayesian-advanced-body">
@@ -300,29 +310,29 @@
           <label class="bayesian-toggle-label">
             <input type="checkbox" id="bayesian-heatmap-toggle" checked />
             <span class="toggle-switch"></span>
-            Heatmap
+            <span data-i18n="heatmap_btn">Heatmap</span>
           </label>
           <label class="bayesian-toggle-label">
             <input type="checkbox" id="bayesian-contour-toggle" checked />
             <span class="toggle-switch"></span>
-            Contour
+            <span data-i18n="contour_toggle">Contour</span>
           </label>
         </div>
         <div class="bayesian-control-row">
           <label class="bayesian-slider-label">
-            <span>Threshold</span>
+            <span data-i18n="threshold">Threshold</span>
             <input type="range" id="bayesian-threshold" min="0" max="0.9" step="0.01" value="0" />
           </label>
         </div>
         <div class="bayesian-control-row bayesian-satellite-row">
           <button id="firms-fetch-btn" class="satellite-btn" title="Fetch real VIIRS hotspot data from NASA FIRMS API (always the past 24 hours)">
             <span class="btn-icon">🛰️</span>
-            <span>Fetch FIRMS</span>
+            <span data-i18n="fetch_firms">Fetch FIRMS</span>
           </button>
           <label class="bayesian-toggle-label" title="Auto-fetch NASA FIRMS data every 5 minutes">
             <input type="checkbox" id="firms-poller-toggle" />
             <span class="toggle-switch"></span>
-            FIRMS Live
+            <span data-i18n="firms_live">FIRMS Live</span>
           </label>
         </div>
         <div class="satellite-status" id="satellite-status">Satellite: idle</div>
@@ -331,12 +341,12 @@
         <label class="bayesian-toggle-label" title="Overlay roads colored by fire spread risk">
           <input type="checkbox" id="roadrisk-toggle" />
           <span class="toggle-switch"></span>
-          Road Risk (Beta)
+          <span data-i18n="road_risk">Road Risk (Beta)</span>
         </label>
         <span class="roadrisk-status" id="roadrisk-status">idle</span>
       </div>
       <div class="bayesian-control-row" style="margin-top:6px;">
-        <button id="wf-sim-panel-btn" title="Simulate fire spread at the fire nearest your viewport" style="width:100%;padding:6px 0;border:none;border-radius:6px;background:#22d3ee;color:#0b0e14;font-size:12px;font-weight:600;cursor:pointer;">▶ Simulate Spread (Beta)</button>
+        <button id="wf-sim-panel-btn" title="Simulate fire spread at the fire nearest your viewport" style="width:100%;padding:6px 0;border:none;border-radius:6px;background:#22d3ee;color:#0b0e14;font-size:12px;font-weight:600;cursor:pointer;" data-i18n="simulate_spread">▶ Simulate Spread (Beta)</button>
       </div>
     </div>
   </div>
@@ -345,7 +355,7 @@
        heatmap stays on; this is the only way back to the card). -->
   <button id="bayesian-panel-pill" class="bayesian-panel-pill hidden" title="Expand the Heatmap panel" aria-label="Expand the Heatmap panel">
     <span class="bayesian-pulse"></span>
-    <span>Heatmap</span>
+    <span data-i18n="heatmap_btn">Heatmap</span>
     <span class="bayesian-pill-chevron">▸</span>
   </button>
 
@@ -434,5 +444,807 @@
     })();
   </script>
   <!-- End Page Pulse Tracking Script -->
+
+  <script src="/i18n.js"></script>
+  <script>
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Live map",
+      admin_link: "Admin",
+      contact_link: "Contact",
+      privacy_link: "Privacy",
+      about_link: "Who we are",
+      faq_link: "FAQ",
+      map_picker_label: "Maps",
+      map_global: "Global map",
+      map_france: "France",
+      map_germany: "Germany",
+      map_spain: "Spain",
+      map_poland: "Poland",
+      report_btn: "Report",
+      heatmap_btn: "Heatmap",
+      esa_btn: "ESA extent",
+      users_only_btn: "Users only",
+      status_init: "Initializing\u2026",
+      status_active: "Active",
+      status_error: "Error",
+      status_pending: "Pending",
+      status_offline: "Offline",
+      upload_title: "Report a Wildfire",
+      loc_acquiring: "Acquiring GPS\u2026",
+      manual_coords: "Or enter coordinates manually:",
+      tap_photo: "Tap to take a photo",
+      submit_report: "Submit Report",
+      stat_max_prob: "Max prob:",
+      stat_burned_area: "Burned area:",
+      stat_risk_area: "Risk area:",
+      stat_cells: "Cells >10%:",
+      advanced_options: "\u2699 Advanced Options",
+      contour_toggle: "Contour",
+      threshold: "Threshold",
+      fetch_firms: "Fetch FIRMS",
+      firms_live: "FIRMS Live",
+      road_risk: "Road Risk (Beta)",
+      simulate_spread: "\u25b6 Simulate Spread (Beta)",
+      stat_reports: "Reports",
+      stat_clusters: "Clusters",
+      stat_pending_label: "Pending",
+      cluster_severity: "Cluster Severity",
+      cluster_1: "1 report",
+      cluster_2_3: "2\u20133 reports",
+      cluster_4_plus: "4+ reports",
+      gps_unavailable: "\u274c GPS not available",
+      gps_reacquiring: "\U0001f504 Re-acquiring GPS\u2026",
+      roadrisk_fetching: "\U0001f6e3\ufe0f fetching\u2026",
+      roadrisk_error: "\U0001f6e3\ufe0f error",
+      roadrisk_idle: "\U0001f6e3\ufe0f idle",
+      satellite_scanning: "\U0001f6f0\ufe0f scanning\u2026",
+      satellite_idle: "\U0001f6f0\ufe0f idle",
+      satellite_fetching_firms: "\U0001f6f0\ufe0f fetching FIRMS\u2026",
+      computing: "\u23f3 Computing\u2026",
+      reports_noun: "reports",
+      no_places_found: "No places found",
+      submitting: "Submitting\u2026",
+      reading_photo: "Reading photo\u2026",
+      photo_uploaded: "\u2713 Photo uploaded \u2014 ready to submit",
+      photo_error: "Couldn\u2019t read this photo \u2014 try another one",
+      submit_anyway: "Submit anyway",
+      toast_no_photo: "Please select a photo first",
+      toast_gps_unavail: "GPS position not available. Enter coordinates manually above, or enable location services.",
+      toast_report_success: "Report submitted successfully!",
+      toast_report_ai_no_fire: "Report submitted \u2014 AI found no fire/smoke, kept for human review",
+      toast_report_live: "Report submitted to LIVE data \u2014 switch to Live mode to see it",
+      toast_offline_queued: "No connection \u2014 report queued for later",
+      toast_upload_failed: "Upload failed and could not be queued.",
+      toast_gps_updated: "\U0001f4cd GPS position updated",
+      toast_live_demo: "\U0001f3ae Live demo started! Reports will appear progressively.",
+      status_gps_unavailable: "GPS unavailable",
+      status_gps_locked: "GPS locked",
+      status_gps_failed: "GPS failed",
+      status_connection_error: "Connection error",
+      status_acquiring_gps: "Acquiring GPS\u2026",
+      status_seeding_data: "Seeding test data\u2026",
+      status_test_data_loaded: "Test data loaded",
+      status_seed_failed: "Seed failed",
+      status_seeding_forest: "Seeding forest data\u2026",
+      status_forest_data_loaded: "Forest data loaded",
+      status_starting_live_demo: "Starting live demo\u2026",
+      status_live_demo_running: "Live demo running",
+      status_demo_failed: "Demo failed",
+      status_demo_complete: "Demo complete",
+      status_starting_creek_fire: "Starting Creek Fire replay\u2026",
+      status_creek_fire_running: "Creek Fire replay running",
+      status_replay_complete: "Replay complete",
+      gps_error_https: "GPS blocked: browser requires HTTPS for location. Access via https:// or localhost, or enter coordinates manually.",
+      gps_error_permission: "GPS permission denied. Enable location services in your browser/device settings, or enter coordinates manually.",
+      gps_error_network: "GPS unavailable: network location failed. Try Wi-Fi or move outdoors.",
+      gps_error_position: "GPS unavailable: couldn't determine your location. Try moving outdoors or enter coordinates manually.",
+      gps_error_timeout: "GPS timed out (15s). Move to a clearer area and try again, or enter coordinates manually.",
+      gps_error_unknown: "GPS location failed for an unknown reason.",
+      satellite_pass_failed: "\U0001f6f0\ufe0f pass failed",
+      satellite_request_failed: "\U0001f6f0\ufe0f request failed",
+      satellite_firms_background: "\U0001f6f0\ufe0f fetching FIRMS\u2026 (background job running)",
+      satellite_firms_still_processing: "\U0001f6f0\ufe0f FIRMS fetch still processing in the background \u2014 map refreshes automatically",
+      satellite_firms_fetch_failed: "\U0001f6f0\ufe0f FIRMS fetch failed",
+      satellite_no_data: "no data",
+      roadrisk_no_roads: "\U0001f6e3\ufe0f no roads found",
+      roadrisk_no_risk_data: "\U0001f6e3\ufe0f no risk data",
+      toast_demo_complete: "\u2705 Live demo complete! Triangulation converged.",
+      toast_creek_fire_started: "\U0001f332 Creek Fire replay started! Watch the fire evolve with satellite data.",
+      toast_creek_fire_complete: "\u2705 Creek Fire replay complete! 380,000 acres burned.",
+      step_label: "Step",
+      btn_seeding: "Seeding\u2026",
+      btn_starting: "Starting\u2026",
+      btn_live_demo: "Live Demo",
+      satellite_firms_request_failed: "\U0001f6f0\ufe0f FIRMS request failed",
+      satellite_firms_live_polling: "\U0001f6f0\ufe0f FIRMS live: polling every 10 min",
+      satellite_firms_poller_stopped: "\U0001f6f0\ufe0f FIRMS poller stopped",
+      satellite_firms_poller_request_failed: "\U0001f6f0\ufe0f FIRMS poller request failed",
+      satellite_live_poller_running: "\U0001f6f0\ufe0f Live poller running (every 20s)",
+      satellite_poller_stopped: "\U0001f6f0\ufe0f Poller stopped",
+      satellite_poller_error: "\U0001f6f0\ufe0f Poller error",
+      toast_demo_stopped: "\u23f9\ufe0f Live demo stopped",
+      toast_replay_stopped: "\u23f9\ufe0f Creek Fire replay stopped",
+      toast_no_fires_visible: "No fires visible \u2014 zoom into a fire first.",
+      btn_greece: "Greece",
+      btn_forest: "Forest",
+      search_unavailable: "Search temporarily unavailable",
+      search_unavailable_retry: "Search unavailable \u2014 try again later",
+      popup_active_fire: "\U0001f525 Active Fire",
+      popup_probability: "Probability:",
+      popup_source: "Source:",
+      popup_reports: "Reports:",
+      popup_confirmed_nearby: "confirmed nearby",
+      popup_wind: "Wind:",
+      popup_fuel: "Fuel:",
+      popup_outside_effis: "Outside EFFIS coverage",
+      popup_opened_from_admin: "Opened from admin dashboard",
+      popup_satellite: "Satellite:",
+      popup_started: "Started:",
+      popup_cause: "Cause:",
+      popup_tri_origin: "\U0001f525 Triangulated Fire Origin",
+      popup_location: "Location:",
+      popup_from: "From:",
+      popup_bearing_reports: "bearing reports",
+      popup_confidence: "Confidence:",
+      popup_uncertainty: "Uncertainty:",
+      popup_true_origin: "\U0001f3af True Fire Origin (Demo)",
+      popup_simulated_truth: "This is the simulated ground truth that triangulation tries to estimate.",
+      popup_fire_report: "\U0001f4f8 Fire Report",
+      popup_status: "Status:",
+      popup_reported: "Reported:",
+      popup_sat_confirmed: "\U0001f6f0\ufe0f Confirmed",
+      popup_no_firms_match: "No FIRMS match",
+      popup_photo_approval: "\U0001f4f7 Photo visible after approval",
+      popup_reports_in_cluster: "REPORTS IN CLUSTER",
+      popup_tri_origin_short: "\U0001f525 Triangulated Origin",
+      popup_viirs_hotspot: "\U0001f6f0\ufe0f VIIRS Hotspot",
+      popup_viirs_source: "VIIRS 375m \u00b7 Fire Thermal Anomaly",
+      popup_fire_perimeter: "\U0001f525 Fire Perimeter (True)",
+      popup_creek_fire_2020: "2020 Creek Fire",
+      popup_fire: "Fire:",
+      popup_calfire_data: "CalFire historical data",
+      popup_creek_origin: "\U0001f525 Creek Fire Origin"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Live-Karte",
+      admin_link: "Admin",
+      contact_link: "Kontakt",
+      privacy_link: "Datenschutz",
+      about_link: "Über uns",
+      faq_link: "FAQ",
+      map_picker_label: "Karten",
+      map_global: "Globale Karte",
+      map_france: "Frankreich",
+      map_germany: "Deutschland",
+      map_spain: "Spanien",
+      map_poland: "Polen",
+      report_btn: "Melden",
+      heatmap_btn: "Heatmap",
+      esa_btn: "ESA-Bereich",
+      users_only_btn: "Nur Nutzer",
+      status_init: "Initialisierung\u2026",
+      status_active: "Aktiv",
+      status_error: "Fehler",
+      status_pending: "Ausstehend",
+      status_offline: "Offline",
+      upload_title: "Waldbrand melden",
+      loc_acquiring: "GPS wird ermittelt\u2026",
+      manual_coords: "Oder Koordinaten manuell eingeben:",
+      tap_photo: "Tippen, um ein Foto aufzunommen",
+      submit_report: "Meldung absenden",
+      stat_max_prob: "Max-Wahrscheinlichkeit:",
+      stat_burned_area: "Verbrannte Fl\u00e4che:",
+      stat_risk_area: "Risikobereich:",
+      stat_cells: "Zellen >10%:",
+      advanced_options: "\u2699 Erweiterte Optionen",
+      contour_toggle: "Kontur",
+      threshold: "Schwellenwert",
+      fetch_firms: "FIRMS abrufen",
+      firms_live: "FIRMS Live",
+      road_risk: "Stra\u00dfenrisiko (Beta)",
+      simulate_spread: "\u25b6 Ausbreitung simulieren (Beta)",
+      stat_reports: "Meldungen",
+      stat_clusters: "Cluster",
+      stat_pending_label: "Ausstehend",
+      cluster_severity: "Cluster-Schwere",
+      cluster_1: "1 Meldung",
+      cluster_2_3: "2\u20133 Meldungen",
+      cluster_4_plus: "4+ Meldungen",
+      gps_unavailable: "\u274c GPS nicht verf\u00fcgbar",
+      gps_reacquiring: "\U0001f504 GPS wird erneut ermittelt\u2026",
+      roadrisk_fetching: "\U0001f6e3\ufe0f wird geladen\u2026",
+      roadrisk_error: "\U0001f6e3\ufe0f Fehler",
+      roadrisk_idle: "\U0001f6e3\ufe0f bereit",
+      satellite_scanning: "\U0001f6f0\ufe0f wird gescannt\u2026",
+      satellite_idle: "\U0001f6f0\ufe0f bereit",
+      satellite_fetching_firms: "\U0001f6f0\ufe0f FIRMS werden abgerufen\u2026",
+      computing: "\u23f3 Berechnung\u2026",
+      reports_noun: "Meldungen",
+      no_places_found: "Keine Orte gefunden",
+      submitting: "Wird gesendet\u2026",
+      reading_photo: "Foto wird gelesen\u2026",
+      photo_uploaded: "\u2713 Foto hochgeladen \u2014 bereit zum Absenden",
+      photo_error: "Foto konnte nicht gelesen werden \u2014 versuchen Sie ein anderes",
+      submit_anyway: "Trotzdem absenden",
+      toast_no_photo: "Bitte w\u00e4hlen Sie zuerst ein Foto",
+      toast_gps_unavail: "GPS-Position nicht verf\u00fcgbar. Geben Sie oben die Koordinaten manuell ein oder aktivieren Sie den Standortdienst.",
+      toast_report_success: "Meldung erfolgreich gesendet!",
+      toast_report_ai_no_fire: "Meldung gesendet \u2014 KI fand kein Feuer/Rauch, f\u00fcr manuelle \u00dcberpr\u00fcfung aufbewahrt",
+      toast_report_live: "Meldung an LIVE-Daten gesendet \u2014 zum Live-Modus wechseln",
+      toast_offline_queued: "Keine Verbindung \u2014 Meldung f\u00fcr sp\u00e4ter eingereiht",
+      toast_upload_failed: "Upload fehlgeschlagen und konnte nicht eingereiht werden.",
+      toast_gps_updated: "\U0001f4cd GPS-Position aktualisiert",
+      toast_live_demo: "\U0001f3ae Live-Demo gestartet! Berichte erscheinen schrittweise.",
+      status_gps_unavailable: "GPS nicht verf\u00fcgbar",
+      status_gps_locked: "GPS gesperrt",
+      status_gps_failed: "GPS fehlgeschlagen",
+      status_connection_error: "Verbindungsfehler",
+      status_acquiring_gps: "GPS wird ermittelt\u2026",
+      status_seeding_data: "Testdaten werden ges\u00e4t\u00e4t\u2026",
+      status_test_data_loaded: "Testdaten geladen",
+      status_seed_failed: "Seed fehlgeschlagen",
+      status_seeding_forest: "Walddaten werden ges\u00e4t\u00e4t\u2026",
+      status_forest_data_loaded: "Walddaten geladen",
+      status_starting_live_demo: "Live-Demo wird gestartet\u2026",
+      status_live_demo_running: "Live-Demo l\u00e4uft",
+      status_demo_failed: "Demo fehlgeschlagen",
+      status_demo_complete: "Demo abgeschlossen",
+      status_starting_creek_fire: "Creek-Fire-Wiedergabe wird gestartet\u2026",
+      status_creek_fire_running: "Creek-Fire-Wiedergabe l\u00e4uft",
+      status_replay_complete: "Wiedergabe abgeschlossen",
+      gps_error_https: "GPS blockiert: Browser erfordert HTTPS f\u00fcr Standort. Zugriff \u00fcber https:// oder localhost oder Koordinaten manuell eingeben.",
+      gps_error_permission: "GPS-Berechtigung verweigert. Aktivieren Sie Standortdienste in den Browsereinstellungen oder geben Sie Koordinaten manuell ein.",
+      gps_error_network: "GPS nicht verf\u00fcgbar: Netzwerk-Standort fehlgeschlagen. Versuchen Sie WLAN oder gehen Sie nach drau\u00dfen.",
+      gps_error_position: "GPS nicht verf\u00fcgbar: Standort konnte nicht ermittelt werden. Versuchen Sie, nach drau\u00dfen zu gehen oder Koordinaten manuell einzugeben.",
+      gps_error_timeout: "GPS-Timeout (15s). Gehen Sie in einen klareren Bereich und versuchen Sie es erneut oder geben Sie Koordinaten manuell ein.",
+      gps_error_unknown: "GPS-Standortfehler aus unbekanntem Grund.",
+      satellite_pass_failed: "\U0001f6f0\ufe0f Vorbeifall fehlgeschlagen",
+      satellite_request_failed: "\U0001f6f0\ufe0f Anfrage fehlgeschlagen",
+      satellite_firms_background: "\U0001f6f0\ufe0f FIRMS werden abgerufen\u2026 (Hintergrundjob l\u00e4uft)",
+      satellite_firms_still_processing: "\U0001f6f0\ufe0f FIRMS-Abruf wird im Hintergrund verarbeitet \u2014 Karte aktualisiert sich automatisch",
+      satellite_firms_fetch_failed: "\U0001f6f0\ufe0f FIRMS-Abruf fehlgeschlagen",
+      satellite_no_data: "keine Daten",
+      roadrisk_no_roads: "\U0001f6e3\ufe0f keine Stra\u00dfen gefunden",
+      roadrisk_no_risk_data: "\U0001f6e3\ufe0f keine Risikodaten",
+      toast_demo_complete: "\u2705 Live-Demo abgeschlossen! Triangulation konvergiert.",
+      toast_creek_fire_started: "\U0001f332 Creek-Fire-Wiedergabe gestartet! Beobachten Sie, wie sich das Feuer mit Satellitendaten entwickelt.",
+      toast_creek_fire_complete: "\u2705 Creek-Fire-Wiedergabe abgeschlossen! 380.000 Acres verbrannt.",
+      step_label: "Schritt",
+      btn_seeding: "S\u00e4tung\u2026",
+      btn_starting: "Starten\u2026",
+      btn_live_demo: "Live-Demo",
+      satellite_firms_request_failed: "\U0001f6f0\ufe0f FIRMS-Anfrage fehlgeschlagen",
+      satellite_firms_live_polling: "\U0001f6f0\ufe0f FIRMS Live: alle 10 Min. abfragen",
+      satellite_firms_poller_stopped: "\U0001f6f0\ufe0f FIRMS-Poller gestoppt",
+      satellite_firms_poller_request_failed: "\U0001f6f0\ufe0f FIRMS-Poller-Anfrage fehlgeschlagen",
+      satellite_live_poller_running: "\U0001f6f0\ufe0f Live-Poller l\u00e4uft (alle 20s)",
+      satellite_poller_stopped: "\U0001f6f0\ufe0f Poller gestoppt",
+      satellite_poller_error: "\U0001f6f0\ufe0f Poller-Fehler",
+      toast_demo_stopped: "\u23f9\ufe0f Live-Demo gestoppt",
+      toast_replay_stopped: "\u23f9\ufe0f Creek-Fire-Wiedergabe gestoppt",
+      toast_no_fires_visible: "Keine Br\u00e4nde sichtbar \u2014 zoomen Sie zuerst auf einen Brand.",
+      btn_greece: "Griechenland",
+      btn_forest: "Wald",
+      search_unavailable: "Suche vor\u00fcbergehend nicht verf\u00fcgbar",
+      search_unavailable_retry: "Suche nicht verf\u00fcgbar \u2014 versuchen Sie es sp\u00e4ter erneut",
+      popup_active_fire: "\U0001f525 Aktiver Brand",
+      popup_probability: "Wahrscheinlichkeit:",
+      popup_source: "Quelle:",
+      popup_reports: "Meldungen:",
+      popup_confirmed_nearby: "best\u00e4tigt in der N\u00e4he",
+      popup_wind: "Wind:",
+      popup_fuel: "Brennstoff:",
+      popup_outside_effis: "Au\u00dferhalb der EFFIS-Abdeckung",
+      popup_opened_from_admin: "Aus dem Admin-Dashboard ge\u00f6ffnet",
+      popup_satellite: "Satellit:",
+      popup_started: "Begonnen:",
+      popup_cause: "Ursache:",
+      popup_tri_origin: "\U0001f525 Triangulierter Brandherd",
+      popup_location: "Standort:",
+      popup_from: "Von:",
+      popup_bearing_reports: "Peilungsmeldungen",
+      popup_confidence: "Vertrauen:",
+      popup_uncertainty: "Unsicherheit:",
+      popup_true_origin: "\U0001f3af Tats\u00e4chlicher Brandherd (Demo)",
+      popup_simulated_truth: "Dies ist die simulierte Bodenwahrheit, die die Triangulation zu sch\u00e4tzen versucht.",
+      popup_fire_report: "\U0001f4f8 Brandmeldung",
+      popup_status: "Status:",
+      popup_reported: "Gemeldet:",
+      popup_sat_confirmed: "\U0001f6f0\ufe0f Best\u00e4tigt",
+      popup_no_firms_match: "Kein FIRMS-Treffer",
+      popup_photo_approval: "\U0001f4f7 Foto erst nach Genehmigung sichtbar",
+      popup_reports_in_cluster: "MELDUNGEN IM CLUSTER",
+      popup_tri_origin_short: "\U0001f525 Triangulierter Ursprung",
+      popup_viirs_hotspot: "\U0001f6f0\ufe0f VIIRS-Hotspot",
+      popup_viirs_source: "VIIRS 375m \u00b7 Fire Thermal Anomaly",
+      popup_fire_perimeter: "\U0001f525 Brandperimeter (Echt)",
+      popup_creek_fire_2020: "2020 Creek Fire",
+      popup_fire: "Feuer:",
+      popup_calfire_data: "CalFire historische Daten",
+      popup_creek_origin: "\U0001f525 Creek-Fire-Ursprung"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Carte en direct",
+      admin_link: "Admin",
+      contact_link: "Contact",
+      privacy_link: "Confidentialit\u00e9",
+      about_link: "Qui sommes-nous",
+      faq_link: "FAQ",
+      map_picker_label: "Cartes",
+      map_global: "Carte mondiale",
+      map_france: "France",
+      map_germany: "Allemagne",
+      map_spain: "Espagne",
+      map_poland: "Pologne",
+      report_btn: "Signaler",
+      heatmap_btn: "Heatmap",
+      esa_btn: "Étendue ESA",
+      users_only_btn: "Utilisateurs",
+      status_init: "Initialisation\u2026",
+      status_active: "Actif",
+      status_error: "Erreur",
+      status_pending: "En attente",
+      status_offline: "Hors ligne",
+      upload_title: "Signaler un incendie",
+      loc_acquiring: "Acquisition GPS\u2026",
+      manual_coords: "Ou entrez les coordonn\u00e9es manuellement :",
+      tap_photo: "Appuyez pour prendre une photo",
+      submit_report: "Envoyer le rapport",
+      stat_max_prob: "Prob. max :",
+      stat_burned_area: "Surface br\u00fbl\u00e9e :",
+      stat_risk_area: "Zone \u00e0 risque :",
+      stat_cells: "Cellules >10% :",
+      advanced_options: "\u2699 Options avanc\u00e9es",
+      contour_toggle: "Contour",
+      threshold: "Seuil",
+      fetch_firms: "R\u00e9cup\u00e9rer FIRMS",
+      firms_live: "FIRMS en direct",
+      road_risk: "Risque routier (Beta)",
+      simulate_spread: "\u25b6 Simuler la propagation (Beta)",
+      stat_reports: "Rapports",
+      stat_clusters: "Clusters",
+      stat_pending_label: "En attente",
+      cluster_severity: "Gravit\u00e9 du cluster",
+      cluster_1: "1 rapport",
+      cluster_2_3: "2\u20133 rapports",
+      cluster_4_plus: "4+ rapports",
+      gps_unavailable: "\u274c GPS non disponible",
+      gps_reacquiring: "\U0001f504 R\u00e9acquisition GPS\u2026",
+      roadrisk_fetching: "\U0001f6e3\ufe0f chargement\u2026",
+      roadrisk_error: "\U0001f6e3\ufe0f erreur",
+      roadrisk_idle: "\U0001f6e3\ufe0f inactif",
+      satellite_scanning: "\U0001f6f0\ufe0f analyse\u2026",
+      satellite_idle: "\U0001f6f0\ufe0f inactif",
+      satellite_fetching_firms: "\U0001f6f0\ufe0f r\u00e9cup\u00e9ration FIRMS\u2026",
+      computing: "\u23f3 Calcul\u2026",
+      reports_noun: "rapports",
+      no_places_found: "Aucun lieu trouv\u00e9",
+      submitting: "Envoi en cours\u2026",
+      reading_photo: "Lecture de la photo\u2026",
+      photo_uploaded: "\u2713 Photo envoy\u00e9e \u2014 pr\u00eate \u00e0 l\u2019envoi",
+      photo_error: "Impossible de lire cette photo \u2014 essayez une autre",
+      submit_anyway: "Envoyer quand m\u00eame",
+      toast_no_photo: "Veuillez d\u00abord s\u00e9lectionner une photo",
+      toast_gps_unavail: "Position GPS non disponible. Entrez les coordonn\u00e9es manuellement ou activez la localisation.",
+      toast_report_success: "Rapport envoy\u00e9 avec succ\u00e8s !",
+      toast_report_ai_no_fire: "Rapport envoy\u00e9 \u2014 L'IA n'a d\u00e9tect\u00e9 ni feu ni fum\u00e9e, conserv\u00e9 pour v\u00e9rification",
+      toast_report_live: "Rapport envoy\u00e9 aux donn\u00e9es EN DIRECT \u2014 passez en mode Direct",
+      toast_offline_queued: "Pas de connexion \u2014 rapport mis en file d'attente",
+      toast_upload_failed: "\u00c9chec de l'envoi, impossible de mettre en file d'attente.",
+      toast_gps_updated: "\U0001f4cd Position GPS mise \u00e0 jour",
+      toast_live_demo: "\U0001f3ae D\u00e9monstration en direct lanc\u00e9e ! Les rapports appara\u00eetront progressivement.",
+      status_gps_unavailable: "GPS non disponible",
+      status_gps_locked: "GPS verrouill\u00e9",
+      status_gps_failed: "GPS \u00e9chou\u00e9",
+      status_connection_error: "Erreur de connexion",
+      status_acquiring_gps: "Acquisition GPS\u2026",
+      status_seeding_data: "Injection des donn\u00e9es de test\u2026",
+      status_test_data_loaded: "Donn\u00e9es de test charg\u00e9es",
+      status_seed_failed: "\u00c9chec de l'injection",
+      status_seeding_forest: "Injection des donn\u00e9es foresti\u00e8res\u2026",
+      status_forest_data_loaded: "Donn\u00e9es foresti\u00e8res charg\u00e9es",
+      status_starting_live_demo: "D\u00e9marrage de la d\u00e9mo en direct\u2026",
+      status_live_demo_running: "D\u00e9mo en direct en cours",
+      status_demo_failed: "\u00c9chec de la d\u00e9mo",
+      status_demo_complete: "D\u00e9mo termin\u00e9e",
+      status_starting_creek_fire: "D\u00e9marrage de la reprise Creek Fire\u2026",
+      status_creek_fire_running: "Reprise Creek Fire en cours",
+      status_replay_complete: "Reprise termin\u00e9e",
+      gps_error_https: "GPS bloqu\u00e9 : le navigateur n\u00e9cessite HTTPS pour la localisation. Acc\u00e9dez via https:// ou localhost, ou entrez les coordonn\u00e9es manuellement.",
+      gps_error_permission: "Autorisation GPS refus\u00e9e. Activez les services de localisation dans les param\u00e8tres de votre navigateur ou entrez les coordonn\u00e9es manuellement.",
+      gps_error_network: "GPS non disponible : \u00e9chec de la localisation r\u00e9seau. Essayez le Wi-Fi ou sortez dehors.",
+      gps_error_position: "GPS non disponible : impossible de d\u00e9terminer votre position. Essayez de sortir dehors ou entrez les coordonn\u00e9es manuellement.",
+      gps_error_timeout: "GPS expir\u00e9 (15s). Allez dans une zone plus d\u00e9gag\u00e9e et r\u00e9essayez, ou entrez les coordonn\u00e9es manuellement.",
+      gps_error_unknown: "\u00c9chec de la localisation GPS pour une raison inconnue.",
+      satellite_pass_failed: "\U0001f6f0\ufe0f \u00e9chec du passage",
+      satellite_request_failed: "\U0001f6f0\ufe0f \u00e9chec de la requ\u00eate",
+      satellite_firms_background: "\U0001f6f0\ufe0f r\u00e9cup\u00e9ration FIRMS\u2026 (t\u00e2che d'arri\u00e8re-plan en cours)",
+      satellite_firms_still_processing: "\U0001f6f0\ufe0f R\u00e9cup\u00e9ration FIRMS en cours en arri\u00e8re-plan \u2014 la carte se met \u00e0 jour automatiquement",
+      satellite_firms_fetch_failed: "\U0001f6f0\ufe0f \u00c9chec de la r\u00e9cup\u00e9ration FIRMS",
+      satellite_no_data: "aucune donn\u00e9e",
+      roadrisk_no_roads: "\U0001f6e3\ufe0f aucune route trouv\u00e9e",
+      roadrisk_no_risk_data: "\U0001f6e3\ufe0f aucune donn\u00e9e de risque",
+      toast_demo_complete: "\u2705 D\u00e9mo en direct termin\u00e9e ! La triangulation a converg\u00e9.",
+      toast_creek_fire_started: "\U0001f332 Reprise Creek Fire lanc\u00e9e ! Observez l'\u00e9volution de l'incendie avec les donn\u00e9es satellite.",
+      toast_creek_fire_complete: "\u2705 Reprise Creek Fire termin\u00e9e ! 380 000 acres br\u00fbl\u00e9es.",
+      step_label: "\u00c9tape",
+      btn_seeding: "Injection\u2026",
+      btn_starting: "D\u00e9marrage\u2026",
+      btn_live_demo: "D\u00e9mo en direct",
+      satellite_firms_request_failed: "\U0001f6f0\ufe0f \u00c9chec de la requ\u00eate FIRMS",
+      satellite_firms_live_polling: "\U0001f6f0\ufe0f FIRMS en direct : sondage toutes les 10 min",
+      satellite_firms_poller_stopped: "\U0001f6f0\ufe0f Sondeur FIRMS arr\u00eat\u00e9",
+      satellite_firms_poller_request_failed: "\U0001f6f0\ufe0f \u00c9chec de la requ\u00eate sondeur FIRMS",
+      satellite_live_poller_running: "\U0001f6f0\ufe0f Sondeur en cours (toutes les 20s)",
+      satellite_poller_stopped: "\U0001f6f0\ufe0f Sondeur arr\u00eat\u00e9",
+      satellite_poller_error: "\U0001f6f0\ufe0f Erreur de sondeur",
+      toast_demo_stopped: "\u23f9\ufe0f D\u00e9mo en direct arr\u00eat\u00e9e",
+      toast_replay_stopped: "\u23f9\ufe0f Reprise Creek Fire arr\u00eat\u00e9e",
+      toast_no_fires_visible: "Aucun incendie visible \u2014 zoomez d'abord sur un incendie.",
+      btn_greece: "Gr\u00e8ce",
+      btn_forest: "For\u00eat",
+      search_unavailable: "Recherche temporairement indisponible",
+      search_unavailable_retry: "Recherche indisponible \u2014 r\u00e9essayez plus tard",
+      popup_active_fire: "\U0001f525 Incendie actif",
+      popup_probability: "Probabilit\u00e9 :",
+      popup_source: "Source :",
+      popup_reports: "Rapports :",
+      popup_confirmed_nearby: "confirm\u00e9s \u00e0 proximit\u00e9",
+      popup_wind: "Vent :",
+      popup_fuel: "Combustible :",
+      popup_outside_effis: "Hors couverture EFFIS",
+      popup_opened_from_admin: "Ouvert depuis le tableau de bord admin",
+      popup_satellite: "Satellite :",
+      popup_started: "D\u00e9but :",
+      popup_cause: "Cause :",
+      popup_tri_origin: "\U0001f525 Origine du feu triangul\u00e9e",
+      popup_location: "Emplacement :",
+      popup_from: "De :",
+      popup_bearing_reports: "rapports de gisement",
+      popup_confidence: "Confiance :",
+      popup_uncertainty: "Incertitude :",
+      popup_true_origin: "\U0001f3af V\u00e9ritable origine du feu (D\u00e9mo)",
+      popup_simulated_truth: "C'est la v\u00e9rit\u00e9 terrain simul\u00e9e que la triangulation essaie d'estimer.",
+      popup_fire_report: "\U0001f4f8 Rapport d'incendie",
+      popup_status: "Statut :",
+      popup_reported: "Signal\u00e9 le :",
+      popup_sat_confirmed: "\U0001f6f0\ufe0f Confirm\u00e9",
+      popup_no_firms_match: "Aucune correspondance FIRMS",
+      popup_photo_approval: "\U0001f4f7 Photo visible apr\u00e8s approbation",
+      popup_reports_in_cluster: "RAPPORTS DANS LE CLUSTER",
+      popup_tri_origin_short: "\U0001f525 Origine triangul\u00e9e",
+      popup_viirs_hotspot: "\U0001f6f0\ufe0f Point chaud VIIRS",
+      popup_viirs_source: "VIIRS 375m \u00b7 Anomalie thermique",
+      popup_fire_perimeter: "\U0001f525 P\u00e9rim\u00e8tre du feu (V\u00e9ritable)",
+      popup_creek_fire_2020: "Creek Fire 2020",
+      popup_fire: "Feu :",
+      popup_calfire_data: "Donn\u00e9es historiques CalFire",
+      popup_creek_origin: "\U0001f525 Origine du Creek Fire"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Mapa en vivo",
+      admin_link: "Admin",
+      contact_link: "Contacto",
+      privacy_link: "Privacidad",
+      about_link: "Qui\u00e9nes somos",
+      faq_link: "FAQ",
+      map_picker_label: "Mapas",
+      map_global: "Mapa global",
+      map_france: "Francia",
+      map_germany: "Alemania",
+      map_spain: "España",
+      map_poland: "Polonia",
+      report_btn: "Reportar",
+      heatmap_btn: "Mapa de calor",
+      esa_btn: "Extensi\u00f3n ESA",
+      users_only_btn: "Solo usuarios",
+      status_init: "Inicializando\u2026",
+      status_active: "Activo",
+      status_error: "Error",
+      status_pending: "Pendiente",
+      status_offline: "Sin conexi\u00f3n",
+      upload_title: "Reportar un incendio",
+      loc_acquiring: "Obteniendo GPS\u2026",
+      manual_coords: "O ingrese coordenadas manualmente:",
+      tap_photo: "Toca para tomar una foto",
+      submit_report: "Enviar reporte",
+      stat_max_prob: "Prob. m\u00e1x.:",
+      stat_burned_area: "Superficie quemada:",
+      stat_risk_area: "Zona de riesgo:",
+      stat_cells: "Celdas >10%:",
+      advanced_options: "\u2699 Opciones avanzadas",
+      contour_toggle: "Contorno",
+      threshold: "Umbral",
+      fetch_firms: "Obtener FIRMS",
+      firms_live: "FIRMS en vivo",
+      road_risk: "Riesgo vial (Beta)",
+      simulate_spread: "\u25b6 Simular propagaci\u00f3n (Beta)",
+      stat_reports: "Reportes",
+      stat_clusters: "Cl\u00fasteres",
+      stat_pending_label: "Pendiente",
+      cluster_severity: "Severidad del cl\u00fastere",
+      cluster_1: "1 reporte",
+      cluster_2_3: "2\u20133 reportes",
+      cluster_4_plus: "4+ reportes",
+      gps_unavailable: "\u274c GPS no disponible",
+      gps_reacquiring: "\U0001f504 Re-obteniendo GPS\u2026",
+      roadrisk_fetching: "\U0001f6e3\ufe0f obteniendo\u2026",
+      roadrisk_error: "\U0001f6e3\ufe0f error",
+      roadrisk_idle: "\U0001f6e3\ufe0f inactivo",
+      satellite_scanning: "\U0001f6f0\ufe0f escaneando\u2026",
+      satellite_idle: "\U0001f6f0\ufe0f inactivo",
+      satellite_fetching_firms: "\U0001f6f0\ufe0f obteniendo FIRMS\u2026",
+      computing: "\u23f3 Computando\u2026",
+      reports_noun: "reportes",
+      no_places_found: "No se encontraron lugares",
+      submitting: "Enviando\u2026",
+      reading_photo: "Leyendo foto\u2026",
+      photo_uploaded: "\u2713 Foto cargada \u2014 lista para enviar",
+      photo_error: "No se pudo leer esta foto \u2014 intente con otra",
+      submit_anyway: "Enviar de todos modos",
+      toast_no_photo: "Seleccione una foto primero",
+      toast_gps_unavail: "Posici\u00f3n GPS no disponible. Ingrese las coordenadas manualmente o active los servicios de ubicaci\u00f3n.",
+      toast_report_success: "\u00a1Reporte enviado con \u00e9xito!",
+      toast_report_ai_no_fire: "Reporte enviado \u2014 IA no detect\u00f3 fuego/humo, conservado para revisi\u00f3n humana",
+      toast_report_live: "Reporte enviado a datos EN VIVO \u2014 cambie al modo En vivo",
+      toast_offline_queued: "Sin conexi\u00f3n \u2014 reporte encolado para despu\u00e9s",
+      toast_upload_failed: "Error al cargar, no se pudo encolar.",
+      toast_gps_updated: "\U0001f4cd Posici\u00f3n GPS actualizada",
+      toast_live_demo: "\U0001f3ae \u00a1Demo en vivo iniciada! Los reportes aparecer\u00e1n progresivamente.",
+      status_gps_unavailable: "GPS no disponible",
+      status_gps_locked: "GPS bloqueado",
+      status_gps_failed: "GPS fall\u00f3",
+      status_connection_error: "Error de conexi\u00f3n",
+      status_acquiring_gps: "Obteniendo GPS\u2026",
+      status_seeding_data: "Inyectando datos de prueba\u2026",
+      status_test_data_loaded: "Datos de prueba cargados",
+      status_seed_failed: "Error en la siembra",
+      status_seeding_forest: "Inyectando datos forestales\u2026",
+      status_forest_data_loaded: "Datos forestales cargados",
+      status_starting_live_demo: "Iniciando demo en vivo\u2026",
+      status_live_demo_running: "Demo en vivo en ejecuci\u00f3n",
+      status_demo_failed: "Error en la demo",
+      status_demo_complete: "Demo completada",
+      status_starting_creek_fire: "Iniciando reproducci\u00f3n Creek Fire\u2026",
+      status_creek_fire_running: "Reproducci\u00f3n Creek Fire en ejecuci\u00f3n",
+      status_replay_complete: "Reproducci\u00f3n completada",
+      gps_error_https: "GPS bloqueado: el navegador requiere HTTPS para la ubicaci\u00f3n. Acceda por https:// o localhost, o ingrese coordenadas manualmente.",
+      gps_error_permission: "Permiso GPS denegado. Active los servicios de ubicaci\u00f3n en la configuraci\u00f3n del navegador o ingrese coordenadas manualmente.",
+      gps_error_network: "GPS no disponible: fall\u00f3 la ubicaci\u00f3n por red. Intente con Wi-Fi o salga al exterior.",
+      gps_error_position: "GPS no disponible: no se pudo determinar su ubicaci\u00f3n. Intente salir al exterior o ingrese coordenadas manualmente.",
+      gps_error_timeout: "GPS agot\u00f3 el tiempo (15s). Mu\u00e9vase a un \u00e1rea m\u00e1s despejada e intente de nuevo, o ingrese coordenadas manualmente.",
+      gps_error_unknown: "La ubicaci\u00f3n GPS fall\u00f3 por una raz\u00f3n desconocida.",
+      satellite_pass_failed: "\U0001f6f0\ufe0f pase fallido",
+      satellite_request_failed: "\U0001f6f0\ufe0f solicitud fallida",
+      satellite_firms_background: "\U0001f6f0\ufe0f obteniendo FIRMS\u2026 (trabajo en segundo plano en ejecuci\u00f3n)",
+      satellite_firms_still_processing: "\U0001f6f0\ufe0f La obtenci\u00f3n de FIRMS a\u00fan se procesa en segundo plano \u2014 el mapa se actualiza autom\u00e1ticamente",
+      satellite_firms_fetch_failed: "\U0001f6f0\ufe0f Error al obtener FIRMS",
+      satellite_no_data: "sin datos",
+      roadrisk_no_roads: "\U0001f6e3\ufe0f no se encontraron carreteras",
+      roadrisk_no_risk_data: "\U0001f6e3\ufe0f sin datos de riesgo",
+      toast_demo_complete: "\u2705 \u00a1Demo en vivo completada! La triangulaci\u00f3n convergi\u00f3.",
+      toast_creek_fire_started: "\U0001f332 \u00a1Reproducci\u00f3n de Creek Fire iniciada! Observe c\u00f3mo evoluciona el incendio con datos satelitales.",
+      toast_creek_fire_complete: "\u2705 \u00a1Reproducci\u00f3n de Creek Fire completada! 380.000 acres quemadas.",
+      step_label: "Paso",
+      btn_seeding: "Inyectando\u2026",
+      btn_starting: "Iniciando\u2026",
+      btn_live_demo: "Demo en vivo",
+      satellite_firms_request_failed: "\U0001f6f0\ufe0f Solicitud FIRMS fallida",
+      satellite_firms_live_polling: "\U0001f6f0\ufe0f FIRMS en vivo: sondeo cada 10 min",
+      satellite_firms_poller_stopped: "\U0001f6f0\ufe0f Sondeo FIRMS detenido",
+      satellite_firms_poller_request_failed: "\U0001f6f0\ufe0f Solicitud de sondeo FIRMS fallida",
+      satellite_live_poller_running: "\U0001f6f0\ufe0f Sondeo en vivo activo (cada 20s)",
+      satellite_poller_stopped: "\U0001f6f0\ufe0f Sondeo detenido",
+      satellite_poller_error: "\U0001f6f0\ufe0f Error de sondeo",
+      toast_demo_stopped: "\u23f9\ufe0f Demo en vivo detenida",
+      toast_replay_stopped: "\u23f9\ufe0f Reproducci\u00f3n Creek Fire detenida",
+      toast_no_fires_visible: "No hay incendios visibles \u2014 acerque el mapa a un incendio primero.",
+      btn_greece: "Grecia",
+      btn_forest: "Bosque",
+      search_unavailable: "B\u00fasqueda temporalmente no disponible",
+      search_unavailable_retry: "B\u00fasqueda no disponible \u2014 intente de nuevo m\u00e1s tarde",
+      popup_active_fire: "\U0001f525 Incendio activo",
+      popup_probability: "Probabilidad:",
+      popup_source: "Fuente:",
+      popup_reports: "Reportes:",
+      popup_confirmed_nearby: "confirmados cerca",
+      popup_wind: "Viento:",
+      popup_fuel: "Combustible:",
+      popup_outside_effis: "Fuera de cobertura EFFIS",
+      popup_opened_from_admin: "Abierto desde el panel de administraci\u00f3n",
+      popup_satellite: "Sat\u00e9lite:",
+      popup_started: "Iniciado:",
+      popup_cause: "Causa:",
+      popup_tri_origin: "\U0001f525 Origen del fuego triangulado",
+      popup_location: "Ubicaci\u00f3n:",
+      popup_from: "De:",
+      popup_bearing_reports: "reportes de rumbo",
+      popup_confidence: "Confianza:",
+      popup_uncertainty: "Incertidumbre:",
+      popup_true_origin: "\U0001f3af Verdadero origen del fuego (Demo)",
+      popup_simulated_truth: "Esta es la verdad simulada del terreno que la triangulaci\u00f3n intenta estimar.",
+      popup_fire_report: "\U0001f4f8 Reporte de incendio",
+      popup_status: "Estado:",
+      popup_reported: "Reportado:",
+      popup_sat_confirmed: "\U0001f6f0\ufe0f Confirmado",
+      popup_no_firms_match: "Sin coincidencia FIRMS",
+      popup_photo_approval: "\U0001f4f7 Foto visible despu\u00e9s de aprobaci\u00f3n",
+      popup_reports_in_cluster: "REPORTES EN EL CL\u00dASTER",
+      popup_tri_origin_short: "\U0001f525 Origen triangulado",
+      popup_viirs_hotspot: "\U0001f6f0\ufe0f Punto caliente VIIRS",
+      popup_viirs_source: "VIIRS 375m \u00b7 Anomal\u00eda t\u00e9rmica",
+      popup_fire_perimeter: "\U0001f525 Per\u00edmetro del fuego (Verdadero)",
+      popup_creek_fire_2020: "Creek Fire 2020",
+      popup_fire: "Fuego:",
+      popup_calfire_data: "Datos hist\u00f3ricos de CalFire",
+      popup_creek_origin: "\U0001f525 Origen del Creek Fire"
+    },
+    pl: {
+      header_sub: "Wykrywanie po\u017car\u00f3w & wczesne ostrzeganie",
+      nav_map: "Mapa na \u017cywo",
+      admin_link: "Admin",
+      contact_link: "Kontakt",
+      privacy_link: "Prywatno\u015b\u0107",
+      about_link: "O nas",
+      faq_link: "FAQ",
+      map_picker_label: "Mapy",
+      map_global: "Mapa globalna",
+      map_france: "Francja",
+      map_germany: "Niemcy",
+      map_spain: "Hiszpania",
+      map_poland: "Polska",
+      report_btn: "Zg\u0142o\u015b",
+      heatmap_btn: "Mapa cieplna",
+      esa_btn: "Rozszerzenie ESA",
+      users_only_btn: "Tylko u\u017cytkownicy",
+      status_init: "Inicjalizowanie\u2026",
+      status_active: "Aktywny",
+      status_error: "B\u0142\u0105d",
+      status_pending: "Oczekiwanie",
+      status_offline: "Brak po\u0142\u0105czenia",
+      upload_title: "Zg\u0142o\u015b po\u017car",
+      loc_acquiring: "Uzyskiwanie GPS\u2026",
+      manual_coords: "Lub wprowadź wsp\u00f3\u0142rz\u0119dne r\u0119cznie:",
+      tap_photo: "Dotknij, aby zrobi\u0107 zdj\u0119cie",
+      submit_report: "Wy\u015blij zg\u0142oszenie",
+      stat_max_prob: "Maks. prawd.:",
+      stat_burned_area: "Spalony obszar:",
+      stat_risk_area: "Obszar ryzyka:",
+      stat_cells: "Kom\u00f3rki >10%:",
+      advanced_options: "\u2699 Zaawansowane opcje",
+      contour_toggle: "Kontury",
+      threshold: "Pr\u00f3g",
+      fetch_firms: "Pobierz FIRMS",
+      firms_live: "FIRMS na \u017cywo",
+      road_risk: "Ryzyko drogowe (Beta)",
+      simulate_spread: "\u25b6 Symuluj rozprzestrzenianie (Beta)",
+      stat_reports: "Zg\u0142oszenia",
+      stat_clusters: "Klastry",
+      stat_pending_label: "Oczekuj\u0105ce",
+      cluster_severity: "Surowo\u015b\u0107 klastra",
+      cluster_1: "1 zg\u0142oszenie",
+      cluster_2_3: "2\u20133 zg\u0142oszenia",
+      cluster_4_plus: "4+ zg\u0142osze\u0144",
+      gps_unavailable: "\u274c GPS niedost\u0119pny",
+      gps_reacquiring: "\U0001f504 Ponowne uzyskiwanie GPS\u2026",
+      roadrisk_fetching: "\U0001f6e3\ufe0f pobieranie\u2026",
+      roadrisk_error: "\U0001f6e3\ufe0f b\u0142\u0105d",
+      roadrisk_idle: "\U0001f6e3\ufe0f gotowy",
+      satellite_scanning: "\U0001f6f0\ufe0f skanowanie\u2026",
+      satellite_idle: "\U0001f6f0\ufe0f gotowy",
+      satellite_fetching_firms: "\U0001f6f0\ufe0f pobieranie FIRMS\u2026",
+      computing: "\u23f3 Obliczanie\u2026",
+      reports_noun: "zg\u0142osze\u0144",
+      no_places_found: "Nie znaleziono miejsc",
+      submitting: "Wysy\u0142anie\u2026",
+      reading_photo: "Odczytywanie foto\u2026",
+      photo_uploaded: "\u2713 Foto przes\u0142ane \u2014 gotowe do wysy\u0142ki",
+      photo_error: "Nie mo\u017cna odczyta tego foto \u2014 spr\u00f3buj inne",
+      submit_anyway: "Wy\u015blij mimo to",
+      toast_no_photo: "Najpierw wybierz zdj\u0119cie",
+      toast_gps_unavail: "Pozycja GPS niedost\u0119pna. Wprowad\u017a wsp\u00f3\u0142rz\u0119dne r\u0119cznie lub w\u0142\u0105cz us\u0142ugi lokalizacji.",
+      toast_report_success: "Zg\u0142oszenie wys\u0142ane pomy\u015blnie!",
+      toast_report_ai_no_fire: "Zg\u0142oszenie wys\u0142ane \u2014 AI nie wykry\u0142o ognia/dymu, zachowane do recenzji",
+      toast_report_live: "Zg\u0142oszenie wys\u0142ane do danych NA \u017bYWO \u2014 prze\u0142\u0105cz na tryb na \u017cywo",
+      toast_offline_queued: "Brak po\u0142\u0105czenia \u2014 zg\u0142oszenie w kolejce",
+      toast_upload_failed: "Przesy\u0142anie nie powiod\u0142o si\u0119, nie mo\u017cna by\u0142o doda\u0107 do kolejki.",
+      toast_gps_updated: "\U0001f4cd Pozycja GPS zaktualizowana",
+      toast_live_demo: "\U0001f3ae Demo na \u017cywo uruchomione! Raporty b\u0119d\u0105 pojawia\u0107 si\u0119 stopniowo.",
+      status_gps_unavailable: "GPS niedost\u0119pny",
+      status_gps_locked: "GPS zablokowany",
+      status_gps_failed: "GPS nie powiod\u0142o si\u0119",
+      status_connection_error: "B\u0142\u0105d po\u0142\u0105czenia",
+      status_acquiring_gps: "Uzyskiwanie GPS\u2026",
+      status_seeding_data: "Wstrzykiwanie danych testowych\u2026",
+      status_test_data_loaded: "Dane testowe za\u0142adowane",
+      status_seed_failed: "Wstrzykiwanie nie powiod\u0142o si\u0119",
+      status_seeding_forest: "Wstrzykiwanie danych le\u015bnych\u2026",
+      status_forest_data_loaded: "Dane le\u015bne za\u0142adowane",
+      status_starting_live_demo: "Uruchamianie demo na \u017cywo\u2026",
+      status_live_demo_running: "Demo na \u017cywo dzia\u0142a",
+      status_demo_failed: "B\u0142\u0105d demo",
+      status_demo_complete: "Demo zako\u0144czone",
+      status_starting_creek_fire: "Uruchamianie odtwarzania Creek Fire\u2026",
+      status_creek_fire_running: "Odtwarzanie Creek Fire w toku",
+      status_replay_complete: "Odtwarzanie zako\u0144czone",
+      gps_error_https: "GPS zablokowany: przeg\u0142\u0105darka wymaga HTTPS do lokalizacji. Uzyskaj dost\u0119p przez https:// lub localhost, lub wprowad\u017a wsp\u00f3\u0142rz\u0119dne r\u0119cznie.",
+      gps_error_permission: "Odmowa dost\u0119pu do GPS. W\u0142\u0105cz us\u0142ugi lokalizacji w ustawieniach przegl\u0105darki lub wprowad\u017a wsp\u00f3\u0142rz\u0119dne r\u0119cznie.",
+      gps_error_network: "GPS niedost\u0119pny: lokalizacja sieciowa nie powiod\u0142a si\u0119. Spr\u00f3buj Wi-Fi lub wyjd\u017a na zewn\u0105trz.",
+      gps_error_position: "GPS niedost\u0119pny: nie mo\u017cna okre\u015bli\u0107 lokalizacji. Spr\u00f3buj wyj\u015b\u0107 na zewn\u0105trz lub wprowad\u017a wsp\u00f3\u0142rz\u0119dne r\u0119cznie.",
+      gps_error_timeout: "GPS przekroczy\u0142 limit czasu (15s). Przejd\u017a do bardziej przejrzystego obszaru i spr\u00f3buj ponownie, lub wprowad\u017a wsp\u00f3\u0142rz\u0119dne r\u0119cznie.",
+      gps_error_unknown: "Lokalizacja GPS nie powiod\u0142a si\u0119 z nieznanej przyczyny.",
+      satellite_pass_failed: "\U0001f6f0\ufe0f przejście nieudane",
+      satellite_request_failed: "\U0001f6f0\ufe0f \u017c\u0105danie nieudane",
+      satellite_firms_background: "\U0001f6f0\ufe0f pobieranie FIRMS\u2026 (zadanie w tle w toku)",
+      satellite_firms_still_processing: "\U0001f6f0\ufe0f Pobieranie FIRMS wci\u0105\u017c przetwarzane w tle \u2014 mapa od\u015bwieca si\u0119 automatycznie",
+      satellite_firms_fetch_failed: "\U0001f6f0\ufe0f B\u0142\u0105d pobierania FIRMS",
+      satellite_no_data: "brak danych",
+      roadrisk_no_roads: "\U0001f6e3\ufe0f nie znaleziono dr\u00f3g",
+      roadrisk_no_risk_data: "\U0001f6e3\ufe0f brak danych o ryzyku",
+      toast_demo_complete: "\u2705 Demo na \u017cywo zako\u0144czone! Triangulacja zbieg\u0142a si\u0119.",
+      toast_creek_fire_started: "\U0001f332 Odtwarzanie Creek Fire uruchomione! Obserwuj, jak po\u017car rozwija si\u0119 z danymi satelitarnymi.",
+      toast_creek_fire_complete: "\u2705 Odtwarzanie Creek Fire zako\u0144czone! 380 000 akr\u00f3w spalonych.",
+      step_label: "Krok",
+      btn_seeding: "Wstrzykiwanie\u2026",
+      btn_starting: "Uruchamianie\u2026",
+      btn_live_demo: "Demo na \u017cywo",
+      satellite_firms_request_failed: "\U0001f6f0\ufe0f \u017b\u0105danie FIRMS nieudane",
+      satellite_firms_live_polling: "\U0001f6f0\ufe0f FIRMS na \u017cywo: sondowanie co 10 min",
+      satellite_firms_poller_stopped: "\U0001f6f0\ufe0f Sondowanie FIRMS zatrzymane",
+      satellite_firms_poller_request_failed: "\U0001f6f0\ufe0f \u017b\u0105danie sondowania FIRMS nieudane",
+      satellite_live_poller_running: "\U0001f6f0\ufe0f Sondowanie na \u017cywo aktywne (co 20s)",
+      satellite_poller_stopped: "\U0001f6f0\ufe0f Sondowanie zatrzymane",
+      satellite_poller_error: "\U0001f6f0\ufe0f B\u0142\u0105d sondowania",
+      toast_demo_stopped: "\u23f9\ufe0f Demo na \u017cywo zatrzymane",
+      toast_replay_stopped: "\u23f9\ufe0f Odtwarzanie Creek Fire zatrzymane",
+      toast_no_fires_visible: "Brak widocznych po\u017car\u00f3w \u2014 najpierw przybli\u017c map\u0119 do po\u017caru.",
+      btn_greece: "Grecja",
+      btn_forest: "Las",
+      search_unavailable: "Wyszukiwanie tymczasowo niedost\u0119pne",
+      search_unavailable_retry: "Wyszukiwanie niedost\u0119pne \u2014 spr\u00f3buj ponownie p\u00f3\u017aniej",
+      popup_active_fire: "\U0001f525 Aktywny po\u017car",
+      popup_probability: "Prawdopodobie\u0144stwo:",
+      popup_source: "\u017ar\u00f3d\u0142o:",
+      popup_reports: "Zg\u0142oszenia:",
+      popup_confirmed_nearby: "potwierdzone w pobli\u017cu",
+      popup_wind: "Wiatr:",
+      popup_fuel: "Paliwo:",
+      popup_outside_effis: "Poza zasi\u0119giem EFFIS",
+      popup_opened_from_admin: "Otwarte z panelu administracyjnego",
+      popup_satellite: "Satelita:",
+      popup_started: "Rozpocz\u0119to:",
+      popup_cause: "Przyczyna:",
+      popup_tri_origin: "\U0001f525 Triangulowany punkt pocz\u0105tkowy po\u017caru",
+      popup_location: "Lokalizacja:",
+      popup_from: "Od:",
+      popup_bearing_reports: "zg\u0142oszenia azymutu",
+      popup_confidence: "Pewno\u015b\u0107:",
+      popup_uncertainty: "Niepewno\u015b\u0107:",
+      popup_true_origin: "\U0001f3af Prawdziwy origins po\u017caru (Demo)",
+      popup_simulated_truth: "To symulowana prawda terenowa, kt\u00f3r\u0105 triangulacja pr\u00f3buje oszacowa\u0107.",
+      popup_fire_report: "\U0001f4f8 Zg\u0142oszenie o po\u017carze",
+      popup_status: "Status:",
+      popup_reported: "Zg\u0142oszono:",
+      popup_sat_confirmed: "\U0001f6f0\ufe0f Potwierdzone",
+      popup_no_firms_match: "Brak dopasowania FIRMS",
+      popup_photo_approval: "\U0001f4f7 Zdj\u0119cie widoczne po zatwierdzeniu",
+      popup_reports_in_cluster: "ZG\u0141OSZENIA W KLASTRZE",
+      popup_tri_origin_short: "\U0001f525 Triangulowany punkt pocz\u0105tkowy",
+      popup_viirs_hotspot: "\U0001f6f0\ufe0f Punkt gor\u0105cy VIIRS",
+      popup_viirs_source: "VIIRS 375m \u00b7 Anomalia termiczna",
+      popup_fire_perimeter: "\U0001f525 Obw\u00f3d po\u017caru (Prawdziwy)",
+      popup_creek_fire_2020: "Creek Fire 2020",
+      popup_fire: "Po\u017car:",
+      popup_calfire_data: "Dane historyczne CalFire",
+      popup_creek_origin: "\U0001f525 Punkt pocz\u0105tkowy Creek Fire"
+    }
+  });
+  </script>
+
 </body>
 </html>

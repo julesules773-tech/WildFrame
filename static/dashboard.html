@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pyrae — Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0e14; color: #e2e8f0; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: rgba(15, 20, 30, 0.9); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { font-size: 18px; font-weight: 600; }
+    .topbar h1 span { color: #f97316; }
+    .role-tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .role-investor { background: rgba(34,211,238,0.15); color: #22d3ee; }
+    .role-government { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .topbar-right a, .topbar-right button { font-size: 13px; color: #94a3b8; text-decoration: none; background: none; border: none; cursor: pointer; }
+    .topbar-right a:hover, .topbar-right button:hover { color: #f8fafc; }
+    .user-name { font-size: 13px; color: #64748b; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: rgba(30, 35, 50, 0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; }
+    .stat-card .label { font-size: 12px; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; color: #f8fafc; }
+    .stat-card .sub { font-size: 12px; color: #475569; margin-top: 4px; }
+    .section { margin-bottom: 32px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-header h2 { font-size: 16px; font-weight: 600; color: #cbd5e1; }
+    .chart-card { background: rgba(30, 35, 50, 0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 24px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding-top: 8px; }
+    .bar { flex: 1; min-width: 4px; background: linear-gradient(180deg, #f97316, #dc2626); border-radius: 3px 3px 0 0; transition: height 0.3s; position: relative; }
+    .bar:hover { opacity: 0.85; }
+    .bar-label { font-size: 10px; color: #475569; text-align: center; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .table-card { background: rgba(30, 35, 50, 0.7); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    td { padding: 10px 16px; font-size: 13px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .export-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; font-size: 13px; font-weight: 500;
+      background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3);
+      border-radius: 8px; color: #22d3ee; cursor: pointer; transition: all 0.2s;
+    }
+    .export-btn:hover { background: rgba(34,211,238,0.2); }
+    .empty-state { text-align: center; padding: 48px 24px; color: #475569; }
+    .loading { text-align: center; padding: 48px 24px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="/" style="text-decoration:none"><h1>🔥 <span>Pyr</span>ae</h1></a>
+      <span class="role-tag" id="role-tag"></span>
+    </div>
+    <div class="topbar-right">
+      <span class="user-name" id="user-name"></span>
+      <a href="/map">Map</a>
+      <button id="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <div class="container" id="content">
+    <div class="loading">Loading analytics…</div>
+  </div>
+
+  <script>
+    (async function () {
+      const content = document.getElementById("content");
+
+      // Check auth
+      const meRes = await fetch("/auth/me");
+      const meData = await meRes.json();
+      if (!meData.user) { window.location.href = "/login"; return; }
+
+      const user = meData.user;
+      document.getElementById("user-name").textContent = user.name;
+      const tag = document.getElementById("role-tag");
+      tag.textContent = user.role;
+      tag.className = "role-tag role-" + user.role;
+
+      // Logout
+      document.getElementById("logout-btn").addEventListener("click", async () => {
+        await fetch("/auth/logout", { method: "POST" });
+        window.location.href = "/login";
+      });
+
+      // Fetch analytics
+      const res = await fetch("/api/analytics/summary");
+      const data = await res.json();
+
+      // Build dashboard
+      content.innerHTML = `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Total Reports</div>
+            <div class="value">${data.total_reports.toLocaleString()}</div>
+            <div class="sub">All citizen-submitted reports</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Confirmed Fires</div>
+            <div class="value">${data.confirmed_reports.toLocaleString()}</div>
+            <div class="sub">Verified by AI + corroboration</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Active Fires</div>
+            <div class="value">${data.active_fires.toLocaleString()}</div>
+            <div class="sub">Currently tracked by Bayesian model</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Detection Rate</div>
+            <div class="value">${data.total_reports > 0 ? Math.round(data.confirmed_reports / data.total_reports * 100) : 0}%</div>
+            <div class="sub">Confirmed / total reports</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Reports Over Time (30 days)</h2>
+          </div>
+          <div class="chart-card">
+            <div class="bar-chart" id="daily-chart"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Reports by Country</h2>
+            <button class="export-btn" onclick="exportData('csv')">📥 Export CSV</button>
+          </div>
+          <div class="table-card">
+            <table>
+              <thead><tr><th>Country</th><th>Reports</th><th>% of Total</th></tr></thead>
+              <tbody id="country-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <h2>Reports by Status</h2>
+            <button class="export-btn" onclick="exportData('json')">📥 Export JSON</button>
+          </div>
+          <div class="chart-card">
+            <div id="status-bars"></div>
+          </div>
+        </div>
+      `;
+
+      // --- API Docs section (government role only) ---
+      if (user.role === "government" || user.role === "internal") {
+        content.innerHTML += `
+        <div class="section">
+          <div class="section-header">
+            <h2>📡 Agency Integration API</h2>
+          </div>
+          <div class="card" style="margin-bottom:16px">
+            <p style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:16px">
+              Send fire incidents directly into Pyrae via REST or CAP feed.
+              Agency data is fused into the Bayesian fire model as
+              <strong>strong positive evidence</strong> (LR 100:1) — the
+              highest-trust source in the system.
+            </p>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <h3 style="font-size:15px;color:#f8fafc;margin-bottom:12px">1. REST API — Direct Ingest</h3>
+            <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">
+              POST a JSON incident to the ingest endpoint. Auth via
+              <code style="background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-size:12px">X-Agency-Key</code>
+              header.
+            </p>
+            <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#94a3b8;overflow-x:auto;white-space:pre;line-height:1.6">POST /api/agencies/ingest
+Content-Type: application/json
+X-Agency-Key: &lt;YOUR_SECRET&gt;
+
+{
+  "agency": "gov-cap:meteoalarm",
+  "incident_id": "cap-2026-0810-004",
+  "action": "create",
+  "sent_at": "2026-08-10T09:30:00Z",
+  "lat": 51.106,
+  "lon": 18.941,
+  "status": "confirmed",
+  "severity": "Extreme",
+  "source_type": "government"
+}</div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:12px;color:#64748b">
+              <div><code style="color:#22d3ee">action</code>: create | update | cancel | delete</div>
+              <div><code style="color:#22d3ee">sent_at</code>: staleness clock — only newer wins</div>
+              <div><code style="color:#22d3ee">lat/lon</code>: required, WGS84</div>
+              <div><code style="color:#22d3ee">severity</code>: Extreme | Severe | Moderate | Minor</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <h3 style="font-size:15px;color:#f8fafc;margin-bottom:12px">2. CAP Feed — Automatic Polling</h3>
+            <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">
+              Point WildFrame at your existing CAP XML feed. The
+              <code style="background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-size:12px">agencies.cap_poll</code>
+              job fetches every 5 minutes, parses alerts, and pushes them
+              through the ingest endpoint automatically.
+            </p>
+            <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#94a3b8;overflow-x:auto;white-space:pre;line-height:1.6"># Configure via kv_store:
+db.set_poller_active("cap", True, {
+  "feed_url": "https://alerts.gov.pl/cap.xml",
+  "mode": "production",
+})
+
+# Or via the admin API:
+POST /api/satellite/poller/config
+{ "poller": "cap", "active": true,
+  "config": { "feed_url": "https://..." } }</div>
+            <div style="margin-top:12px;font-size:12px;color:#64748b">
+              Supports CAP 1.0 / 1.1 / 1.2. Alert → create, Update → update, Cancel → cancel.
+              Test/Drill alerts are skipped by default.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size:15px;color:#f8fafc;margin-bottom:12px">Response Format</h3>
+            <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#94a3b8;overflow-x:auto;white-space:pre;line-height:1.6">{
+  "report": { "id": "...", "status": "confirmed" },
+  "action": "create",
+  "created": true,
+  "stale": false,
+  "duplicate": false,
+  "grid": { "fused": true, "grid_id": "..." }
+}</div>
+            <div style="margin-top:12px;font-size:12px;color:#64748b">
+              <code style="color:#22d3ee">created</code>: true only on first insert.
+              <code style="color:#22d3ee">stale</code>: true if an older message was rejected.
+              <code style="color:#22d3ee">grid.fused</code>: true if Bayesian evidence was applied.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size:15px;color:#f8fafc;margin-bottom:12px">🧪 Test the API</h3>
+            <p style="font-size:13px;color:#94a3b8;margin-bottom:16px">
+              Send a sample test incident to verify your integration.
+              Runs in <code style="background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;font-size:12px">demo</code>
+              mode — won't affect production data.
+            </p>
+            <div style="display:flex;gap:12px;align-items:start;flex-wrap:wrap">
+              <button id="test-send-btn" style="padding:10px 20px;font-size:13px;font-weight:600;background:rgba(249,115,22,0.15);border:1px solid rgba(249,115,22,0.4);border-radius:8px;color:#f97316;cursor:pointer;transition:all 0.2s" onmouseover="this.style.background='rgba(249,115,22,0.25)'" onmouseout="this.style.background='rgba(249,115,22,0.15)'">🚀 Send Test Incident</button>
+              <button id="test-cancel-btn" style="padding:10px 20px;font-size:13px;font-weight:600;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;cursor:pointer;transition:all 0.2s;display:none" onmouseover="this.style.background='rgba(239,68,68,0.25)'" onmouseout="this.style.background='rgba(239,68,68,0.15)'">❌ Cancel It</button>
+            </div>
+            <div id="test-result" style="margin-top:16px;display:none">
+              <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:16px;font-family:monospace;font-size:12px;color:#94a3b8;overflow-x:auto;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto"></div>
+            </div>
+          </div>
+        </div>`;
+
+        // --- Test button handlers ---
+        let testIncidentId = null;
+        let testAgency = null;
+
+        document.getElementById("test-send-btn").addEventListener("click", async function() {
+          const btn = this;
+          btn.disabled = true;
+          btn.textContent = "⏳ Sending…";
+          document.getElementById("test-result").style.display = "none";
+
+          const now = new Date().toISOString();
+          const testId = "test-" + Math.random().toString(36).slice(2, 10);
+          testAgency = "dashboard-test";
+          testIncidentId = testId;
+
+          try {
+            const resp = await fetch("/api/agencies/ingest-test", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                agency: testAgency,
+                incident_id: testId,
+                action: "create",
+                sent_at: now,
+                lat: 51.905 + (Math.random() - 0.5) * 0.01,
+                lon: 19.900 + (Math.random() - 0.5) * 0.01,
+                status: "confirmed",
+                severity: "Moderate",
+                source_type: "government",
+                data: { test: true, note: "Sent from dashboard test button" }
+              })
+            });
+            const body = await resp.json();
+            const resultEl = document.getElementById("test-result");
+            resultEl.style.display = "block";
+            resultEl.querySelector("div").innerHTML =
+              "<span style='color:#22c55e'>✅ " + resp.status + " OK</span>\n" +
+              "created: " + body.created + "\n" +
+              "stale: " + body.stale + "\n" +
+              "grid.fused: " + (body.grid || {}).fused + "\n" +
+              "grid.id: " + (body.grid || {}).grid_id + "\n" +
+              "report.id: " + (body.report || {}).id + "\n" +
+              "report.status: " + (body.report || {}).status;
+            document.getElementById("test-cancel-btn").style.display = "inline-block";
+          } catch(e) {
+            const resultEl = document.getElementById("test-result");
+            resultEl.style.display = "block";
+            resultEl.querySelector("div").innerHTML = "<span style='color:#ef4444'>❌ Error: " + e.message + "</span>";
+          }
+          btn.disabled = false;
+          btn.textContent = "🚀 Send Test Incident";
+        });
+
+        document.getElementById("test-cancel-btn").addEventListener("click", async function() {
+          const btn = this;
+          btn.disabled = true;
+          btn.textContent = "⏳ Cancelling…";
+
+          try {
+            const resp = await fetch("/api/agencies/ingest-test", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                agency: testAgency,
+                incident_id: testIncidentId,
+                action: "cancel",
+                sent_at: new Date().toISOString(),
+                lat: 51.905,
+                lon: 19.900
+              })
+            });
+            const body = await resp.json();
+            const resultEl = document.getElementById("test-result");
+            resultEl.querySelector("div").innerHTML +=
+              "\n\n<span style='color:#ef4444'>❌ Cancel sent</span>\n" +
+              "status: " + (body.report || {}).status + "\n" +
+              "grid.fused: " + (body.grid || {}).fused;
+          } catch(e) {
+            const resultEl = document.getElementById("test-result");
+            resultEl.querySelector("div").innerHTML += "\n<span style='color:#ef4444'>❌ Cancel error: " + e.message + "</span>";
+          }
+          btn.disabled = false;
+          btn.textContent = "❌ Cancel It";
+        });
+      }
+
+      // --- Investment section (investor/government/internal) ---
+      if (user.role === "investor" || user.role === "government" || user.role === "internal") {
+        const invRes = await fetch("/api/investments/summary");
+        const inv = await invRes.json();
+        const invListRes = await fetch("/api/investments?limit=20");
+        const invList = await invListRes.json();
+
+        const catColors = { infrastructure: "#f97316", development: "#22d3ee", api_costs: "#a855f7", personnel: "#22c55e", marketing: "#f59e0b", data: "#3b82f6", other: "#64748b" };
+        const catLabels = { infrastructure: "Infrastructure", development: "Development", api_costs: "API Costs", personnel: "Personnel", marketing: "Marketing", data: "Data", other: "Other" };
+
+        let catBars = "";
+        if (inv.by_category.length > 0) {
+          const maxCat = Math.max(...inv.by_category.map(c => Math.abs(c.total)), 1);
+          inv.by_category.forEach(c => {
+            const pct = Math.round(Math.abs(c.total) / maxCat * 100);
+            const col = catColors[c.category] || "#64748b";
+            catBars += `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px;color:#94a3b8">${catLabels[c.category] || c.category}</span><span style="font-size:13px;color:#64748b">$${Math.abs(c.total).toLocaleString()} (${c.entries})</span></div><div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${col};border-radius:4px"></div></div></div>`;
+          });
+        } else {
+          catBars = '<div style="color:#475569;font-size:13px">No data yet</div>';
+        }
+
+        let invRows = "";
+        if (invList.investments.length > 0) {
+          invList.investments.forEach(i => {
+            const sign = i.amount >= 0 ? "-" : "+";
+            const col = i.amount >= 0 ? "#ef4444" : "#22c55e";
+            invRows += `<tr><td>${i.date ? i.date.split("T")[0] : ""}</td><td style="color:${col};font-weight:600">${sign}$${Math.abs(i.amount).toLocaleString()}</td><td><span style="background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:10px;font-size:11px">${catLabels[i.category] || i.category}</span></td><td>${i.description || ""}</td><td style="color:#475569;font-size:11px">${i.created_by || ""}</td></tr>`;
+          });
+        } else {
+          invRows = '<tr><td colspan="5" style="text-align:center;color:#475569">No entries yet</td></tr>';
+        }
+
+        content.innerHTML += `
+        <div class="section">
+          <div class="section-header"><h2>💰 Investment Tracking</h2></div>
+          <div class="stats-grid" style="margin-bottom:16px">
+            <div class="stat-card"><div class="label">Total Spent</div><div class="value" style="color:#ef4444">$${inv.total_spent.toLocaleString()}</div><div class="sub">${inv.entry_count} entries</div></div>
+            <div class="stat-card"><div class="label">Revenue</div><div class="value" style="color:#22c55e">$${inv.total_revenue.toLocaleString()}</div><div class="sub">Funding / grants</div></div>
+            <div class="stat-card"><div class="label">Net</div><div class="value">$${Math.abs(inv.net).toLocaleString()}</div><div class="sub">${inv.net >= 0 ? "Invested" : "Revenue exceeds spend"}</div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="card"><h3 style="font-size:14px;color:#cbd5e1;margin-bottom:16px">Spend by Category</h3>${catBars}</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 style="font-size:14px;color:#cbd5e1">Recent Entries</h3>
+                ${user.role !== 'investor' ? '<button id="add-investment-btn" style="padding:6px 14px;font-size:12px;font-weight:600;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);border-radius:6px;color:#22d3ee;cursor:pointer">+ Add Entry</button>' : ''}
+              </div>
+              ${user.role !== 'investor' ? '<div id="add-investment-form" style="display:none;margin-bottom:16px;padding:16px;background:rgba(0,0,0,0.2);border-radius:8px">' : '<div id="add-investment-form" style="display:none">'}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <input id="inv-amount" type="number" placeholder="Amount (USD)" style="padding:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f8fafc;font-size:13px">
+                  <select id="inv-category" style="padding:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f8fafc;font-size:13px"><option value="infrastructure">Infrastructure</option><option value="development">Development</option><option value="api_costs">API Costs</option><option value="personnel">Personnel</option><option value="marketing">Marketing</option><option value="data">Data</option><option value="other">Other</option></select>
+                </div>
+                <input id="inv-desc" type="text" placeholder="Description" style="width:100%;padding:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#f8fafc;font-size:13px;margin-bottom:8px">
+                <div style="display:flex;gap:8px"><button id="inv-save-btn" style="padding:8px 16px;font-size:12px;font-weight:600;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);border-radius:6px;color:#22c55e;cursor:pointer">Save</button><button id="inv-cancel-btn" style="padding:8px 16px;font-size:12px;color:#64748b;background:none;border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer">Cancel</button></div>
+              </div>
+              <div style="max-height:300px;overflow-y:auto">
+                <table><thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Description</th><th>By</th></tr></thead><tbody>${invRows}</tbody></table>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+        // Toggle form (only for non-investor roles)
+        const addInvBtn = document.getElementById("add-investment-btn");
+        if (addInvBtn) {
+          addInvBtn.addEventListener("click", () => {
+            const f = document.getElementById("add-investment-form");
+            f.style.display = f.style.display === "none" ? "block" : "none";
+          });
+        }
+        document.getElementById("inv-cancel-btn").addEventListener("click", () => {
+          document.getElementById("add-investment-form").style.display = "none";
+        });
+        document.getElementById("inv-save-btn").addEventListener("click", async () => {
+          const amount = parseFloat(document.getElementById("inv-amount").value);
+          const category = document.getElementById("inv-category").value;
+          const description = document.getElementById("inv-desc").value;
+          if (isNaN(amount)) { alert("Enter a valid amount"); return; }
+          await fetch("/api/investments", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({amount, category, description}) });
+          location.reload();
+        });
+      }
+
+      // Render daily chart
+      const chartEl = document.getElementById("daily-chart");
+      if (data.reports_by_day.length > 0) {
+        const maxCount = Math.max(...data.reports_by_day.map(d => d.count), 1);
+        data.reports_by_day.forEach(d => {
+          const bar = document.createElement("div");
+          bar.className = "bar";
+          bar.style.height = (d.count / maxCount * 100) + "%";
+          bar.title = d.day + ": " + d.count + " reports";
+          chartEl.appendChild(bar);
+        });
+      } else {
+        chartEl.innerHTML = '<div style="color:#475569;font-size:13px">No data yet</div>';
+      }
+
+      // Render country table
+      const countryTable = document.getElementById("country-table");
+      if (data.reports_by_country.length > 0) {
+        data.reports_by_country.forEach(c => {
+          const pct = data.total_reports > 0 ? Math.round(c.count / data.total_reports * 100) : 0;
+          countryTable.innerHTML += `<tr><td>${c.country || "Unknown"}</td><td>${c.count}</td><td>${pct}%</td></tr>`;
+        });
+      } else {
+        countryTable.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#475569">No data yet</td></tr>';
+      }
+
+      // Render status bars
+      const statusBars = document.getElementById("status-bars");
+      if (data.reports_by_status.length > 0) {
+        const colors = { confirmed: "#22c55e", pending: "#f59e0b", rejected: "#ef4444" };
+        const maxS = Math.max(...data.reports_by_status.map(s => s.count), 1);
+        data.reports_by_status.forEach(s => {
+          const pct = Math.round(s.count / maxS * 100);
+          statusBars.innerHTML += `
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:13px;color:#94a3b8;text-transform:capitalize">${s.status}</span>
+                <span style="font-size:13px;color:#64748b">${s.count}</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${colors[s.status] || '#64748b'};border-radius:4px;transition:width 0.5s"></div>
+              </div>
+            </div>`;
+        });
+      }
+    })();
+
+    function exportData(format) {
+      window.location.href = "/api/export?format=" + format;
+    }
+  </script>
+</body>
+</html>

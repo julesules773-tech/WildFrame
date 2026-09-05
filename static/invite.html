@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pyrae — Accept Invitation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0b0e14; color: #e2e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      max-width: 400px; width: 100%; padding: 40px 32px;
+      background: rgba(30, 35, 50, 0.85); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo span { font-size: 36px; }
+    .logo h1 { font-size: 22px; font-weight: 600; margin-top: 8px; color: #f8fafc; }
+    .logo p { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .role-badge {
+      display: inline-block; padding: 4px 12px; font-size: 12px; font-weight: 600;
+      border-radius: 20px; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .role-investor { background: rgba(34,211,238,0.15); color: #22d3ee; }
+    .role-government { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .role-internal { background: rgba(249,115,22,0.15); color: #f97316; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 500; color: #94a3b8; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px 14px; font-size: 14px;
+      background: rgba(15, 20, 30, 0.8); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; color: #e2e8f0; outline: none; transition: border-color 0.2s;
+    }
+    input:focus { border-color: #f97316; }
+    .btn {
+      width: 100%; padding: 12px; font-size: 14px; font-weight: 600;
+      background: linear-gradient(135deg, #f97316, #dc2626); color: #fff;
+      border: none; border-radius: 50px; cursor: pointer; margin-top: 8px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(249,115,22,0.3); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .error { color: #ef4444; font-size: 13px; margin-top: 8px; text-align: center; display: none; }
+    .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #475569; }
+    .footer a { color: #f97316; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <span>🔥</span>
+      <h1>You're Invited</h1>
+      <p>Create your Pyrae account</p>
+      <div class="role-badge" id="role-badge" style="display:none"></div>
+    </div>
+    <form id="invite-form">
+      <input type="hidden" id="token" />
+      <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" required placeholder="Jane Smith" />
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="email" placeholder="you@company.com" />
+      </div>
+      <div class="form-group">
+        <label for="password">Password (min 8 characters)</label>
+        <input type="password" id="password" required minlength="8" autocomplete="new-password" placeholder="••••••••" />
+      </div>
+      <div class="error" id="error-msg"></div>
+      <button type="submit" class="btn" id="submit-btn">Create Account</button>
+    </form>
+    <div class="footer">
+      <a href="/">← Back to Pyrae</a>
+    </div>
+  </div>
+  <script>
+    // Extract token from URL
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (!token) {
+      document.getElementById("error-msg").textContent = "No invite token found.";
+      document.getElementById("error-msg").style.display = "block";
+      document.getElementById("submit-btn").disabled = true;
+    } else {
+      document.getElementById("token").value = token;
+    }
+
+    document.getElementById("invite-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("submit-btn");
+      const errEl = document.getElementById("error-msg");
+      btn.disabled = true;
+      btn.textContent = "Creating account…";
+      errEl.style.display = "none";
+
+      try {
+        const res = await fetch("/auth/accept-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: document.getElementById("token").value,
+            name: document.getElementById("name").value,
+            email: document.getElementById("email").value,
+            password: document.getElementById("password").value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to create account");
+
+        window.location.href = "/dashboard";
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = "block";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+      }
+    });
+  </script>
+</body>
+</html>

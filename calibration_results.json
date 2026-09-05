@@ -1,0 +1,244 @@
+{
+  "baseline": {
+    "detection_rate": 100.0,
+    "avg_iou": 21.8,
+    "avg_area_error": 78.2,
+    "sample_size": 15
+  },
+  "best_params": {
+    "decay_half_life_s": 14400,
+    "evidence_shelf_s": 21600,
+    "base_spread_rate": 3.0,
+    "wind_head_factor": 0.1,
+    "wind_back_factor": 0.03
+  },
+  "best_result": {
+    "detection_rate": 100.0,
+    "avg_iou": 23.4,
+    "avg_area_error": 76.6,
+    "sample_size": 15
+  },
+  "improvement_iou_pp": 1.6,
+  "all_results": [
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 43200,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.03,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 86400,
+      "base_spread_rate": 8.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.05,
+      "detection_rate": 100.0,
+      "avg_iou": 23.4,
+      "avg_area_error": 76.6,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 3.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.07,
+      "detection_rate": 100.0,
+      "avg_iou": 22.93,
+      "avg_area_error": 77.07,
+      "sample_size": 15
+    },
+    {
+      "decay_half_life_s": 14400,
+      "evidence_shelf_s": 21600,
+      "base_spread_rate": 5.0,
+      "wind_head_factor": 0.1,
+      "wind_back_factor": 0.07,
+      "detection_rate": 100.0,
+      "avg_iou": 22.93,
+      "avg_area_error": 77.07,
+      "sample_size": 15
+    }
+  ]
+}

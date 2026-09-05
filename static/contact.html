@@ -48,21 +48,23 @@
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main">
 
     <!-- ======== Hero ======== -->
     <section class="hero">
-      <p class="hero-eyebrow">PARTNERSHIPS · INVESTORS · GOVERNMENT</p>
-      <h1 class="hero-title">Partner with <span class="hero-accent">Pyrae</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">PARTNERSHIPS \u00b7 INVESTORS \u00b7 GOVERNMENT</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Partner with</span> <span class="hero-accent" data-i18n="hero_title_accent">Pyrae</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Early wildfire detection and warning, built on citizen photo reports,
         AI fire/smoke analysis, live satellite corroboration, and predictive
         spread modelling.
@@ -71,115 +73,101 @@
 
     <!-- ======== What we do ======== -->
     <section class="section">
-      <h2 class="section-title">What Pyrae does</h2>
+      <h2 class="section-title" data-i18n="what_title">What Pyrae does</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">📸</div>
-          <h3>AI photo analysis</h3>
-          <p>Every citizen report is screened for visible fire and smoke by a computer-vision model, with per-class confidence scores.</p>
+          <h3 data-i18n="cap_ai_title">AI photo analysis</h3>
+          <p data-i18n="cap_ai_desc">Every citizen report is screened for visible fire and smoke by a computer-vision model, with per-class confidence scores.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🛰️</div>
-          <h3>Satellite corroboration</h3>
-          <p>Live NASA FIRMS hotspot data validates reported fires from space, turning single sightings into confirmed incidents.</p>
+          <h3 data-i18n="cap_sat_title">Satellite corroboration</h3>
+          <p data-i18n="cap_sat_desc">Live NASA FIRMS hotspot data validates reported fires from space, turning single sightings into confirmed incidents.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🔥</div>
-          <h3>Predictive spread grid</h3>
-          <p>A Bayesian model estimates where each fire is likely to spread — and how likely any given area is to burn.</p>
+          <h3 data-i18n="cap_spread_title">Predictive spread grid</h3>
+          <p data-i18n="cap_spread_desc">A Bayesian model estimates where each fire is likely to spread — and how likely any given area is to burn.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🛣️</div>
-          <h3>Road risk assessment</h3>
-          <p>Roads near an active fire are assessed for time-to-arrival and graded by risk tier, using real wind data.</p>
+          <h3 data-i18n="cap_road_title">Road risk assessment</h3>
+          <p data-i18n="cap_road_desc">Roads near an active fire are assessed for time-to-arrival and graded by risk tier, using real wind data.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🏛️</div>
-          <h3>Agency-ready data</h3>
-          <p>Machine-readable alert feeds (CAP / REST API) can be integrated so official incident data flows straight onto the map.</p>
+          <h3 data-i18n="cap_agency_title">Agency-ready data</h3>
+          <p data-i18n="cap_agency_desc">Machine-readable alert feeds (CAP / REST API) can be integrated so official incident data flows straight onto the map.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🌬️</div>
-          <h3>Weather-aware</h3>
-          <p>Real wind speed and direction drive spread estimates, smoke drift, and risk scoring.</p>
+          <h3 data-i18n="cap_weather_title">Weather-aware</h3>
+          <p data-i18n="cap_weather_desc">Real wind speed and direction drive spread estimates, smoke drift, and risk scoring.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Audiences ======== -->
     <section class="section">
-      <h2 class="section-title">Who we're looking for</h2>
+      <h2 class="section-title" data-i18n="audience_title">Who we're looking for</h2>
       <div class="audience-grid">
         <div class="audience-card audience-card--investors">
-          <h3>For investors</h3>
-          <p>
-            Pyrae is an early-stage wildfire detection platform focused on detecting fires earlier and giving communities, utilities, and emergency agencies actionable intelligence before small ignitions become large-scale disasters. 
+          <h3 data-i18n="investors_title">For investors</h3>
+          <p data-i18n="investors_desc">
+            Pyrae is an early-stage wildfire detection platform focused on detecting fires earlier and giving communities, utilities, and emergency agencies actionable intelligence before small ignitions become large-scale disasters.
             Wildfires are growing in frequency and intensity, and communities, utilities, and agencies all need faster, cheaper detection.
           </p>
           <ul class="audience-list">
-            <li><b>Market opportunity</b> — who needs this and why now. <br> The initial market is organizations with high exposure to wildfire risk—including utilities, municipalities, forestry operators, and emergency-response agencies—that need earlier detection to reduce damage, response costs, and operational risk. Climate-driven fire risk is increasing while existing detection infrastructure can be expensive, slow, or difficult to deploy at scale.</li>
-            <li><b>Traction</b> — pilots, users, data, or deployments so far. <br> Beta platform launched. Early validation is focused on testing heatmap creation in live situations.</li>
-            <li>What you're building toward and what the round funds <br> Pyrae is building toward a scalable, continuously operating wildfire detection network. This round will fund: infrastructure & reliability, compliance & production services, human operations, model & algorithm quality, and traction & pilots</li>
+            <li data-i18n="investors_market"><b>Market opportunity</b> \u2014 who needs this and why now. <br> The initial market is organizations with high exposure to wildfire risk\u2014including utilities, municipalities, forestry operators, and emergency-response agencies\u2014that need earlier detection to reduce damage, response costs, and operational risk. Climate-driven fire risk is increasing while existing detection infrastructure can be expensive, slow, or difficult to deploy at scale.</li>
+            <li data-i18n="investors_traction"><b>Traction</b> \u2014 pilots, users, data, or deployments so far. <br> Beta platform launched. Early validation is focused on testing heatmap creation in live situations.</li>
+            <li data-i18n="investors_funds">What you're building toward and what the round funds <br> Pyrae is building toward a scalable, continuously operating wildfire detection network. This round will fund: infrastructure &amp; reliability, compliance &amp; production services, human operations, model &amp; algorithm quality, and traction &amp; pilots</li>
           </ul>
         </div>
         <div class="audience-card audience-card--agencies">
-          <h3>For government agencies</h3>
-          <p>
+          <h3 data-i18n="agencies_title">For government agencies</h3>
+          <p data-i18n="agencies_desc">
             Pyrae gives civil protection, forestry, and emergency-response agencies a <b>real-time common operating picture for wildfire incidents,</b> combining official data, satellite observations, and public reports to help teams detect fires earlier, assess risk, and coordinate response.
           </p>
           <ul class="audience-list">
-            <li><b>Real-time incident map</b> — confirmed and suspected fires in a single operational view</li>
-            <li><b>AI-screened citizen reports</b> — crowdsourced reports filtered for relevance and cross-checked against satellite data</li>
-            <li><b>Spread and road-risk forecasts</b> — support evacuation planning, access decisions, and resource deployment</li>
-            <li><b>Direct system integration</b> — REST/CAP APIs for ingesting Pyrae alerts and intelligence into existing workflows</li>
+            <li data-i18n="agencies_map"><b>Real-time incident map</b> \u2014 confirmed and suspected fires in a single operational view</li>
+            <li data-i18n="agencies_ai"><b>AI-screened citizen reports</b> \u2014 crowdsourced reports filtered for relevance and cross-checked against satellite data</li>
+            <li data-i18n="agencies_spread"><b>Spread and road-risk forecasts</b> \u2014 support evacuation planning, access decisions, and resource deployment</li>
+            <li data-i18n="agencies_api"><b>Direct system integration</b> \u2014 REST/CAP APIs for ingesting Pyrae alerts and intelligence into existing workflows</li>
           </ul>
-          <br>  
-          <p>The result is a faster, shared view of emerging incidents and their potential impact—without requiring agencies to replace their existing systems.</p>
+          <br>
+          <p data-i18n="agencies_result">The result is a faster, shared view of emerging incidents and their potential impact\u2014without requiring agencies to replace their existing systems.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Contact ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">Get in touch</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="contact_title">Get in touch</h2>
+      <p class="contact-lead" data-i18n="contact_lead">
         Interested in partnering, piloting, or investing? We'd love to hear from you.
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary"
            href="mailto:contact@pyrae.example?subject=Pyrae%20partnership%20inquiry">
-          ✉️ &nbsp;Email us
+          ✉️ &nbsp;<span data-i18n="contact_email">Email us</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/map">
-          🔥 &nbsp;Explore the live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore the live map</span>
         </a>
       </div>
       <div class="contact-details">
         <div class="contact-detail">
-          <span class="contact-detail-label">Email</span>
+          <span class="contact-detail-label" data-i18n="detail_email_label">Email</span>
           <span class="contact-detail-value">contact@pyrae.co</span>
-        </div>  
+        </div>
         <div class="contact-detail">
-          <span class="contact-detail-label">Name</span>
+          <span class="contact-detail-label" data-i18n="detail_name_label">Name</span>
           <span class="contact-detail-value">Julian Uhres</span>
         </div>
-        <!--
         <div class="contact-detail">
-          <span class="contact-detail-label">Role / Company</span>
-          <span class="contact-detail-value">[Your role]</span>
-        </div>
-        <div class="contact-detail">
-          <span class="contact-detail-label">LinkedIn</span>
-          <span class="contact-detail-value">[linkedin.com/in/your-profile]</span>
-        </div>
-        <div class="contact-detail">
-          <span class="contact-detail-label">Location</span>
-          <span class="contact-detail-value">[City, Country]</span>
-        </div>
-        -->
-        <div class="contact-detail">
-          <span class="contact-detail-label">Response time</span>
-          <span class="contact-detail-value">Usually within 1-2 days</span>
+          <span class="contact-detail-label" data-i18n="detail_response_label">Response time</span>
+          <span class="contact-detail-value" data-i18n="detail_response_value">Usually within 1-2 days</span>
         </div>
       </div>
     </section>
@@ -189,6 +177,224 @@
   <footer class="contact-footer">
     <span class="contact-footer-brand">🔥 Pyrae</span>
   </footer>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Back to map",
+      hero_eyebrow: "PARTNERSHIPS \u00b7 INVESTORS \u00b7 GOVERNMENT",
+      hero_title_pre: "Partner with",
+      hero_title_accent: "Pyrae",
+      hero_sub: "Early wildfire detection and warning, built on citizen photo reports, AI fire/smoke analysis, live satellite corroboration, and predictive spread modelling.",
+      what_title: "What Pyrae does",
+      cap_ai_title: "AI photo analysis",
+      cap_ai_desc: "Every citizen report is screened for visible fire and smoke by a computer-vision model, with per-class confidence scores.",
+      cap_sat_title: "Satellite corroboration",
+      cap_sat_desc: "Live NASA FIRMS hotspot data validates reported fires from space, turning single sightings into confirmed incidents.",
+      cap_spread_title: "Predictive spread grid",
+      cap_spread_desc: "A Bayesian model estimates where each fire is likely to spread \u2014 and how likely any given area is to burn.",
+      cap_road_title: "Road risk assessment",
+      cap_road_desc: "Roads near an active fire are assessed for time-to-arrival and graded by risk tier, using real wind data.",
+      cap_agency_title: "Agency-ready data",
+      cap_agency_desc: "Machine-readable alert feeds (CAP / REST API) can be integrated so official incident data flows straight onto the map.",
+      cap_weather_title: "Weather-aware",
+      cap_weather_desc: "Real wind speed and direction drive spread estimates, smoke drift, and risk scoring.",
+      audience_title: "Who we\u2019re looking for",
+      investors_title: "For investors",
+      investors_desc: "Pyrae is an early-stage wildfire detection platform focused on detecting fires earlier and giving communities, utilities, and emergency agencies actionable intelligence before small ignitions become large-scale disasters.",
+      investors_market: "Market opportunity \u2014 who needs this and why now.",
+      investors_traction: "Traction \u2014 pilots, users, data, or deployments so far.",
+      investors_funds: "What you\u2019re building toward and what the round funds.",
+      agencies_title: "For government agencies",
+      agencies_desc: "Pyrae gives civil protection, forestry, and emergency-response agencies a real-time common operating picture for wildfire incidents.",
+      agencies_map: "Real-time incident map \u2014 confirmed and suspected fires in a single operational view",
+      agencies_ai: "AI-screened citizen reports \u2014 crowdsourced reports filtered for relevance and cross-checked against satellite data",
+      agencies_spread: "Spread and road-risk forecasts \u2014 support evacuation planning, access decisions, and resource deployment",
+      agencies_api: "Direct system integration \u2014 REST/CAP APIs for ingesting Pyrae alerts and intelligence into existing workflows",
+      agencies_result: "The result is a faster, shared view of emerging incidents and their potential impact\u2014without requiring agencies to replace their existing systems.",
+      contact_title: "Get in touch",
+      contact_lead: "Interested in partnering, piloting, or investing? We\u2019d love to hear from you.",
+      contact_email: "Email us",
+      cta_map: "Explore the live map",
+      detail_email_label: "Email",
+      detail_name_label: "Name",
+      detail_response_label: "Response time",
+      detail_response_value: "Usually within 1-2 days"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "PARTNERSCHAFTEN \u00b7 INVESTOREN \u00b7 BEH\u00d6RDEN",
+      hero_title_pre: "Partnerschaft mit",
+      hero_title_accent: "Pyrae",
+      hero_sub: "Fr\u00fche Waldbranderkennung und -warnung, basierend auf B\u00fcrgerfotomeldungen, KI-Feuer/Rauch-Analyse, Live-Satellitenbest\u00e4tigung und vorausschauendem Ausbreitungsmodell.",
+      what_title: "Was Pyrae kann",
+      cap_ai_title: "KI-Fotoanalyse",
+      cap_ai_desc: "Jede B\u00fcrgermeldung wird von einem Computer-Vision-Modell auf sichtbare Flammen und Rauch gepr\u00fcft, mit Konfidenzwerten pro Klasse.",
+      cap_sat_title: "Satellitenbest\u00e4tigung",
+      cap_sat_desc: "Live-NASA-FIRMS-Hotspot-Daten best\u00e4tigen gemeldete Feuer aus dem Weltraum und verwandeln einzelne Sichtungen in best\u00e4tigte Vorf\u00e4lle.",
+      cap_spread_title: "Vorausschauendes Ausbreitungsraster",
+      cap_spread_desc: "Ein bayessches Modell sch\u00e4tzt, wohin sich jedes Feuer wahrscheinlich ausbreitet \u2014 und wie wahrscheinlich ein bestimmtes Gebiet brennt.",
+      cap_road_title: "Stra\u00dfenrisikobewertung",
+      cap_road_desc: "Stra\u00dfen in der N\u00e4he aktiver Feuer werden auf Ankunftszeit bewertet und nach Risikostufe eingestuft.",
+      cap_agency_title: "Beh\u00f6rdentaugliche Daten",
+      cap_agency_desc: "Maschinenlesbare Alarmfeeds (CAP / REST API) k\u00f6nnen integriert werden, sodass offizielle Vorfalldaten direkt auf die Karte flie\u00dfen.",
+      cap_weather_title: "Wetterbewusst",
+      cap_weather_desc: "Reale Windgeschwindigkeit und -richtung treiben Ausbreitungssch\u00e4tzungen, Rauchdrift und Risikobewertung an.",
+      audience_title: "F\u00fcr wen wir suchen",
+      investors_title: "F\u00fcr Investoren",
+      investors_desc: "Pyrae ist eine fr\u00fchphasige Waldbranderkennungsplattform, die sich auf die fr\u00fchzeitige Erkennung von Br\u00e4nden konzentriert und Gemeinschaften, Versorgern und Einsatzkr\u00e4ften handlungsorientierte Informationen liefert.",
+      investors_market: "Marktchance \u2014 wer braucht das und warum jetzt.",
+      investors_traction: "Traction \u2014 Pilots, Nutzer, Daten oder Eins\u00e4tze bisher.",
+      investors_funds: "Worauf Sie hinarbeiten und wof\u00fcr die Runde Mittel bereitstellt.",
+      agencies_title: "F\u00fcr Beh\u00f6rden",
+      agencies_desc: "Pyrae bietet Katastrophenschutz, Forstwirtschaft und Einsatzkr\u00e4ften ein Echtzeit-Betriebsbild f\u00fcr Waldbrandvorf\u00e4lle.",
+      agencies_map: "Echtzeit-Vorfallkarte \u2014 best\u00e4tigte und verd\u00e4chtige Feuer in einer einzigen Betriebsansicht",
+      agencies_ai: "KI-gefilterte B\u00fcrgermeldungen \u2014 crowdsourcing-Meldungen nach Relevanz gefiltert und gegen Satellitendaten gepr\u00fcft",
+      agencies_spread: "Ausbreitungs- und Stra\u00dfenrisikoprognosen \u2014 Unterst\u00fctzung der Evakuierungsplanung und Ressourcenbereitstellung",
+      agencies_api: "Direkte Systemintegration \u2014 REST/CAP-APIs zum Einlesen von Pyrae-Alarminformationen in bestehende Workflows",
+      agencies_result: "Das Ergebnis ist ein schnelleres, gemeinsames Bild entstehender Vorf\u00e4lle und ihrer m\u00f6glichen Auswirkungen \u2014 ohne dass Beh\u00f6rden ihre bestehenden Systeme ersetzen m\u00fcssen.",
+      contact_title: "Kontakt aufnehmen",
+      contact_lead: "Interesse an Partnerschaft, Pilotprojekten oder Investitionen? Wir freuen uns auf Ihre Nachricht.",
+      contact_email: "E-Mail senden",
+      cta_map: "Live-Karte erkunden",
+      detail_email_label: "E-Mail",
+      detail_name_label: "Name",
+      detail_response_label: "Antwortzeit",
+      detail_response_value: "Normalerweise innerhalb von 1-2 Tagen"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "PARTENARIATS \u00b7 INVESTISSEURS \u00b7 GOUVERNEMENT",
+      hero_title_pre: "Partenariat avec",
+      hero_title_accent: "Pyrae",
+      hero_sub: "D\u00e9tection et alerte pr\u00e9coce des incendies de for\u00eat, bas\u00e9es sur des signalements citoyens avec photo, analyse IA feux/fum\u00e9e, corroboration satellite en direct et mod\u00e9lisation pr\u00e9dictive.",
+      what_title: "Ce que fait Pyrae",
+      cap_ai_title: "Analyse photo IA",
+      cap_ai_desc: "Chaque signalement citoyen est v\u00e9rifi\u00e9 pour d\u00e9tecter flammes et fum\u00e9e visibles par un mod\u00e8le de vision par ordinateur, avec des scores de confiance par classe.",
+      cap_sat_title: "Corroboration satellitaire",
+      cap_sat_desc: "Les donn\u00e9es en direct des points chauds NASA FIRMS valident les incendies signal\u00e9s depuis l\u2019espace et transforment des observations isol\u00e9es en incidents confirm\u00e9s.",
+      cap_spread_title: "Grille de propagation pr\u00e9dictive",
+      cap_spread_desc: "Un mod\u00e8le bay\u00e9sien estime o\u00f9 chaque incendie est susceptible de se propager \u2014 et la probabilit\u00e9 de combustion d\u2019une zone donn\u00e9e.",
+      cap_road_title: "\u00c9valuation du risque routier",
+      cap_road_desc: "Les routes pr\u00e8s d\u2019un incendie actif sont \u00e9valu\u00e9es pour le temps d\u2019arriv\u00e9e et class\u00e9es par niveau de risque, en utilisant les donn\u00e9es de vent r\u00e9elles.",
+      cap_agency_title: "Donn\u00e9es pour agences",
+      cap_agency_desc: "Des flux d\u2019alerte lisibles par machine (CAP / REST API) peuvent \u00eatre int\u00e9gr\u00e9s pour que les donn\u00e9es officielles d\u2019incidents apparaissent directement sur la carte.",
+      cap_weather_title: "Sensible \u00e0 la m\u00e9t\u00e9o",
+      cap_weather_desc: "La vitesse et la direction r\u00e9elles du vent alimentent les estimations de propagation, la d\u00e9rive de fum\u00e9e et le scorage de risque.",
+      audience_title: "Nous cherchons",
+      investors_title: "Pour les investisseurs",
+      investors_desc: "Pyrae est une plateforme de d\u00e9tection pr\u00e9coce d\u2019incendies de for\u00eat en phase initiale, concentr\u00e9e sur la d\u00e9tection plus pr\u00e9coce des feux.",
+      investors_market: "Opportunit\u00e9 de march\u00e9 \u2014 qui en a besoin et pourquoi maintenant.",
+      investors_traction: "Traction \u2014 pilotes, utilisateurs, donn\u00e9es ou d\u00e9ploiements jusqu\u2019ici.",
+      investors_funds: "Ce vers quoi vous construisez et ce que le tour finance.",
+      agencies_title: "Pour les agences gouvernementales",
+      agencies_desc: "Pyrae offre aux services de protection civile, forestiers et de secours une image op\u00e9rationnelle en temps r\u00e9el des incendies de for\u00eat.",
+      agencies_map: "Carte des incidents en temps r\u00e9el \u2014 incendies confirm\u00e9s et suspect\u00e9s dans une seule vue op\u00e9rationnelle",
+      agencies_ai: "Signalements citoyens filtr\u00e9s par IA \u2014 signalements crowdsource\u00e9s filtr\u00e9s par pertinence et v\u00e9rifi\u00e9s contre les donn\u00e9es satellitaires",
+      agencies_spread: "Pr\u00e9visions de propagation et de risque routier \u2014 soutien \u00e0 la planification d\u2019\u00e9vacuation et au d\u00e9ploiement de ressources",
+      agencies_api: "Int\u00e9gration directe des syst\u00e8mes \u2014 API REST/CAP pour ing\u00e9rer les alertes et informations Pyrae dans les workflows existants",
+      agencies_result: "Le r\u00e9sultat est une vue plus rapide et partag\u00e9e des incidents \u00e9mergents et de leur impact potentiel, sans que les agences aient \u00e0 remplacer leurs syst\u00e8mes existants.",
+      contact_title: "Contactez-nous",
+      contact_lead: "Vous souhaitez un partenariat, un pilote ou investir ? Nous serions ravis d\u2019avoir de vos nouvelles.",
+      contact_email: "Envoyez-nous un e-mail",
+      cta_map: "Explorer la carte en direct",
+      detail_email_label: "E-mail",
+      detail_name_label: "Nom",
+      detail_response_label: "D\u00e9lai de r\u00e9ponse",
+      detail_response_value: "G\u00e9n\u00e9ralement sous 1-2 jours"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Volver al mapa",
+      hero_eyebrow: "ALIANZAS \u00b7 INVERSORES \u00b7 GOBIERNO",
+      hero_title_pre: "Asociarse con",
+      hero_title_accent: "Pyrae",
+      hero_sub: "Detecci\u00f3n y alerta temprana de incendios forestales, basada en reportes ciudadanos con foto, an\u00e1lisis IA de fuego/humo, corroboraci\u00f3n satelital en tiempo real y modelado predictivo de propagaci\u00f3n.",
+      what_title: "Qu\u00e9 hace Pyrae",
+      cap_ai_title: "An\u00e1lisis fotogr\u00e1fico con IA",
+      cap_ai_desc: "Cada reporte ciudadano es revisado para detectar fuego y humo visibles por un modelo de visi\u00f3n por computadora, con puntajes de confianza por clase.",
+      cap_sat_title: "Corroboraci\u00f3n satelital",
+      cap_sat_desc: "Los datos en tiempo real de puntos calientes de NASA FIRMS validan incendios reportados desde el espacio, convirtiendo observaciones individuales en incidentes confirmados.",
+      cap_spread_title: "Cuadr\u00edcula predictiva de propagaci\u00f3n",
+      cap_spread_desc: "Un modelo bayesiano estima d\u00f3nde es probable que se propague cada incendio \u2014 y la probabilidad de combusti\u00f3n de cada \u00e1rea.",
+      cap_road_title: "Evaluaci\u00f3n de riesgo vial",
+      cap_road_desc: "Las carreteras cerca de un incendio activo se eval\u00faan para el tiempo de llegada y se clasifican por nivel de riesgo, usando datos de viento reales.",
+      cap_agency_title: "Datos listos para agencias",
+      cap_agency_desc: "Los feeds de alerta legibles por m\u00e1quina (CAP / REST API) pueden integrarse para que los datos oficiales de incidentes fluyan directamente al mapa.",
+      cap_weather_title: "Sensible al clima",
+      cap_weather_desc: "La velocidad y direcci\u00f3n real del viento impulsan las estimaciones de propagaci\u00f3n, la deriva del humo y la evaluaci\u00f3n de riesgo.",
+      audience_title: "Qui\u00e9n buscamos",
+      investors_title: "Para inversores",
+      investors_desc: "Pyrae es una plataforma de detecci\u00f3n temprana de incendios forestales en etapa temprana, enfocada en detectar fuegos m\u00e1s temprano.",
+      investors_market: "Oportunidad de mercado \u2014 qui\u00e9n necesita esto y por qu\u00e9 ahora.",
+      investors_traction: "Traction \u2014 pilotos, usuarios, datos o implementaciones hasta ahora.",
+      investors_funds: "Hacia qu\u00e9 est\u00e1n construyendo y qu\u00e9 financia la ronda.",
+      agencies_title: "Para agencias gubernamentales",
+      agencies_desc: "Pyrae ofrece a los servicios de protecci\u00f3n civil, forestales y de emergencia una imagen operativa en tiempo real de incendios forestales.",
+      agencies_map: "Mapa de incidentes en tiempo real \u2014 incendios confirmados y sospechosos en una sola vista operativa",
+      agencies_ai: "Reportes ciudadanos filtrados por IA \u2014 reportes crowdsourced filtrados por relevancia y verificados contra datos satelitales",
+      agencies_spread: "Pron\u00f3sticos de propagaci\u00f3n y riesgo vial \u2014 apoyo a la planificaci\u00f3n de evacuaci\u00f3n y despliegue de recursos",
+      agencies_api: "Integraci\u00f3n directa de sistemas \u2014 API REST/CAP para ingerir alertas e inteligencia de Pyrae en flujos de trabajo existentes",
+      agencies_result: "El resultado es una vista m\u00e1s r\u00e1pida y compartida de incidentes emergentes y su impacto potencial, sin que las agencias tengan que reemplazar sus sistemas existentes.",
+      contact_title: "P\u00f3ngase en contacto",
+      contact_lead: "\u00bfInteresado en asociarse, pilotear o invertir? Nos encantar\u00eda saber de usted.",
+      contact_email: "Env\u00edenos un email",
+      cta_map: "Explorar el mapa en vivo",
+      detail_email_label: "Email",
+      detail_name_label: "Nombre",
+      detail_response_label: "Tiempo de respuesta",
+      detail_response_value: "Normalmente dentro de 1-2 d\u00edas"
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "PARTNERSTWA \u00b7 INWESTORZY \u00b7 RZ\u0104D",
+      hero_title_pre: "Współpraca z",
+      hero_title_accent: "Pyrae",
+      hero_sub: "Wczesne wykrywanie i ostrzeganie przed pożarami lasów, oparte na raportach obywateli ze zdjęciami, analizie AI ognia i dymu, weryfikacji satelitarnej na żywo i predykcyjnym modelowaniu rozprzestrzeniania.",
+      what_title: "Co robi Pyrae",
+      cap_ai_title: "Analiza zdjęć AI",
+      cap_ai_desc: "Każdy raport obywatelski jest sprawdzany pod kątem widocznego ognia i dymu przez model wizji komputerowej, z wynikami pewnością dla każdej klasy.",
+      cap_sat_title: "Weryfikacja satelitarna",
+      cap_sat_desc: "Dane NASA FIRMS o gorących punktach na żywo potwierdzają zgłoszone pożary z kosmosu, zamieniając pojedyncze obserwacje w potwierdzone incydenty.",
+      cap_spread_title: "Predykcyjna siatka rozprzestrzeniania",
+      cap_spread_desc: "Model bayesowski szacuje, gdzie każdy pożar może się rozprzestrzeniać \u2014 i jak prawdopodobne jest spalenie danego obszaru.",
+      cap_road_title: "Ocena ryzyka na drogach",
+      cap_road_desc: "Drogi w pobliżu aktywnego pożaru są oceniane pod kątem czasu dojazdu i klasyfikowane według poziomu ryzyka, z wykorzystaniem rzeczywistych danych o wietrze.",
+      cap_agency_title: "Dane gotowe dla służb",
+      cap_agency_desc: "Maszynowo czytelne feedy alertów (CAP / REST API) mogą być zintegrowane, aby oficjalne dane o incydentach trafiały bezpośrednio na mapę.",
+      cap_weather_title: "Świadome pogody",
+      cap_weather_desc: "Rzeczywista prędkość i kierunek wiatru napędzają szacunki rozprzestrzeniania, dryf dymu i ocenę ryzyka.",
+      audience_title: "Kogo szukamy",
+      investors_title: "Dla inwestorów",
+      investors_desc: "Pyrae to platforma wczesnego wykrywania pożarów lasów we wczesnej fazie, skupiona na wcześniejszym wykrywaniu pożarów i dostarczaniu społecznościom, służbom utilistycznym i agencjom ratunkowym informacji umożliwiających działanie.",
+      investors_market: "Szansa rynkowa \u2014 kto tego potrzebuje i dlaczego teraz.",
+      investors_traction: "Postępy \u2014 pilotaże, użytkownicy, dane lub wdrożenia dotychczas.",
+      investors_funds: "Cel, do którego zmierzamy i na co przeznaczone są środki z tej rundy.",
+      agencies_title: "Dla służb rządowych",
+      agencies_desc: "Pyrae zapewnia ochronie cywilnej, leśnictwu i służbom ratunkowym wspólny obraz operacyjny w czasie rzeczywistym dotyczący pożarów lasów.",
+      agencies_map: "Mapa incydentów w czasie rzeczywistym \u2014 potwierdzone i podejrzewane pożary w jednym widoku operacyjnym",
+      agencies_ai: "Raporty obywatelskie filtrowane przez AI \u2014 raporty z crowdsourcingu filtrowane pod kątem trafności i weryfikowane wobec danych satelitarnych",
+      agencies_spread: "Prognozy rozprzestrzeniania i ryzyka na drogach \u2014 wsparcie planowania ewakuacji, decyzji o dostępie i rozmieszczenia zasobów",
+      agencies_api: "Bezpośrednia integracja systemów \u2014 API REST/CAP do pobierania alertów i danych Pyrae do istniejących przepływów pracy",
+      agencies_result: "Efektem jest szybszy, wspólny widok pojawiających się incydentów i ich potencjalnego wpływu \u2014 bez konieczności wymiany istniejących systemów przez służby.",
+      contact_title: "Skontaktuj się z nami",
+      contact_lead: "Interesuje Cię współpraca, pilotaż lub inwestycja? Chętnie usłyszymy od Ciebie.",
+      contact_email: "Napisz do nas",
+      cta_map: "Odkryj mapę na żywo",
+      detail_email_label: "E-mail",
+      detail_name_label: "Imię",
+      detail_response_label: "Czas odpowiedzi",
+      detail_response_value: "Zazwyczaj w ciągu 1-2 dni"
+    }
+  });
+  </script>
 
 </body>
 </html>

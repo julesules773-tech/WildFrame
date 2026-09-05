@@ -286,27 +286,27 @@
     const sources = [...new Set(nearby.map((r) => (r.source_type || "citizen")))];
 
     const windRow = f.wind_speed != null && f.wind_dir_deg != null
-      ? `<div><span class="popup-label">Wind:</span> ${f.wind_speed.toFixed(1)} m/s ${_windDirLabel(f.wind_dir_deg)}</div>`
-      : `<div><span class="popup-label">Wind:</span> <span style="color:var(--text-muted)">N/A</span></div>`;
+      ? `<div><span class="popup-label">${PyraeI18n.t('popup_wind')}</span> ${f.wind_speed.toFixed(1)} m/s ${_windDirLabel(f.wind_dir_deg)}</div>`
+      : `<div><span class="popup-label">${PyraeI18n.t('popup_wind')}</span> <span style="color:var(--text-muted)">N/A</span></div>`;
 
     const hasFuel = f.ffmc != null && f.ffmc > 0;
     const fuelRow = hasFuel
-      ? `<div><span class="popup-label">Fuel:</span> FFMC ${Math.round(f.ffmc)} · DMC ${f.dmc != null ? Math.round(f.dmc) : "—"} · ISI ${f.isi != null ? Math.round(f.isi) : "—"} <span style="color:var(--text-muted)">(×${f.moisture_factor != null ? f.moisture_factor.toFixed(2) : "1.00"})</span></div>`
-      : `<div><span class="popup-label">Fuel:</span> <span style="color:var(--text-muted)">Outside EFFIS coverage</span></div>`;
+      ? `<div><span class="popup-label">${PyraeI18n.t('popup_fuel')}</span> FFMC ${Math.round(f.ffmc)} · DMC ${f.dmc != null ? Math.round(f.dmc) : "—"} · ISI ${f.isi != null ? Math.round(f.isi) : "—"} <span style="color:var(--text-muted)">(×${f.moisture_factor != null ? f.moisture_factor.toFixed(2) : "1.00"})</span></div>`
+      : `<div><span class="popup-label">${PyraeI18n.t('popup_fuel')}</span> <span style="color:var(--text-muted)">${PyraeI18n.t('popup_outside_effis')}</span></div>`;
 
     // f.id is sanitized to [a-zA-Z0-9_-] in _deepLinkedFire, so it is safe
     // to interpolate into popup markup.
     const html = `
-      <div class="popup-title">🔥 Active Fire</div>
+      <div class="popup-title">${PyraeI18n.t('popup_active_fire')}</div>
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">${f.id}</div>
-      <div style="margin-top:4px"><span class="popup-label">Probability:</span>
+      <div style="margin-top:4px"><span class="popup-label">${PyraeI18n.t('popup_probability')}</span>
         <span style="color:${color};font-weight:700">${pct}%</span></div>
-      <div><span class="popup-label">Source:</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
-      <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_source')}</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_reports')}</span> ${nearby.length} ${PyraeI18n.t('popup_confirmed_nearby')}</div>
       ${windRow}
       ${fuelRow}
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}</div>
-      <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">Opened from admin dashboard</div>
+      <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">${PyraeI18n.t('popup_opened_from_admin')}</div>
     `;
 
     // Fly in so the full heatmap + reports render (above the meta-dot LOD).
@@ -511,11 +511,9 @@
                        window.location.hostname === "localhost" ||
                        window.location.hostname === "127.0.0.1";
       if (!isSecure) {
-        return "GPS blocked: browser requires HTTPS for location. " +
-               "Access via https:// or localhost, or enter coordinates manually.";
+        return PyraeI18n.t('gps_error_https');
       }
-      return "GPS permission denied. Enable location services in your " +
-             "browser/device settings, or enter coordinates manually.";
+      return PyraeI18n.t('gps_error_permission');
     }
 
     if (code === 2) {
@@ -523,20 +521,18 @@
       // err.message is typically "Position unavailable" — the browser
       // doesn't reveal the root cause, so we don't guess.
       if (browserMsg.includes("network") || browserMsg.includes("Network")) {
-        return "GPS unavailable: network location failed. Try Wi-Fi or move outdoors.";
+        return PyraeI18n.t('gps_error_network');
       }
-      return "GPS unavailable: couldn't determine your location. " +
-             "Try moving outdoors or enter coordinates manually.";
+      return PyraeI18n.t('gps_error_position');
     }
 
     if (code === 3) {
       // TIMEOUT
-      return "GPS timed out (15s). Move to a clearer area and try again, " +
-             "or enter coordinates manually.";
+      return PyraeI18n.t('gps_error_timeout');
     }
 
     // Unknown error code — fall back to the browser's own message
-    return browserMsg || "GPS location failed for an unknown reason.";
+    return browserMsg || PyraeI18n.t('gps_error_unknown');
   }
 
   /**
@@ -545,8 +541,8 @@
    */
   function acquirePosition() {
     if (!navigator.geolocation) {
-      els.locText.textContent = "❌ GPS not available";
-      setStatus("GPS unavailable", "error");
+      els.locText.textContent = PyraeI18n.t('gps_unavailable');
+      setStatus(PyraeI18n.t('status_gps_unavailable'), "error");
       return;
     }
 
@@ -558,7 +554,7 @@
         els.inputLat.value = pos.coords.latitude;
         els.inputLon.value = pos.coords.longitude;
         els.inputHeading.value = pos.coords.heading ?? "";
-        setStatus("GPS locked", "active");
+        setStatus(PyraeI18n.t('status_gps_locked'), "active");
         _setManualCoordsVisible(false);
 
         // Center map on position (unless a deep link already aims the map
@@ -571,7 +567,7 @@
         const msg = _gpsErrorString(err);
         console.warn("Geolocation error:", err.code, err.message);
         els.locText.textContent = `⚠️ ${msg}`;
-        setStatus("GPS failed", "error");
+        setStatus(PyraeI18n.t('status_gps_failed'), "error");
         _setManualCoordsVisible(true);
         // Default to Yosemite National Park (forest demo location) unless
         // a deep link already aims the map at a specific fire.
@@ -850,11 +846,11 @@
     // Popup for the fire origin
     const confColor = t.confidence === "high" ? "#22c55e" : t.confidence === "medium" ? "#eab308" : "#ef4444";
     origin.bindPopup(`
-      <div class="popup-title">🔥 Triangulated Fire Origin</div>
-      <div><span class="popup-label">Location:</span> ${fireLat.toFixed(5)}, ${fireLon.toFixed(5)}</div>
-      <div><span class="popup-label">From:</span> ${t.num_reports} bearing reports</div>
-      <div><span class="popup-label">Confidence:</span> <span style="color:${confColor};font-weight:600">${t.confidence.toUpperCase()}</span></div>
-      <div><span class="popup-label">Uncertainty:</span> ${t.ellipse_semi_major.toFixed(0)} × ${t.ellipse_semi_minor.toFixed(0)} m</div>
+      <div class="popup-title">${PyraeI18n.t('popup_tri_origin')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_location')}</span> ${fireLat.toFixed(5)}, ${fireLon.toFixed(5)}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_from')}</span> ${t.num_reports} ${PyraeI18n.t('popup_bearing_reports')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_confidence')}</span> <span style="color:${confColor};font-weight:600">${t.confidence.toUpperCase()}</span></div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_uncertainty')}</span> ${t.ellipse_semi_major.toFixed(0)} × ${t.ellipse_semi_minor.toFixed(0)} m</div>
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">${t.message}</div>
     `, { maxWidth: 300 });
 
@@ -909,9 +905,9 @@
 
     const marker = L.marker([lat, lon], { icon }).addTo(STATE.map);
     marker.bindPopup(`
-      <div class="popup-title">🎯 True Fire Origin (Demo)</div>
-      <div><span class="popup-label">Location:</span> ${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
-      <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">This is the simulated ground truth that triangulation tries to estimate.</div>
+      <div class="popup-title">${PyraeI18n.t('popup_true_origin')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_location')}</span> ${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">${PyraeI18n.t('popup_simulated_truth')}</div>
     `);
     STATE.markers.fireOrigin.push(marker);
   }
@@ -1077,9 +1073,9 @@
 
       const sat = r.satellite_confirmation;
     const satLine = sat && sat.confirmed
-      ? `<div><span class="popup-label">Satellite:</span> <span style="color:#38bdf8;font-weight:600">🛰️ Confirmed (${sat.nearest_km}km)</span></div>`
+      ? `<div><span class="popup-label">${PyraeI18n.t('popup_satellite')}</span> <span style="color:#38bdf8;font-weight:600">${PyraeI18n.t('popup_sat_confirmed')} (${sat.nearest_km}km)</span></div>`
       : sat
-        ? `<div><span class="popup-label">Satellite:</span> No FIRMS match</div>`
+        ? `<div><span class="popup-label">${PyraeI18n.t('popup_satellite')}</span> ${PyraeI18n.t('popup_no_firms_match')}</div>`
         : "";
 
     // Photos are gated on approval: the server strips photo_url from
@@ -1088,16 +1084,16 @@
     const photoBlock = r.status === "confirmed" && r.photo_url
       ? `<div style="margin-top:6px"><img src="${r.photo_url}" style="width:100%;max-width:180px;border-radius:6px;" alt="Report photo" /></div>`
       : r.status === "pending"
-        ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">📷 Photo visible after approval</div>`
+        ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted)">${PyraeI18n.t('popup_photo_approval')}</div>`
         : "";
 
     marker.bindPopup(`
-        <div class="popup-title">📸 Fire Report</div>
-        <div><span class="popup-label">Status:</span> ${r.status}</div>
-        <div><span class="popup-label">Location:</span> ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
+        <div class="popup-title">${PyraeI18n.t('popup_fire_report')}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_status')}</span> ${r.status}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_location')}</span> ${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}</div>
         <div><span class="popup-label">${headingInfo}</span></div>
-        <div><span class="popup-label">Reported:</span> ${new Date(r.captured_at).toLocaleString()}</div>
-        <div><span class="popup-label">Source:</span> ${r.source_type || "citizen"}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_reported')}</span> ${new Date(r.captured_at).toLocaleString()}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_source')}</span> ${r.source_type || "citizen"}</div>
         ${satLine}
         ${photoBlock}
         ${aiBadge}
@@ -1211,7 +1207,7 @@
     // Build a popup showing cluster info and individual report locations
     let html = `<div style="text-align:center">
       <div class="popup-report-count" style="color:${color}">${c.count}</div>
-      <div class="popup-label">REPORTS IN CLUSTER</div>`;
+      <div class="popup-label">${PyraeI18n.t('popup_reports_in_cluster')}</div>`;
     if (c.points && c.points.length > 0) {
       html += `<div style="margin-top:4px;font-size:11px;color:var(--text-muted)">`;
       // Show up to 3 sample points
@@ -1229,7 +1225,7 @@
       const t = c.triangulation;
       const confSym = t.confidence === "high" ? "🟢" : t.confidence === "medium" ? "🟡" : "🔴";
       html += `<div style="margin-top:6px;padding-top:4px;border-top:1px solid var(--border)">`;
-      html += `<div style="font-size:11px;font-weight:600;color:${color}">🔥 Triangulated Origin</div>`;
+      html += `<div style="font-size:11px;font-weight:600;color:${color}">${PyraeI18n.t('popup_tri_origin_short')}</div>`;
       html += `<div style="font-size:11px">${confSym} ${t.confidence.toUpperCase()} — from ${t.num_reports} bearings</div>`;
       html += `<div style="font-size:10px;color:var(--text-muted)">${t.fire_lat.toFixed(5)}, ${t.fire_lon.toFixed(5)}</div>`;
       html += `</div>`;
@@ -2386,7 +2382,7 @@
     }
     const btn = document.getElementById("satellite-pass-btn");
     if (btn) btn.disabled = true;
-    _setSatelliteStatus("Satellite: scanning…", "active");
+    _setSatelliteStatus(PyraeI18n.t('satellite_scanning'), "active");
 
     try {
       const res = await fetch("/api/satellite/simulate-pass", {
@@ -2402,13 +2398,13 @@
       }
 
       const kind = data.grids_considered === 0 ? null : (data.injected > 0 ? "active" : null);
-      _setSatelliteStatus(`Satellite: ${data.message}`, kind);
+      _setSatelliteStatus(`🛰️ ${data.message}`, kind);
 
       // Reflect the new evidence right away rather than waiting for the poll
       await fetchBayesianState();
     } catch (err) {
       console.warn("Satellite pass error:", err);
-      _setSatelliteStatus("Satellite: request failed", "error");
+      _setSatelliteStatus(PyraeI18n.t('satellite_request_failed'), "error");
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -2437,7 +2433,7 @@
     }
     const btn = document.getElementById("firms-fetch-btn");
     if (btn) btn.disabled = true;
-    _setSatelliteStatus("Satellite: fetching FIRMS…", "active");
+    _setSatelliteStatus(PyraeI18n.t('satellite_fetching_firms'), "active");
 
     try {
       const res = await fetch("/api/satellite/firms-fetch", {
@@ -2448,7 +2444,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        _setSatelliteStatus(`Satellite: ${data.error || "FIRMS fetch failed"}`, "error");
+        _setSatelliteStatus(`🛰️ ${data.error || PyraeI18n.t('satellite_firms_fetch_failed')}`, "error");
         return;
       }
 
@@ -2456,7 +2452,7 @@
       if (data.accepted) {
         // Background job — poll until it finishes (up to ~14 minutes,
         // matching the server's 15-minute stale-flag window).
-        _setSatelliteStatus("Satellite: fetching FIRMS… (background job running)", "active");
+        _setSatelliteStatus(PyraeI18n.t('satellite_firms_background'), "active");
         const deadline = Date.now() + 14 * 60 * 1000;
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 3000));
@@ -2476,14 +2472,14 @@
       if (result.accepted) {
         // Still running (or timed out) — the map's own polling will pick up
         // the new grids whenever the background job finishes.
-        _setSatelliteStatus("Satellite: FIRMS fetch still processing in the background — map refreshes automatically", "active");
+        _setSatelliteStatus(PyraeI18n.t('satellite_firms_still_processing'), "active");
         await fetchBayesianState();
         return;
       }
 
       const kind = result.grids_considered === 0 ? null : (result.injected > 0 ? "active" : null);
       const emoji = result.injected > 0 ? "🛰️" : "ℹ️";
-      _setSatelliteStatus(`Satellite: ${emoji} ${result.message || "no data"}`, kind);
+      _setSatelliteStatus(`🛰️ ${emoji} ${result.message || PyraeI18n.t('satellite_no_data')}`, kind);
 
       // --- Auto-enable Bayesian overlay if it's not already active ---
       // fetchBayesianState silently returns if STATE.bayesian.active is false,
@@ -2516,7 +2512,7 @@
       }
     } catch (err) {
       console.warn("FIRMS fetch error:", err);
-      _setSatelliteStatus("Satellite: FIRMS request failed", "error");
+      _setSatelliteStatus(PyraeI18n.t('satellite_firms_request_failed'), "error");
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -2541,14 +2537,14 @@
       const data = await res.json();
 
       if (!res.ok) {
-        _setSatelliteStatus(`Satellite: ${data.error || "FIRMS poller error"}`, "error");
+        _setSatelliteStatus(`🛰️ ${data.error || PyraeI18n.t('satellite_poller_error')}`, "error");
         if (toggle) toggle.checked = STATE.bayesian.firmsPollerActive;
         return;
       }
 
       STATE.bayesian.firmsPollerActive = active;
       _setSatelliteStatus(
-        active ? "🛰️ FIRMS live: polling every 10 min" : "Satellite: FIRMS poller stopped",
+        active ? PyraeI18n.t('satellite_firms_live_polling') : PyraeI18n.t('satellite_firms_poller_stopped'),
         active ? "active" : null
       );
 
@@ -2558,7 +2554,7 @@
       }
     } catch (err) {
       console.warn("FIRMS poller toggle error:", err);
-      _setSatelliteStatus("Satellite: FIRMS poller request failed", "error");
+      _setSatelliteStatus(PyraeI18n.t('satellite_firms_poller_request_failed'), "error");
       if (toggle) toggle.checked = STATE.bayesian.firmsPollerActive; // revert
     }
   }
@@ -2575,7 +2571,7 @@
       if (st && st.firms_poller_active) {
         STATE.bayesian.firmsPollerActive = true;
         if (toggle) toggle.checked = true;
-        _setSatelliteStatus("🛰️ FIRMS live: polling every 10 min", "active");
+        _setSatelliteStatus(PyraeI18n.t('satellite_firms_live_polling'), "active");
       } else {
         // Nothing running yet — FIRMS Live is the default.
         await toggleFirmsPoller(true);
@@ -2601,19 +2597,19 @@
       const data = await res.json();
 
       if (!res.ok) {
-        _setSatelliteStatus(`Satellite: ${data.error || "poller error"}`, "error");
+        _setSatelliteStatus(`🛰️ ${data.error || PyraeI18n.t('satellite_poller_error')}`, "error");
         if (toggle) toggle.checked = STATE.bayesian.satellitePollerActive; // revert
         return;
       }
 
       STATE.bayesian.satellitePollerActive = active;
       _setSatelliteStatus(
-        active ? "Satellite: live poller running (every 20s)" : "Satellite: poller stopped",
+        active ? PyraeI18n.t('satellite_live_poller_running') : PyraeI18n.t('satellite_poller_stopped'),
         active ? "active" : null
       );
     } catch (err) {
       console.warn("Satellite poller toggle error:", err);
-      _setSatelliteStatus("Satellite: request failed", "error");
+      _setSatelliteStatus(PyraeI18n.t('satellite_request_failed'), "error");
       if (toggle) toggle.checked = STATE.bayesian.satellitePollerActive; // revert
     }
   }
@@ -2645,7 +2641,7 @@
     _lastRoadRiskFetch = now;
 
     const statusEl = document.getElementById("roadrisk-status");
-    if (statusEl) statusEl.textContent = "🛣️ fetching…";
+    if (statusEl) statusEl.textContent = PyraeI18n.t('roadrisk_fetching');
 
     try {
       const res = await fetch("/api/bayesian/road-risk", {
@@ -2675,7 +2671,7 @@
 
       if (!data.features || data.features.length === 0) {
         const reason = data.metadata && data.metadata.empty_reason;
-        if (statusEl) statusEl.textContent = reason ? `🛣️ ${reason}` : "🛣️ no roads found";
+        if (statusEl) statusEl.textContent = reason ? `🛣️ ${reason}` : PyraeI18n.t('roadrisk_no_roads');
         return;
       }
 
@@ -2738,11 +2734,11 @@
       if (counts.high) parts.push(`🟠${counts.high}`);
       if (counts.moderate) parts.push(`🟡${counts.moderate}`);
       if (counts.low) parts.push(`🟢${counts.low}`);
-      if (statusEl) statusEl.textContent = parts.length ? `🛣️ ${parts.join(" ")}` : "🛣️ no risk data";
+      if (statusEl) statusEl.textContent = parts.length ? `🛣️ ${parts.join(" ")}` : PyraeI18n.t('roadrisk_no_risk_data');
     } catch (err) {
       console.warn("Road risk fetch error:", err);
       const statusEl = document.getElementById("roadrisk-status");
-      if (statusEl) statusEl.textContent = "🛣️ error";
+      if (statusEl) statusEl.textContent = PyraeI18n.t('roadrisk_error');
     }
   }
 
@@ -2756,7 +2752,7 @@
     const statusEl = document.getElementById("roadrisk-status");
 
     if (active) {
-      if (statusEl) statusEl.textContent = "🛣️ fetching…";
+      if (statusEl) statusEl.textContent = PyraeI18n.t('roadrisk_fetching');
       fetchRoadRisk();
     } else {
       // Remove the road risk layer from the map
@@ -2764,7 +2760,7 @@
         STATE.map.removeLayer(STATE.bayesian.roadRiskLayer);
         STATE.bayesian.roadRiskLayer = null;
       }
-      if (statusEl) statusEl.textContent = "🛣️ idle";
+      if (statusEl) statusEl.textContent = PyraeI18n.t('roadrisk_idle');
     }
   }
 
@@ -2913,15 +2909,15 @@
     // No real weather for this fire yet (backend sends null) → honest N/A,
     // never the old fake "3.0 m/s West".
     const windRow = d.wind_speed != null && d.wind_dir_deg != null
-      ? `<div><span class="popup-label">Wind:</span> ${d.wind_speed.toFixed(1)} m/s ${_windDirLabel(d.wind_dir_deg)}</div>`
-      : `<div><span class="popup-label">Wind:</span> <span style="color:var(--text-muted)">N/A</span></div>`;
+      ? `<div><span class="popup-label">${PyraeI18n.t('popup_wind')}</span> ${d.wind_speed.toFixed(1)} m/s ${_windDirLabel(d.wind_dir_deg)}</div>`
+      : `<div><span class="popup-label">${PyraeI18n.t('popup_wind')}</span> <span style="color:var(--text-muted)">N/A</span></div>`;
 
     const html = `
-      <div class="popup-title">🔥 Active Fire</div>
-      <div style="margin-top:4px"><span class="popup-label">Probability:</span>
+      <div class="popup-title">${PyraeI18n.t('popup_active_fire')}</div>
+      <div style="margin-top:4px"><span class="popup-label">${PyraeI18n.t('popup_probability')}</span>
         <span style="color:${color};font-weight:700">${pct}%</span></div>
-      <div><span class="popup-label">Source:</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
-      <div><span class="popup-label">Reports:</span> ${nearby.length} confirmed nearby</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_source')}</span> ${sources.length ? sources.join(", ") : "Satellite (FIRMS)"}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_reports')}</span> ${nearby.length} ${PyraeI18n.t('popup_confirmed_nearby')}</div>
       ${windRow}
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">📍 ${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}</div>
       <div style="margin-top:6px;font-size:11px;color:var(--accent);font-weight:600">🔍 Zooming in…</div>
@@ -3113,7 +3109,7 @@
       const roadRiskToggle = document.getElementById("roadrisk-toggle");
       if (roadRiskToggle) roadRiskToggle.checked = false;
       const roadriskStatus = document.getElementById("roadrisk-status");
-      if (roadriskStatus) roadriskStatus.textContent = "🛣️ idle";
+      if (roadriskStatus) roadriskStatus.textContent = PyraeI18n.t('roadrisk_idle');
 
       // Stop the live satellite poller too, so it doesn't keep injecting
       // evidence into fires nobody's watching anymore
@@ -3200,7 +3196,7 @@
       }
     } catch (err) {
       console.error("Failed to refresh data:", err);
-      setStatus("Connection error", "error");
+      setStatus(PyraeI18n.t('status_connection_error'), "error");
     }
   }
 
@@ -3391,7 +3387,7 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      _setPhotoStatus("Reading photo…", "pending");
+      _setPhotoStatus(PyraeI18n.t('reading_photo'), "pending");
 
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -3401,10 +3397,10 @@
         els.submitBtn.disabled = false;
         // Explicit confirmation that the photo made it into the report,
         // shown regardless of what the client-side scan says.
-        _setPhotoStatus("✓ Photo uploaded — ready to submit", "ok");
+        _setPhotoStatus(PyraeI18n.t('photo_uploaded'), "ok");
       };
       reader.onerror = () => {
-        _setPhotoStatus("Couldn't read this photo — try another one", "error");
+        _setPhotoStatus(PyraeI18n.t('photo_error'), "error");
         els.submitBtn.disabled = true;
       };
       reader.readAsDataURL(file);
@@ -3429,14 +3425,14 @@
 
       const file = els.photoInput.files[0];
       if (!file) {
-        toast("Please select a photo first", "error");
+        toast(PyraeI18n.t('toast_no_photo'), "error");
         return;
       }
 
       // If GPS failed, check if user typed coordinates manually
       _syncManualCoordsToHidden();
       if (!els.inputLat.value || !els.inputLon.value) {
-        toast("GPS position not available. Enter coordinates manually above, or enable location services.", "error");
+        toast(PyraeI18n.t('toast_gps_unavail'), "error");
         return;
       }
 
@@ -3471,7 +3467,7 @@
       STATE.uploading = true;
       els.submitBtn.disabled = true;
       els.submitBtn.classList.add("loading");
-      _setSubmitLabel("Submitting…");
+      _setSubmitLabel(PyraeI18n.t('submitting'));
       els.progressBar.classList.remove("hidden");
       els.progressBar.classList.add("active");
 
@@ -3520,11 +3516,11 @@
         if (STATE.mode === "demo") {
           // Uploads are real citizen reports and always go to the LIVE
           // (production) store — they won't show on the demo map.
-          toast("Report submitted to LIVE data — switch to Live mode to see it", "success");
+          toast(PyraeI18n.t('toast_report_live'), "success");
         } else if (data.report?.ai_analysis?.verdict === "nothing") {
-          toast("Report submitted — AI found no fire/smoke, kept for human review", "success");
+          toast(PyraeI18n.t('toast_report_ai_no_fire'), "success");
         } else {
-          toast("Report submitted successfully!", "success");
+          toast(PyraeI18n.t('toast_report_success'), "success");
         }
         resetForm();
         els.uploadCard.classList.add("hidden");
@@ -3564,13 +3560,13 @@
             if (photoBlob) await OfflineQueue.enqueue(fields, photoBlob);
             const n = await OfflineQueue.count();
             _updateQueueBadge(n);
-            toast(`No connection — report queued for later (${n} pending)`, "warning");
+            toast(`${PyraeI18n.t('toast_offline_queued')} (${n})`, "warning");
             resetForm();
             els.uploadCard.classList.add("hidden");
             els.uploadTrigger.classList.remove("hidden");
           } catch (qErr) {
             console.error("Queue error:", qErr);
-            toast("Upload failed and could not be queued.", "error");
+            toast(PyraeI18n.t('toast_upload_failed'), "error");
           }
         } else {
           toast(err.message || "Upload failed. Check your connection.", "error");
@@ -3626,7 +3622,7 @@
 
       // Visual feedback: spin the icon
       els.gpsRefreshBtn.classList.add("spinning");
-      els.locText.textContent = "🔄 Re-acquiring GPS…";
+      els.locText.textContent = PyraeI18n.t('gps_reacquiring');
 
       // Force re-acquire by busting the cache
       navigator.geolocation.getCurrentPosition(
@@ -3637,7 +3633,7 @@
           els.inputLat.value = pos.coords.latitude;
           els.inputLon.value = pos.coords.longitude;
           els.inputHeading.value = pos.coords.heading ?? "";
-          setStatus("GPS locked", "active");
+          setStatus(PyraeI18n.t('status_gps_locked'), "active");
           _setManualCoordsVisible(false);
 
           // Clear manual fields so stale values don't linger
@@ -3650,7 +3646,7 @@
           }
 
           els.gpsRefreshBtn.classList.remove("spinning");
-          toast("📍 GPS position updated", "success");
+          toast(PyraeI18n.t('toast_gps_updated'), "success");
         },
         (err) => {
           const msg = _gpsErrorString(err);
@@ -3678,8 +3674,8 @@
 
     try {
       els.seedBtn.disabled = true;
-      els.seedBtn.innerHTML = '<span class="seed-icon">⏳</span><span class="seed-text">Seeding…</span>';
-      setStatus("Seeding test data…", "pending");
+      els.seedBtn.innerHTML = '<span class="seed-icon">⏳</span><span class="seed-text">' + PyraeI18n.t('btn_seeding') + '</span>';
+      setStatus(PyraeI18n.t('status_seeding_data'), "pending");
 
       const res = await fetch("/api/seed", { method: "POST" });
       const data = await res.json();
@@ -3695,14 +3691,14 @@
       } else {
         STATE.map.flyTo([38.1723, 23.7171], 8);
       }
-      setStatus("Test data loaded", "active");
+      setStatus(PyraeI18n.t('status_test_data_loaded'), "active");
     } catch (err) {
       console.error("Seed error:", err);
       toast("❌ " + err.message, "error");
-      setStatus("Seed failed", "error");
+      setStatus(PyraeI18n.t('status_seed_failed'), "error");
     } finally {
       els.seedBtn.disabled = false;
-      els.seedBtn.innerHTML = '<span class="seed-icon">🇬🇷</span><span class="seed-text">Greece</span>';
+      els.seedBtn.innerHTML = '<span class="seed-icon">🇬🇷</span><span class="seed-text">' + PyraeI18n.t('btn_greece') + '</span>';
     }
   }
 
@@ -3719,8 +3715,8 @@
 
     try {
       els.seedForestBtn.disabled = true;
-      els.seedForestBtn.innerHTML = '<span class="seed-forest-icon">⏳</span><span class="seed-forest-text">Seeding…</span>';
-      setStatus("Seeding forest data…", "pending");
+      els.seedForestBtn.innerHTML = '<span class="seed-forest-icon">⏳</span><span class="seed-forest-text">' + PyraeI18n.t('btn_seeding') + '</span>';
+      setStatus(PyraeI18n.t('status_seeding_forest'), "pending");
 
       const res = await fetch("/api/seed/forest", { method: "POST" });
       const data = await res.json();
@@ -3736,14 +3732,14 @@
       } else {
         STATE.map.flyTo([37.745, -119.593], 9);
       }
-      setStatus("Forest data loaded", "active");
+      setStatus(PyraeI18n.t('status_forest_data_loaded'), "active");
     } catch (err) {
       console.error("Forest seed error:", err);
       toast("❌ " + err.message, "error");
-      setStatus("Seed failed", "error");
+      setStatus(PyraeI18n.t('status_seed_failed'), "error");
     } finally {
       els.seedForestBtn.disabled = false;
-      els.seedForestBtn.innerHTML = '<span class="seed-forest-icon">🌲</span><span class="seed-forest-text">Forest</span>';
+      els.seedForestBtn.innerHTML = '<span class="seed-forest-icon">🌲</span><span class="seed-forest-text">' + PyraeI18n.t('btn_forest') + '</span>';
     }
   }
 
@@ -3765,8 +3761,8 @@
     }
 
     els.liveDemoBtn.disabled = true;
-    els.liveDemoBtn.innerHTML = '<span class="live-icon">⏳</span><span class="live-text">Starting…</span>';
-    setStatus("Starting live demo…", "pending");
+    els.liveDemoBtn.innerHTML = '<span class="live-icon">⏳</span><span class="live-text">' + PyraeI18n.t('btn_starting') + '</span>';
+    setStatus(PyraeI18n.t('status_starting_live_demo'), "pending");
 
     try {
       // Reset any previous demo data first
@@ -3783,14 +3779,14 @@
       STATE.liveDemo.fireLat = startData.fire_lat;
       STATE.liveDemo.fireLon = startData.fire_lon;
 
-      toast("▶️ Live demo started! Reports will appear progressively.", "info");
+      toast(PyraeI18n.t('toast_live_demo'), "info");
 
       // Show live status panel
       els.liveStatus.classList.remove("hidden");
       els.liveTriResult.classList.add("hidden");
       els.liveProgressFill.style.width = "0%";
-      els.liveStepInfo.textContent = `Step 0 / ${startData.total_steps}`;
-      els.liveReportCount.textContent = "0 reports";
+      els.liveStepInfo.textContent = `${PyraeI18n.t('step_label')} 0 / ${startData.total_steps}`;
+      els.liveReportCount.textContent = `0 ${PyraeI18n.t('reports_noun')}`;
 
       // Render the true fire origin on the map
       renderTrueOrigin(startData.fire_lat, startData.fire_lon);
@@ -3810,15 +3806,15 @@
       // Then set interval (every 7 seconds)
       STATE.liveDemo.stepInterval = setInterval(liveDemoStep, 7000);
 
-      setStatus("Live demo running", "active");
+      setStatus(PyraeI18n.t('status_live_demo_running'), "active");
     } catch (err) {
       console.error("Live demo error:", err);
       toast("❌ " + err.message, "error");
-      setStatus("Demo failed", "error");
+      setStatus(PyraeI18n.t('status_demo_failed'), "error");
       cancelLiveDemo();
     } finally {
       els.liveDemoBtn.disabled = false;
-      els.liveDemoBtn.innerHTML = '<span class="live-icon">▶️</span><span class="live-text">Live Demo</span>';
+      els.liveDemoBtn.innerHTML = '<span class="live-icon">▶️</span><span class="live-text">' + PyraeI18n.t('btn_live_demo') + '</span>';
     }
   }
 
@@ -3838,8 +3834,8 @@
       // Update UI
       const progress = ((stepData.step + 1) / stepData.total_steps) * 100;
       els.liveProgressFill.style.width = `${progress}%`;
-      els.liveStepInfo.textContent = `Step ${stepData.step + 1} / ${stepData.total_steps}`;
-      els.liveReportCount.textContent = `${stepData.total_seeded} reports`;
+      els.liveStepInfo.textContent = `${PyraeI18n.t('step_label')} ${stepData.step + 1} / ${stepData.total_steps}`;
+      els.liveReportCount.textContent = `${stepData.total_seeded} ${PyraeI18n.t('reports_noun')}`;
 
       // Refresh map data to show new clusters + triangulation
       await refreshData();
@@ -3872,8 +3868,8 @@
 
       // If all steps done, wrap up
       if (stepData.all_revealed) {
-        toast("✅ Live demo complete! Triangulation converged.", "success");
-        setStatus("Demo complete", "active");
+        toast(PyraeI18n.t('toast_demo_complete'), "success");
+        setStatus(PyraeI18n.t('status_demo_complete'), "active");
         stopLiveDemoInterval();
         els.liveProgressFill.style.width = "100%";
 
@@ -3922,7 +3918,7 @@
     });
     STATE.markers.fireOrigin = [];
 
-    toast("⏹️ Live demo stopped", "info");
+    toast(PyraeI18n.t('toast_demo_stopped'), "info");
   }
 
   function stopLiveDemoInterval() {
@@ -4176,7 +4172,7 @@
     if (!_lastResults.length) {
       const row = document.createElement("div");
       row.className = "search-result-empty";
-      row.textContent = "No places found";
+      row.textContent = PyraeI18n.t('no_places_found');
       box.appendChild(row);
       box.classList.add("open");
       return;
@@ -4251,7 +4247,7 @@
         const box = document.getElementById("search-results");
         if (!box) return;
         if (data.degraded) {
-          box.innerHTML = '<div class="search-result-error">Search temporarily unavailable</div>';
+          box.innerHTML = '<div class="search-result-error">' + PyraeI18n.t('search_unavailable') + '</div>';
           box.classList.add("open");
           return;
         }
@@ -4263,7 +4259,7 @@
         if (seq !== _searchSeq) return;
         const box = document.getElementById("search-results");
         if (box) {
-          box.innerHTML = '<div class="search-result-error">Search unavailable — try again later</div>';
+          box.innerHTML = '<div class="search-result-error">' + PyraeI18n.t('search_unavailable_retry') + '</div>';
           box.classList.add("open");
         }
       });
@@ -4359,7 +4355,7 @@
     // Show the Admin button only if this browser holds the admin cookie.
     _syncAdminVisibility();
 
-    setStatus("Acquiring GPS…", "pending");
+    setStatus(PyraeI18n.t('status_acquiring_gps'), "pending");
 
     // Get GPS
     acquirePosition();
@@ -4463,6 +4459,106 @@
       });
     }
 
+    // --- ESA WorldCover extent toggle ---
+    // --- ESA WorldCover polygon overlay ---
+    const esaExtentToggle = document.getElementById("esa-extent-toggle");
+    let esaLayer = null;
+    let esaActive = false;
+    let esaLoading = false;
+
+    // ESA WorldCover class colors (official palette)
+    const ESA_COLORS = {
+      10: "#006400", // Tree cover
+      20: "#ffbb22", // Shrubland
+      30: "#ffff4c", // Grassland
+      40: "#f096ff", // Cropland
+      50: "#fa0000", // Built-up
+      60: "#b4b4b4", // Bare / sparse vegetation
+      70: "#f0f0f0", // Snow and Ice
+      80: "#0064c8", // Water
+      90: "#0096a0", // Wetland
+      95: "#00cf75", // Mangroves
+      100: "#fae6a0", // Moss and lichen
+    };
+    const ESA_NAMES = {
+      10: "Tree cover", 20: "Shrubland", 30: "Grassland",
+      40: "Cropland", 50: "Built-up", 60: "Bare",
+      70: "Snow/Ice", 80: "Water", 90: "Wetland",
+      95: "Mangroves", 100: "Moss",
+    };
+
+    async function fetchESA() {
+      if (!esaActive || esaLoading) return;
+      const bounds = STATE.map.getBounds();
+      const zoom = STATE.map.getZoom();
+      // Skip fetch at low zoom (too many polygons)
+      if (zoom < 5) return;
+      const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+      // More simplification at lower zoom
+      const simplify = zoom < 7 ? 0.005 : zoom < 10 ? 0.002 : 0.001;
+      esaLoading = true;
+      try {
+        const res = await fetch(`/api/worldcover-polygons?bbox=${bbox}&simplify=${simplify}&limit=2000`);
+        const data = await res.json();
+        console.log("[ESA] features:", data.features?.length, "zoom:", zoom);
+        if (data.features?.length > 0) {
+          console.log("[ESA] sample:", JSON.stringify(data.features[0]).slice(0, 200));
+        }
+        if (esaLayer) {
+          STATE.map.removeLayer(esaLayer);
+          esaLayer = null;
+        }
+        if (!data.features || data.features.length === 0) return;
+        esaLayer = L.geoJSON(data, {
+          style: function (feature) {
+            const code = feature.properties.class_code;
+            return {
+              color: ESA_COLORS[code] || "#888",
+              weight: 0,
+              fillOpacity: 0.35,
+              fillColor: ESA_COLORS[code] || "#888",
+            };
+          },
+          onEachFeature: function (feature, layer) {
+            const code = feature.properties.class_code;
+            layer.bindPopup(
+              `<div style="font-size:13px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${ESA_COLORS[code] || "#888"};margin-right:6px"></span><b>${ESA_NAMES[code] || "Unknown"}</b> <span style="color:#94a3b8">(${code})</span></div>`,
+              { maxWidth: 220 }
+            );
+          },
+          interactive: true,
+        }).addTo(STATE.map);
+      } catch (e) {
+        // silent
+      } finally {
+        esaLoading = false;
+      }
+    }
+
+    let esaMoveTimer = null;
+    function onESAMove() {
+      clearTimeout(esaMoveTimer);
+      esaMoveTimer = setTimeout(fetchESA, 300);
+    }
+
+    if (esaExtentToggle) {
+      esaExtentToggle.addEventListener("click", () => {
+        if (esaActive) {
+          // Turn off
+          esaActive = false;
+          if (esaLayer) { STATE.map.removeLayer(esaLayer); esaLayer = null; }
+          STATE.map.off("moveend", onESAMove);
+          esaExtentToggle.classList.remove("active");
+          return;
+        }
+        // Turn on
+        esaActive = true;
+        esaExtentToggle.classList.add("active");
+        STATE.map.on("moveend", onESAMove);
+        fetchESA();
+      });
+    }
+
     // --- Advanced Options collapsible ---
     const advToggle = document.getElementById("bayesian-advanced-toggle");
     const advBody = document.getElementById("bayesian-advanced-body");
@@ -4559,7 +4655,7 @@
     const btn = document.getElementById("historic-demo-btn");
     if (btn) btn.disabled = true;
 
-    setStatus("Starting Creek Fire replay…", "pending");
+    setStatus(PyraeI18n.t('status_starting_creek_fire'), "pending");
 
     try {
       // Activate Bayesian heatmap without starting the 5-second polling
@@ -4589,7 +4685,7 @@
       STATE.historicDemo.fireLat = startData.fire_lat;
       STATE.historicDemo.fireLon = startData.fire_lon;
 
-      toast("🌲 Creek Fire replay started! Watch the fire evolve with satellite data.", "info");
+      toast(PyraeI18n.t('toast_creek_fire_started'), "info");
 
       // Show historic demo panel
       const panel = document.getElementById("historic-panel");
@@ -4623,7 +4719,7 @@
       // Start stepping (every 6 seconds for dramatic pacing)
       STATE.historicDemo.stepInterval = setInterval(historicDemoStep, 6000);
 
-      setStatus("Creek Fire replay running", "active");
+      setStatus(PyraeI18n.t('status_creek_fire_running'), "active");
     } catch (err) {
       console.error("Historic demo error:", err);
       toast("❌ " + err.message, "error");
@@ -4660,8 +4756,8 @@
 
       // If complete, wrap up
       if (stepData.all_complete || stepData.status === "complete") {
-        toast("✅ Creek Fire replay complete! 380,000 acres burned.", "success");
-        setStatus("Replay complete", "active");
+        toast(PyraeI18n.t('toast_creek_fire_complete'), "success");
+        setStatus(PyraeI18n.t('status_replay_complete'), "active");
         stopHistoricDemoInterval();
 
         const fill = document.getElementById("historic-progress-fill");
@@ -4717,7 +4813,7 @@
     // Mark inactive AFTER all cleanup is done (prevents race with re-start)
     STATE.historicDemo.active = false;
 
-    toast("⏹️ Creek Fire replay stopped", "info");
+    toast(PyraeI18n.t('toast_replay_stopped'), "info");
   }
 
   function stopHistoricDemoInterval() {
@@ -4801,10 +4897,10 @@
 
       // Popup with VIIRS info
       marker.bindPopup(`
-        <div class="popup-title">🛰️ VIIRS Hotspot</div>
-        <div><span class="popup-label">Location:</span> ${hs[0].toFixed(4)}, ${hs[1].toFixed(4)}</div>
-        <div><span class="popup-label">Confidence:</span> <span style="color:#22c55e;font-weight:600">HIGH</span></div>
-        <div><span class="popup-label">Source:</span> VIIRS 375m · Fire Thermal Anomaly</div>
+        <div class="popup-title">${PyraeI18n.t('popup_viirs_hotspot')}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_location')}</span> ${hs[0].toFixed(4)}, ${hs[1].toFixed(4)}</div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_confidence')}</span> <span style="color:#22c55e;font-weight:600">HIGH</span></div>
+        <div><span class="popup-label">${PyraeI18n.t('popup_source')}</span> ${PyraeI18n.t('popup_viirs_source')}</div>
       `, { maxWidth: 260, className: "hotspot-popup" });
 
       STATE.historicDemo.hotspotMarkers.push(marker);
@@ -4839,9 +4935,9 @@
     // Popup with area info
     const areaKm2 = (perimeterCoords.length * 10).toFixed(0);  // rough visual estimate
     polygon.bindPopup(`
-      <div class="popup-title">🔥 Fire Perimeter (True)</div>
-      <div><span class="popup-label">Fire:</span> 2020 Creek Fire</div>
-      <div><span class="popup-label">Source:</span> CalFire historical data</div>
+      <div class="popup-title">${PyraeI18n.t('popup_fire_perimeter')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_fire')}</span> ${PyraeI18n.t('popup_creek_fire_2020')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_source')}</span> ${PyraeI18n.t('popup_calfire_data')}</div>
       <div style="margin-top:4px;font-size:10px;color:var(--text-muted)">Dashed line shows the approximate true fire boundary at this stage.</div>
     `, { maxWidth: 260 });
 
@@ -4872,10 +4968,10 @@
 
     const marker = L.marker([lat, lon], { icon }).addTo(STATE.map);
     marker.bindPopup(`
-      <div class="popup-title">🔥 Creek Fire Origin</div>
-      <div><span class="popup-label">Location:</span> ${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
-      <div><span class="popup-label">Started:</span> September 4, 2020</div>
-      <div><span class="popup-label">Cause:</span> Power line ignition (suspected)</div>
+      <div class="popup-title">${PyraeI18n.t('popup_creek_origin')}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_location')}</span> ${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_started')}</span> September 4, 2020</div>
+      <div><span class="popup-label">${PyraeI18n.t('popup_cause')}</span> Power line ignition (suspected)</div>
       <div style="margin-top:4px;font-size:11px;color:var(--text-muted)">Near Shaver Lake, Sierra National Forest</div>
     `);
 
@@ -4934,9 +5030,9 @@
     if (SIM.active) { _wfStopSim(); return; }
     const btn = document.getElementById("wf-sim-panel-btn");
     const grid = _nearestGridToViewport();
-    if (!grid) { toast("No fires visible — zoom into a fire first.", "warn"); return; }
+    if (!grid) { toast(PyraeI18n.t('toast_no_fires_visible'), "warn"); return; }
     const gridId = grid.id;
-    if (btn) { btn.textContent = "⏳ Computing…"; btn.disabled = true; }
+    if (btn) { btn.textContent = PyraeI18n.t('computing'); btn.disabled = true; }
     try {
       const res = await fetch(`/api/simulate/${encodeURIComponent(gridId)}`, {
         method: "POST",
@@ -4961,7 +5057,7 @@
     } catch (e) {
       console.error("[simulate] error:", e);
       toast(`Simulation failed: ${e.message}`, "error");
-      if (btn) { btn.textContent = "▶ Simulate Spread (Beta)"; btn.disabled = false; }
+      if (btn) { btn.textContent = PyraeI18n.t('simulate_spread'); btn.disabled = false; }
     }
   }
 
@@ -4977,7 +5073,7 @@
     const el = document.getElementById("wf-sim-player");
     if (el) el.remove();
     const btn = document.getElementById("wf-sim-panel-btn");
-    if (btn) { btn.textContent = "▶ Simulate Spread (Beta)"; btn.disabled = false; }
+    if (btn) { btn.textContent = PyraeI18n.t('simulate_spread'); btn.disabled = false; }
   }
   window._wfStopSim = _wfStopSim;
 
@@ -5157,6 +5253,37 @@
       }
     } catch (_) { /* non-critical */ }
   }
+
+  // -----------------------------------------------------------------------
+  // Map picker dropdown
+  // -----------------------------------------------------------------------
+  function _initMapPicker() {
+    var btn = document.getElementById("map-btn");
+    var dropdown = document.getElementById("map-dropdown");
+    if (!btn || !dropdown) return;
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = dropdown.classList.contains("hidden");
+      dropdown.classList.toggle("hidden");
+      btn.setAttribute("aria-expanded", String(open));
+    });
+
+    document.addEventListener("click", function () {
+      dropdown.classList.add("hidden");
+      btn.setAttribute("aria-expanded", "false");
+    });
+
+    // Highlight the current map
+    var path = location.pathname;
+    dropdown.querySelectorAll(".map-option").forEach(function (opt) {
+      var map = opt.getAttribute("data-map");
+      var isActive = (map === "global" && path === "/map") ||
+                     (map !== "global" && path === "/map/" + map);
+      if (isActive) opt.classList.add("active");
+    });
+  }
+  _initMapPicker();
 
   // -----------------------------------------------------------------------
   // Boot

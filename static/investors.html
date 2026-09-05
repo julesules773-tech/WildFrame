@@ -24,18 +24,8 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": "https://pyrae.co/"
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Investors",
-        "item": "https://pyrae.co/investors"
-      }
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pyrae.co/" },
+      { "@type": "ListItem", "position": 2, "name": "Investors", "item": "https://pyrae.co/investors" }
     ]
   }
   </script>
@@ -49,21 +39,23 @@
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main">
 
     <!-- ======== Hero ======== -->
     <section class="hero">
-      <p class="hero-eyebrow">INVESTORS</p>
-      <h1 class="hero-title">Pyrae — <span class="hero-accent">wildfire early detection</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">INVESTORS</p>
+      <h1 class="hero-title">Pyrae — <span class="hero-accent" data-i18n="hero_title_accent">wildfire early detection</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         We're building an AI-powered wildfire early detection network that
         catches fires before they become large-scale disasters — combining
         citizen photo reports, live satellite data and predictive spread
@@ -73,227 +65,153 @@
 
     <!-- ======== Company Narrative ======== -->
     <section class="section">
-      <h2 class="section-title">The problem</h2>
+      <h2 class="section-title" data-i18n="problem_title">The problem</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🔥</div>
-          <h3>Wildfires are getting worse</h3>
-          <p>
-            Climate change is lengthening fire seasons, expanding the
-            wildland-urban interface, and increasing the frequency and
-            intensity of fire starts. The global cost of wildfires exceeds
-            $50 billion annually — and the trend is accelerating.
-          </p>
+          <h3 data-i18n="problem_worse_title">Wildfires are getting worse</h3>
+          <p data-i18n="problem_worse_desc">Climate change is lengthening fire seasons, expanding the wildland-urban interface, and increasing the frequency and intensity of fire starts. The global cost of wildfires exceeds $50 billion annually — and the trend is accelerating.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">⏱️</div>
-          <h3>Existing detection is slow</h3>
-          <p>
-            Current detection methods — satellite passes every 3–12 hours,
-            lookout towers, routine patrols — leave a dangerous gap between
-            ignition and first alert. By the time a fire is detected, it may
-            already be too large to contain efficiently.
-          </p>
+          <h3 data-i18n="problem_slow_title">Existing detection is slow</h3>
+          <p data-i18n="problem_slow_desc">Current detection methods — satellite passes every 3–12 hours, lookout towers, routine patrols — leave a dangerous gap between ignition and first alert.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">💰</div>
-          <h3>Suppression costs spiral</h3>
-          <p>
-            Every hour of delayed detection exponentially increases
-            suppression costs and property loss. Early detection — catching
-            fires when they're still small — is the single highest-leverage
-            investment in wildfire resilience.
-          </p>
+          <h3 data-i18n="problem_costs_title">Suppression costs spiral</h3>
+          <p data-i18n="problem_costs_desc">Every hour of delayed detection exponentially increases suppression costs and property loss. Early detection — catching fires when they're still small — is the single highest-leverage investment.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== The Solution ======== -->
     <section class="section">
-      <h2 class="section-title">Our approach</h2>
+      <h2 class="section-title" data-i18n="approach_title">Our approach</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">📸</div>
-          <h3>Citizen-powered detection</h3>
-          <p>
-            Anyone with a phone can report a suspected fire with a photo and
-            GPS location. This creates a ground-truth detection network that
-            complements satellite coverage — catching fires that space-based
-            sensors miss, faster than any automated system alone.
-          </p>
+          <h3 data-i18n="approach_citizen_title">Citizen-powered detection</h3>
+          <p data-i18n="approach_citizen_desc">Anyone with a phone can report a suspected fire with a photo and GPS location. This creates a ground-truth detection network that complements satellite coverage.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🧠</div>
-          <h3>AI-verified reports</h3>
-          <p>
-            Every photo is screened by a computer-vision model for visible
-            fire and smoke. Only reports corroborated by satellite data or
-            nearby independent sightings reach the confirmed layer —
-            eliminating false alarms automatically.
-          </p>
+          <h3 data-i18n="approach_ai_title">AI-verified reports</h3>
+          <p data-i18n="approach_ai_desc">Every photo is screened by a computer-vision model for visible fire and smoke. Only reports corroborated by satellite data reach the confirmed layer.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🛰️</div>
-          <h3>Satellite corroboration</h3>
-          <p>
-            Live NASA FIRMS hotspot data validates ground reports from space.
-            A photo sighting within 3 km of a satellite detection in the
-            past 12 hours turns a single observation into a confirmed
-            incident — without waiting for the next satellite pass.
-          </p>
+          <h3 data-i18n="approach_sat_title">Satellite corroboration</h3>
+          <p data-i18n="approach_sat_desc">Live NASA FIRMS hotspot data validates ground reports from space. A photo sighting within 3 km of a satellite detection confirms the incident.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📈</div>
-          <h3>Predictive spread modelling</h3>
-          <p>
-            A Bayesian fire grid models how each fire is likely to evolve —
-            factoring in wind, terrain, vegetation and humidity. Communities
-            and responders get a probabilistic view of where the fire will
-            be in the coming hours, not just where it is now.
-          </p>
+          <h3 data-i18n="approach_spread_title">Predictive spread modelling</h3>
+          <p data-i18n="approach_spread_desc">A Bayesian fire grid models how each fire is likely to evolve — factoring in wind, terrain, vegetation and humidity.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Market Opportunity ======== -->
     <section class="section">
-      <h2 class="section-title">Market opportunity</h2>
+      <h2 class="section-title" data-i18n="market_title">Market opportunity</h2>
       <ul class="audience-list">
-        <li><b>Global wildfire management market</b> projected to reach $10+ billion by 2030, driven by increasing fire frequency and stricter regulations.</li>
-        <li><b>Emergency services modernisation</b> — agencies worldwide are investing in real-time intelligence platforms to replace legacy detection and response workflows.</li>
-        <li><b>Insurance &amp; utility sector demand</b> — insurers need verified fire timelines for claims; utilities need real-time risk data for preemptive shutoffs and infrastructure protection.</li>
-        <li><b>Wildland-urban interface expansion</b> — more communities are being built in fire-prone areas, creating demand for early warning systems at the community level.</li>
+        <li data-i18n="market_global"><b>Global wildfire management market</b> projected to reach $10+ billion by 2030.</li>
+        <li data-i18n="market_modern"><b>Emergency services modernisation</b> — agencies worldwide are investing in real-time intelligence platforms.</li>
+        <li data-i18n="market_insurance"><b>Insurance &amp; utility sector demand</b> — insurers need verified fire timelines; utilities need real-time risk data.</li>
+        <li data-i18n="market_wui"><b>Wildland-urban interface expansion</b> — more communities in fire-prone areas need early warning systems.</li>
       </ul>
     </section>
 
     <!-- ======== Traction ======== -->
     <section class="section">
-      <h2 class="section-title">Traction</h2>
+      <h2 class="section-title" data-i18n="traction_title">Traction</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🚀</div>
-          <h3>Beta launched</h3>
-          <p>
-            The platform is live and operational. Citizens can report fires,
-            the AI pipeline screens reports in real time, satellite
-            corroboration is active, and predictive spread modelling is
-            running on confirmed incidents.
-          </p>
+          <h3 data-i18n="traction_beta_title">Beta launched</h3>
+          <p data-i18n="traction_beta_desc">The platform is live and operational. Citizens can report fires, the AI pipeline screens reports in real time, satellite corroboration is active.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">✅</div>
-          <h3>Validated detection pipeline</h3>
-          <p>
-            Our AI ensemble (YOLOv26 + EfficientNet-B0) achieves 100% recall
-            on fire detection with 99.7% F1 — validated on a real-world
-            dataset of 755 fire and 244 clean images. The corroboration gate
-            ensures false positives never auto-approve.
-          </p>
+          <h3 data-i18n="traction_validated_title">Validated detection pipeline</h3>
+          <p data-i18n="traction_validated_desc">Our AI ensemble achieves 100% recall on fire detection with 99.7% F1 — validated on a real-world dataset of 755 fire and 244 clean images.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🗺️</div>
-          <h3>Live map &amp; API</h3>
-          <p>
-            A public live map demonstrates the system in action. A REST API
-            enables integration with existing CAD, GIS and alerting
-            infrastructure — ready for agency pilots.
-          </p>
+          <h3 data-i18n="traction_api_title">Live map &amp; API</h3>
+          <p data-i18n="traction_api_desc">A public live map demonstrates the system in action. A REST API enables integration with existing CAD, GIS and alerting infrastructure.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Team ======== -->
     <section class="section">
-      <h2 class="section-title">Team</h2>
+      <h2 class="section-title" data-i18n="team_title">Team</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">👤</div>
           <h3>Julian Uhres</h3>
-          <p>
-            Founder — building Pyrae end-to-end: AI/ML pipeline, backend
-            infrastructure, satellite data integration, Bayesian fire
-            modelling, and the public-facing platform.
-          </p>
+          <p data-i18n="team_julian_desc">Founder — building Pyrae end-to-end: AI/ML pipeline, backend infrastructure, satellite data integration, Bayesian fire modelling, and the public-facing platform.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Use of Funds ======== -->
     <section class="section">
-      <h2 class="section-title">Use of funds</h2>
+      <h2 class="section-title" data-i18n="funds_title">Use of funds</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">☁️</div>
-          <h3>Infrastructure &amp; scale</h3>
-          <p>
-            Scale the real-time map, AI inference pipeline and database to
-            handle regional and national deployments — from hundreds to
-            millions of reports.
-          </p>
+          <h3 data-i18n="funds_infra_title">Infrastructure &amp; scale</h3>
+          <p data-i18n="funds_infra_desc">Scale the real-time map, AI inference pipeline and database to handle regional and national deployments.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🔒</div>
-          <h3>Compliance &amp; certifications</h3>
-          <p>
-            Achieve the security and data-handling certifications required
-            for government and enterprise contracts — SOC 2, data
-            residency, and incident response protocols.
-          </p>
+          <h3 data-i18n="funds_compliance_title">Compliance &amp; certifications</h3>
+          <p data-i18n="funds_compliance_desc">Achieve the security and data-handling certifications required for government and enterprise contracts.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📊</div>
-          <h3>Model quality &amp; R&amp;D</h3>
-          <p>
-            Improve detection accuracy, add new fire types (e.g. peat,
-            grassland), and extend spread modelling with higher-resolution
-            terrain and weather data.
-          </p>
+          <h3 data-i18n="funds_model_title">Model quality &amp; R&amp;D</h3>
+          <p data-i18n="funds_model_desc">Improve detection accuracy, add new fire types, and extend spread modelling with higher-resolution data.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🤝</div>
-          <h3>Pilot programmes</h3>
-          <p>
-            Fund pilot deployments with civil protection agencies,
-            municipalities and utilities — proving the platform in
-            operational environments and building reference cases.
-          </p>
+          <h3 data-i18n="funds_pilot_title">Pilot programmes</h3>
+          <p data-i18n="funds_pilot_desc">Fund pilot deployments with civil protection agencies, municipalities and utilities.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">⚙️</div>
-          <h3>Operations &amp; team</h3>
-          <p>
-            Expand the team to support sales, customer success and
-            24/7 operational monitoring — ensuring agencies have the
-            support they need during fire season.
-          </p>
+          <h3 data-i18n="funds_ops_title">Operations &amp; team</h3>
+          <p data-i18n="funds_ops_desc">Expand the team to support sales, customer success and 24/7 operational monitoring.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Safety Notice ======== -->
     <section class="section">
-      <h2 class="section-title">Important disclaimer</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="disclaimer_title">Important disclaimer</h2>
+      <p class="contact-lead" data-i18n="disclaimer_desc">
         This page is for informational purposes and does not constitute an
         offer to sell or a solicitation of an offer to buy securities. Pyrae
-        is an early-warning and intelligence tool — <b>not an emergency
-        service</b>.
+        is an early-warning and intelligence tool — <b>not an emergency service</b>.
       </p>
     </section>
 
     <!-- ======== CTA ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">Interested in Pyrae?</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="cta_title">Interested in Pyrae?</h2>
+      <p class="contact-lead" data-i18n="cta_lead">
         We'd love to hear from you — whether you're exploring a pilot,
         a partnership, or an investment.
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary" href="/contact">
-          ✉️ &nbsp;Contact us
+          ✉️ &nbsp;<span data-i18n="cta_contact">Contact us</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/map">
-          🔥 &nbsp;Explore the live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore the live map</span>
         </a>
       </div>
     </section>
@@ -308,6 +226,154 @@
       <a href="/privacy" style="color:var(--text-secondary);">Privacy</a>
     </span>
   </footer>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Back to map",
+      hero_eyebrow: "INVESTORS",
+      hero_title_accent: "wildfire early detection",
+      hero_sub: "We\u2019re building an AI-powered wildfire early detection network that catches fires before they become large-scale disasters.",
+      problem_title: "The problem",
+      problem_worse_title: "Wildfires are getting worse",
+      approach_title: "Our approach",
+      approach_citizen_title: "Citizen-powered detection",
+      market_title: "Market opportunity",
+      traction_title: "Traction",
+      traction_beta_title: "Beta launched",
+      team_title: "Team",
+      team_julian_desc: "Founder \u2014 building Pyrae end-to-end: AI/ML pipeline, backend infrastructure, satellite data integration, Bayesian fire modelling, and the public-facing platform.",
+      funds_title: "Use of funds",
+      funds_infra_title: "Infrastructure & scale",
+      funds_compliance_title: "Compliance & certifications",
+      funds_model_title: "Model quality & R&D",
+      funds_pilot_title: "Pilot programmes",
+      funds_ops_title: "Operations & team",
+      disclaimer_title: "Important disclaimer",
+      disclaimer_desc: "This page is for informational purposes and does not constitute an offer to sell or a solicitation of an offer to buy securities. Pyrae is an early-warning and intelligence tool \u2014 not an emergency service.",
+      cta_title: "Interested in Pyrae?",
+      cta_lead: "We\u2019d love to hear from you \u2014 whether you\u2019re exploring a pilot, a partnership, or an investment.",
+      cta_contact: "Contact us",
+      cta_map: "Explore the live map"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "INVESTOREN",
+      hero_title_accent: "fr\u00fche Waldbranderkennung",
+      hero_sub: "Wir bauen ein KI-gest\u00fctztes fr\u00fches Waldbranderkennungsnetzwerk, das Feuer erkennt, bevor sie zu Grossbr\u00e4nden werden.",
+      problem_title: "Das Problem",
+      problem_worse_title: "Waldbr\u00e4nde werden schlimmer",
+      approach_title: "Unser Ansatz",
+      approach_citizen_title: "B\u00fcrgergest\u00fctzte Erkennung",
+      market_title: "Marktchance",
+      traction_title: "Traction",
+      traction_beta_title: "Beta gestartet",
+      team_title: "Team",
+      team_julian_desc: "Gr\u00fcnder \u2014 baut Pyrae end-to-end: KI/ML-Pipeline, Backend-Infrastruktur, Satellitenintegration, bayessches Feuermodell und die \u00f6ffentliche Plattform.",
+      funds_title: "Verwendung der Mittel",
+      funds_infra_title: "Infrastruktur & Skalierung",
+      funds_compliance_title: "Compliance & Zertifizierungen",
+      funds_model_title: "Modellqualit\u00e4t & F&E",
+      funds_pilot_title: "Pilotprogramme",
+      funds_ops_title: "Betrieb & Team",
+      disclaimer_title: "Wichtiger Haftungsausschluss",
+      disclaimer_desc: "Diese Seite dient nur zu Informationszwecken und stellt kein Angebot zum Verkauf oder eine Aufforderung zum Kauf von Wertpapieren dar. Pyrae ist ein Fr\u00fchwarn- und Informationstool \u2014 kein Notdienst.",
+      cta_title: "Interesse an Pyrae?",
+      cta_lead: "Wir freuen uns auf Ihre Nachricht \u2014 ob Sie einen Pilot, eine Partnerschaft oder eine Investition erkunden.",
+      cta_contact: "Kontaktieren Sie uns",
+      cta_map: "Live-Karte erkunden"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "INVESTISSEURS",
+      hero_title_accent: "d\u00e9tection pr\u00e9coce des incendies",
+      hero_sub: "Nous construisons un r\u00e9seau de d\u00e9tection pr\u00e9coce d\u2019incendies propuls\u00e9 par l\u2019IA qui d\u00e9tecte les feux avant qu\u2019ils ne deviennent des catastrophes.",
+      problem_title: "Le probl\u00e8me",
+      problem_worse_title: "Les incendies s\u2019aggravent",
+      approach_title: "Notre approche",
+      approach_citizen_title: "D\u00e9tection citoyenne",
+      market_title: "Opportunit\u00e9 de march\u00e9",
+      traction_title: "Traction",
+      traction_beta_title: "B\u00eata lanc\u00e9",
+      team_title: "\u00c9quipe",
+      team_julian_desc: "Fondateur \u2014 construit Pyrae de bout en bout : pipeline IA/ML, infrastructure backend, int\u00e9gration satellite, mod\u00e9lisation bay\u00e9sienne et plateforme publique.",
+      funds_title: "Utilisation des fonds",
+      funds_infra_title: "Infrastructure & \u00e9chelle",
+      funds_compliance_title: "Conformit\u00e9 & certifications",
+      funds_model_title: "Qualit\u00e9 du mod\u00e8le & R&D",
+      funds_pilot_title: "Programmes pilotes",
+      funds_ops_title: "Op\u00e9rations & \u00e9quipe",
+      disclaimer_title: "Avertissement important",
+      disclaimer_desc: "Cette page est \u00e0 titre informatif et ne constitue pas une offre de vente. Pyrae est un outil d\u2019alerte pr\u00e9coce et d\u2019information \u2014 pas un service d\u2019urgence.",
+      cta_title: "Int\u00e9ress\u00e9 par Pyrae ?",
+      cta_lead: "Nous serions ravis d\u2019avoir de vos nouvelles \u2014 que vous exploriez un pilote, un partenariat ou un investissement.",
+      cta_contact: "Contactez-nous",
+      cta_map: "Explorer la carte en direct"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Volver al mapa",
+      hero_eyebrow: "INVERSORES",
+      hero_title_accent: "detecci\u00f3n temprana de incendios",
+      hero_sub: "Estamos construyendo una red de detecci\u00f3n temprana de incendios impulsada por IA que detecta fuegos antes de que se conviertan en desastres.",
+      problem_title: "El problema",
+      problem_worse_title: "Los incendios est\u00e1n empeorando",
+      approach_title: "Nuestro enfoque",
+      approach_citizen_title: "Detecci\u00f3n impulsada por ciudadanos",
+      market_title: "Oportunidad de mercado",
+      traction_title: "Traction",
+      traction_beta_title: "Beta lanzada",
+      team_title: "Equipo",
+      team_julian_desc: "Fundador \u2014 construye Pyrae de punta a punta: pipeline IA/ML, infraestructura backend, integraci\u00f3n satelital, modelado bayesiano y plataforma p\u00fablica.",
+      funds_title: "Uso de fondos",
+      funds_infra_title: "Infraestructura y escala",
+      funds_compliance_title: "Cumplimiento y certificaciones",
+      funds_model_title: "Calidad del modelo e I+D",
+      funds_pilot_title: "Programas piloto",
+      funds_ops_title: "Operaciones y equipo",
+      disclaimer_title: "Descargo de responsabilidad importante",
+      disclaimer_desc: "Esta p\u00e1gina es solo para fines informativos y no constituye una oferta de venta. Pyrae es una herramienta de alerta temprana e informaci\u00f3n \u2014 no un servicio de emergencia.",
+      cta_title: "\u00bfInteresado en Pyrae?",
+      cta_lead: "Nos encantar\u00eda saber de usted \u2014 ya sea que explore un piloto, una alianza o una inversi\u00f3n.",
+      cta_contact: "Cont\u00e1ctenos",
+      cta_map: "Explorar el mapa en vivo"
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "INWESTORZY",
+      hero_title_pre: "Budujemy przyszłość",
+      hero_title_accent: "wykrywania pożarów",
+      hero_sub: "Pyrae to platforma wczesnego wykrywania pożarów lasów nowej generacji, łącząca dane satelitarne, społeczności i sztuczną inteligencję.",
+      why_title: "Dlaczego Pyrae?",
+      why_market_title: "Rynek",
+      why_market_desc: "Globalny rynek zarządzania pożarami lasów jest wart miliardy dolarów i rośnie wraz ze zwiększającą się częstotliwością pożarów.",
+      why_tech_title: "Technologia",
+      why_tech_desc: "Łączymy dane satelitarne w czasie rzeczywistym, raporty obywateli z weryfikacją SI i bayesowskie modelowanie predykcyjne.",
+      why_timing_title: "Timing",
+      why_timing_desc: "Klęski żywiołowe nasilają się na całym świecie. Zapotrzebowanie na wczesne wykrywanie nigdy nie było większe.",
+      metrics_title: "Kluczowe wskaźniki",
+      metric_detections: "Wykrycia",
+      metric_detections_desc: "Aktywne pożary i gorące punkty na mapie",
+      metric_countries: "Kraje",
+      metric_countries_desc: "Potencjalne rynki operacyjne",
+      metric_refresh: "Odświeżanie",
+      metric_refresh_desc: "Dane satelitarne co 3 godziny",
+      traction_title: "Traction",
+      traction_desc: "Prototyp działający z danymi na żywo, aktywne raporty obywateli i integracja z API NASA FIRMS.",
+      cta_title: "Porozmawiajmy",
+      cta_lead: "Zainteresowany inwestowaniem lub współpracą?",
+      cta_contact: "Skontaktuj się",
+      cta_map: "Eksploruj mapę na żywo"
+    }
+  });
+  </script>
 
 </body>
 </html>

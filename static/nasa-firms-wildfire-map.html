@@ -7,35 +7,22 @@
   <meta name="description" content="See NASA FIRMS active fire detections on a live map. Pyrae corroborates citizen reports against VIIRS and MODIS satellite hotspots within 3 km / 12 hours — turning ground sightings into confirmed incidents." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://pyrae.co/nasa-firms-wildfire-map" />
-  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Pyrae" />
   <meta property="og:title" content="NASA FIRMS Wildfire Map — Live Satellite Fire Detection" />
   <meta property="og:description" content="See NASA FIRMS active fire detections on a live map. Pyrae corroborates citizen reports against VIIRS and MODIS satellite hotspots." />
   <meta property="og:url" content="https://pyrae.co/nasa-firms-wildfire-map" />
   <meta property="og:locale" content="en_US" />
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="NASA FIRMS Wildfire Map — Live Satellite Fire Detection" />
   <meta name="twitter:description" content="Live NASA FIRMS active fire data on a map, corroborated with citizen AI-screened reports." />
-  <!-- JSON-LD: BreadcrumbList -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": "https://pyrae.co/"
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "NASA FIRMS Wildfire Map",
-        "item": "https://pyrae.co/nasa-firms-wildfire-map"
-      }
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pyrae.co/" },
+      { "@type": "ListItem", "position": 2, "name": "NASA FIRMS Wildfire Map", "item": "https://pyrae.co/nasa-firms-wildfire-map" }
     ]
   }
   </script>
@@ -44,74 +31,47 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
   <style>
-    #firms-map {
-      width: 100%; height: 460px;
-      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    #firms-map .leaflet-control-zoom a {
-      background: var(--bg-card); color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
+    #firms-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    #firms-map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     #firms-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
     #firms-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-    #firms-map .leaflet-control-attribution {
-      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
-    }
+    #firms-map .leaflet-control-attribution { background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px; }
     #firms-map .leaflet-control-attribution a { color: var(--text-secondary); }
-    #firms-map .leaflet-popup-content-wrapper, #firms-map .leaflet-popup-tip {
-      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-    }
+    #firms-map .leaflet-popup-content-wrapper, #firms-map .leaflet-popup-tip { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     #firms-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
     .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
     .map-cta { text-align: center; margin: 0 0 30px; }
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(225, 29, 72, 0.15); color: #fda4af;
-      border: 1px solid rgba(225, 29, 72, 0.4);
-      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
-      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
-      margin-bottom: 18px;
-    }
-    .live-badge .live-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
-      animation: live-pulse 1.8s ease-in-out infinite;
-    }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(225, 29, 72, 0.15); color: #fda4af; border: 1px solid rgba(225, 29, 72, 0.4); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 999px; padding: 5px 14px; margin-bottom: 18px; }
+    .live-badge .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9); animation: live-pulse 1.8s ease-in-out infinite; }
     @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
-    .stat {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
-      box-shadow: var(--shadow);
-    }
+    .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 22px; min-width: 140px; box-shadow: var(--shadow); }
     .stat b { font-size: 30px; display: block; letter-spacing: -0.5px; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
     .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
   </style>
 </head>
 <body class="contact-page">
 
-  <!-- ======== Header ======== -->
   <header class="contact-header">
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main" style="max-width: 860px;">
 
     <section class="hero" style="text-align: center;">
-      <p class="hero-eyebrow">LIVE SATELLITE FIRE MONITORING</p>
-      <h1 class="hero-title">NASA FIRMS Wildfire Map — <span class="hero-accent">Live Satellite Fire Detection</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">LIVE SATELLITE FIRE MONITORING</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">NASA FIRMS Wildfire Map —</span> <span class="hero-accent" data-i18n="hero_title_accent">Live Satellite Fire Detection</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         NASA's Fire Information for Resource Management System (FIRMS) detects
         active fires from space using VIIRS and MODIS satellite sensors.
         Pyrae layers this data onto a live map and corroborates citizen
@@ -120,29 +80,28 @@
       </p>
       <span class="live-badge"><span class="live-dot"></span> Live</span>
       <div class="stat-row">
-        <div class="stat"><b>3 h</b><span>satellite refresh</span></div>
-        <div class="stat"><b>375 m</b><span>VIIRS resolution</span></div>
-        <div class="stat"><b>3 km</b><span>corroboration radius</span></div>
+        <div class="stat"><b>3 h</b><span data-i18n="stat_refresh">satellite refresh</span></div>
+        <div class="stat"><b>375 m</b><span data-i18n="stat_resolution">VIIRS resolution</span></div>
+        <div class="stat"><b>3 km</b><span data-i18n="stat_radius">corroboration radius</span></div>
       </div>
     </section>
 
     <div id="firms-map" aria-label="Live NASA FIRMS wildfire map"></div>
 
-    <p class="map-note">Red markers show currently tracked fire hotspots. Zoom in for detail.</p>
-    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+    <p class="map-note" data-i18n="map_note">Red markers show currently tracked fire hotspots. Zoom in for detail.</p>
+    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;" data-i18n="map_cta">Open the full interactive map →</a></p>
 
-    <!-- ======== What is FIRMS? ======== -->
     <section class="section">
-      <h2 class="section-title">What is NASA FIRMS?</h2>
-      <p>
+      <h2 class="section-title" data-i18n="what_title">What is NASA FIRMS?</h2>
+      <p data-i18n="what_p1">
         NASA's <strong>Fire Information for Resource Management System</strong>
         (FIRMS) provides near-real-time active fire data from the MODIS and
-        VIIRS satellite instruments. The VIIRS 375&nbsp;m sensor detects
+        VIIRS satellite instruments. The VIIRS 375 m sensor detects
         thermal anomalies — areas significantly warmer than their surroundings
         — that often indicate active wildfires, agricultural burning, or
         industrial flaring.
       </p>
-      <p>
+      <p data-i18n="what_p2">
         FIRMS data is refreshed every 3 hours for most regions, making it
         one of the most reliable global sources for fire detection. However,
         satellite detection has inherent limitations: cloud cover, small
@@ -152,14 +111,13 @@
       </p>
     </section>
 
-    <!-- ======== How Pyrae uses FIRMS ======== -->
     <section class="section">
-      <h2 class="section-title">How Pyrae uses FIRMS data</h2>
+      <h2 class="section-title" data-i18n="how_title">How Pyrae uses FIRMS data</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🛰️</div>
-          <h3>Satellite corroboration</h3>
-          <p>
+          <h3 data-i18n="use_sat_title">Satellite corroboration</h3>
+          <p data-i18n="use_sat_desc">
             Every citizen photo report is checked against live NASA FIRMS
             hotspots. If a photo sighting falls within <strong>3 km</strong>
             of a satellite detection in the past <strong>12 hours</strong>,
@@ -169,8 +127,8 @@
         </div>
         <div class="cap-card">
           <div class="cap-icon">🧠</div>
-          <h3>AI screening first</h3>
-          <p>
+          <h3 data-i18n="use_ai_title">AI screening first</h3>
+          <p data-i18n="use_ai_desc">
             Before reaching the satellite corroboration step, every photo is
             screened by a computer-vision model for visible fire and smoke.
             Only AI-positive reports are checked against FIRMS — reducing
@@ -180,8 +138,8 @@
         </div>
         <div class="cap-card">
           <div class="cap-icon">📈</div>
-          <h3>Bayesian modelling</h3>
-          <p>
+          <h3 data-i18n="use_bayes_title">Bayesian modelling</h3>
+          <p data-i18n="use_bayes_desc">
             FIRMS hotspots feed directly into the Bayesian Fire Grid, which
             models how each fire is likely to spread. Satellite data provides
             the initial evidence; the grid fuses it with weather, terrain and
@@ -191,10 +149,9 @@
       </div>
     </section>
 
-    <!-- ======== Why speed matters ======== -->
     <section class="section">
-      <h2 class="section-title">Why speed matters</h2>
-      <p>
+      <h2 class="section-title" data-i18n="speed_title">Why speed matters</h2>
+      <p data-i18n="speed_p1">
         Wildfires can double in size every 30–60 minutes under dry, windy
         conditions. Traditional satellite-only detection — while valuable —
         leaves a gap: the fire must be large enough and hot enough to trigger
@@ -202,7 +159,7 @@
         ground reports with satellite corroboration, Pyrae fills this gap —
         detecting fires that are still small enough for initial attack.
       </p>
-      <p>
+      <p data-i18n="speed_p2">
         The corroboration step (satellite + ground truth) is critical: it
         prevents false alarms from reaching responders while ensuring that
         real fires — even those the satellite missed on its last pass — are
@@ -210,35 +167,33 @@
       </p>
     </section>
 
-    <!-- ======== Data sources ======== -->
     <section class="section">
-      <h2 class="section-title">Data sources</h2>
+      <h2 class="section-title" data-i18n="sources_title">Data sources</h2>
       <ul class="audience-list">
-        <li><b>NASA FIRMS</b> — VIIRS 375 m and MODIS 1 km active fire detections, refreshed every 3 hours.</li>
-        <li><b>EFFIS / Copernicus</b> — European Forest Fire Information System for fire weather indices.</li>
-        <li><b>Open-Meteo</b> — real-time wind, temperature and humidity for spread modelling.</li>
-        <li><b>Citizen photo reports</b> — ground-truth sightings screened by AI and validated against FIRMS.</li>
+        <li><b>NASA FIRMS</b> — <span data-i18n="src_nasa">VIIRS 375 m and MODIS 1 km active fire detections, refreshed every 3 hours.</span></li>
+        <li><b>EFFIS / Copernicus</b> — <span data-i18n="src_effis">European Forest Fire Information System for fire weather indices.</span></li>
+        <li><b>Open-Meteo</b> — <span data-i18n="src_meteo">real-time wind, temperature and humidity for spread modelling.</span></li>
+        <li><b data-i18n="src_citizen">Citizen photo reports</b> — <span data-i18n="src_citizen_desc">ground-truth sightings screened by AI and validated against FIRMS.</span></li>
       </ul>
     </section>
 
-    <!-- ======== CTA ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">See it in action</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="cta_title">See it in action</h2>
+      <p class="contact-lead" data-i18n="cta_lead">
         The live map combines NASA FIRMS data with citizen reports and
         predictive modelling — all in one view.
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary" href="/map">
-          🔥 &nbsp;Explore live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore live map</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/contact">
-          ✉️ &nbsp;Contact us
+          ✉️ &nbsp;<span data-i18n="cta_contact">Contact us</span>
         </a>
       </div>
     </section>
 
-    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;">
+    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;" data-i18n="disclaimer">
       Pyrae is an information tool, not an emergency service. If a fire
       threatens life or property, call your local emergency number.
     </p>
@@ -261,38 +216,144 @@
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-
-      function lavaColor(t) {
-        t = Math.min(1, Math.max(0, t));
-        var r, g, b;
-        if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); }
-        else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; }
-        else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; }
-        else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; }
-        else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); }
-        return "rgb(" + r + "," + g + "," + b + ")";
-      }
-
-      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production")
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; });
-          var bounds = [];
-          dots.forEach(function (g) {
-            L.circleMarker([g.lat, g.lon], {
-              radius: 4 + Math.round(g.max_p * 8),
-              color: "rgba(0,0,0,0.35)", weight: 1,
-              fillColor: lavaColor(g.max_p), fillOpacity: 0.9,
-            }).addTo(map)
-              .bindPopup("<b>Fire hotspot</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
-                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s" : ""));
-            bounds.push([g.lat, g.lon]);
-          });
-          if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-          else if (bounds.length === 1) map.setView(bounds[0], 8);
-        })
-        .catch(function () {});
+      function lavaColor(t) { t = Math.min(1, Math.max(0, t)); var r, g, b; if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); } else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; } else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; } else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; } else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); } return "rgb(" + r + "," + g + "," + b + ")"; }
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production").then(function (r) { return r.json(); }).then(function (data) { var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; }); var bounds = []; dots.forEach(function (g) { L.circleMarker([g.lat, g.lon], { radius: 4 + Math.round(g.max_p * 8), color: "rgba(0,0,0,0.35)", weight: 1, fillColor: lavaColor(g.max_p), fillOpacity: 0.9, }).addTo(map).bindPopup("<b>Fire hotspot</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%" + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s" : "")); bounds.push([g.lat, g.lon]); }); if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] }); else if (bounds.length === 1) map.setView(bounds[0], 8); }).catch(function () {});
     })();
+  </script>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning", nav_map: "Back to map",
+      hero_eyebrow: "LIVE SATELLITE FIRE MONITORING", hero_title_pre: "NASA FIRMS Wildfire Map \u2014", hero_title_accent: "Live Satellite Fire Detection",
+      hero_sub: "NASA\u2019s Fire Information for Resource Management System (FIRMS) detects active fires from space using VIIRS and MODIS satellite sensors. Pyrae layers this data onto a live map and corroborates citizen ground reports against satellite hotspots.",
+      stat_refresh: "satellite refresh", stat_resolution: "VIIRS resolution", stat_radius: "corroboration radius",
+      map_note: "Red markers show currently tracked fire hotspots. Zoom in for detail.", map_cta: "Open the full interactive map \u2192",
+      what_title: "What is NASA FIRMS?",
+      what_p1: "NASA\u2019s Fire Information for Resource Management System (FIRMS) provides near-real-time active fire data from the MODIS and VIIRS satellite instruments. The VIIRS 375 m sensor detects thermal anomalies that often indicate active wildfires.",
+      what_p2: "FIRMS data is refreshed every 3 hours for most regions, making it one of the most reliable global sources for fire detection. However, satellite detection has inherent limitations: cloud cover, small fires and nighttime conditions can mask thermal signals.",
+      how_title: "How Pyrae uses FIRMS data",
+      use_sat_title: "Satellite corroboration", use_sat_desc: "Every citizen photo report is checked against live NASA FIRMS hotspots. If a photo sighting falls within 3 km of a satellite detection in the past 12 hours, the report is confirmed.",
+      use_ai_title: "AI screening first", use_ai_desc: "Before reaching the satellite corroboration step, every photo is screened by a computer-vision model for visible fire and smoke. Only AI-positive reports are checked against FIRMS.",
+      use_bayes_title: "Bayesian modelling", use_bayes_desc: "FIRMS hotspots feed directly into the Bayesian Fire Grid, which models how each fire is likely to spread. Satellite data provides the initial evidence.",
+      speed_title: "Why speed matters",
+      speed_p1: "Wildfires can double in size every 30\u201360 minutes. Traditional satellite-only detection leaves a gap. By combining citizen ground reports with satellite corroboration, Pyrae fills this gap.",
+      speed_p2: "The corroboration step (satellite + ground truth) is critical: it prevents false alarms while ensuring real fires are confirmed through independent evidence.",
+      sources_title: "Data sources",
+      src_nasa: "VIIRS 375 m and MODIS 1 km active fire detections, refreshed every 3 hours.",
+      src_effis: "European Forest Fire Information System for fire weather indices.",
+      src_meteo: "real-time wind, temperature and humidity for spread modelling.",
+      src_citizen: "Citizen photo reports", src_citizen_desc: "ground-truth sightings screened by AI and validated against FIRMS.",
+      cta_title: "See it in action", cta_lead: "The live map combines NASA FIRMS data with citizen reports and predictive modelling \u2014 all in one view.",
+      cta_map: "Explore live map", cta_contact: "Contact us",
+      disclaimer: "Pyrae is an information tool, not an emergency service. If a fire threatens life or property, call your local emergency number."
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung", nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "LIVE-SATELLITENFEUER\u00dcBERWACHUNG", hero_title_pre: "NASA FIRMS Waldbrandkarte \u2014", hero_title_accent: "Live-Satellitenerkennung",
+      hero_sub: "NASAs Fire Information for Resource Management System (FIRMS) erkennt aktive Feuer aus dem Weltraum mit VIIRS- und MODIS-Satellitensensoren. Pyrae legt diese Daten auf eine Live-Karte und best\u00e4tigt B\u00fcrgermeldungen gegen\u00fcber Satelliten-Hotspots.",
+      stat_refresh: "Satellitenaktualisierung", stat_resolution: "VIIRS-Aufl\u00f6sung", stat_radius: "Best\u00e4tigungsradius",
+      map_note: "Rote Marker zeigen aktuell erfasste Feuer-Hotspots. Hineinzoomen f\u00fcr Details.", map_cta: "Vollst\u00e4ndige interaktive Karte \u00f6ffnen \u2192",
+      what_title: "Was ist NASA FIRMS?",
+      what_p1: "NASAs Fire Information for Resource Management System (FIRMS) liefert nahezu Echtzeit-Daten zu aktiven Feuern von den MODIS- und VIIRS-Satelliteninstrumenten. Der VIIRS-375-m-Sensor erkennt thermische Anomalien.",
+      what_p2: "FIRMS-Daten werden f\u00fcr die meisten Regionen alle 3 Stunden aktualisiert. Die Satellitenerkennung hat jedoch inh\u00e4rente Einschr\u00e4nkungen: Wolkenbedeckung, kleine Feuer und Nachtbedingungen k\u00f6nnen thermische Signale maskieren.",
+      how_title: "Wie Pyrae FIRMS-Daten nutzt",
+      use_sat_title: "Satellitenbest\u00e4tigung", use_sat_desc: "Jede B\u00fcrgerfotomeldung wird gegen Live-NASA-FIRMS-Hotspots gepr\u00fcft. Eine Foto-Sichtung innerhalb von 3 km einer Satellitendetektion der letzten 12 Stunden best\u00e4tigt die Meldung.",
+      use_ai_title: "Zuerst KI-Sichtung", use_ai_desc: "Bevor der Satellitenbest\u00e4tigungsschritt erreicht wird, wird jedes Foto von einem Computer-Vision-Modell auf sichtbare Flammen und Rauch gepr\u00fcft.",
+      use_bayes_title: "Bayessche Modellierung", use_bayes_desc: "FIRMS-Hotspots speisen direkt in das Bayessche Feuerraster, das modelliert, wie sich jedes Feuer wahrscheinlich ausbreitet.",
+      speed_title: "Warum Geschwindigkeit wichtig ist",
+      speed_p1: "Waldbr\u00e4nde k\u00f6nnen sich alle 30\u201360 Minuten verdoppeln. Traditionelle rein satellitengest\u00fctzte Erkennung l\u00e4sst eine L\u00fccke. Durch Kombination von B\u00fcrgermeldungen mit Satellitenbest\u00e4tigung f\u00fcllt Pyrae diese L\u00fccke.",
+      speed_p2: "Der Best\u00e4tigungsschritt (Satellit + Bodenwahrheit) ist entscheidend: Er verhindert Fehlalarme und stellt sicher, dass echte Feuer best\u00e4tigt werden.",
+      sources_title: "Datenquellen",
+      src_nasa: "VIIRS 375 m und MODIS 1 km aktive Feuererkennungen, alle 3 Stunden aktualisiert.",
+      src_effis: "Europ\u00e4isches Waldbrandinformationssystem f\u00fcr Feuerwetterindizes.",
+      src_meteo: "Echtzeit-Wind, Temperatur und Luftfeuchtigkeit f\u00fcr Ausbreitungsmodellierung.",
+      src_citizen: "B\u00fcrgerfotomeldungen", src_citizen_desc: "bodenverifizierte Sichtungen, gefiltert durch KI und gegen FIRMS validiert.",
+      cta_title: "In Aktion sehen", cta_lead: "Die Live-Karte kombiniert NASA-FIRMS-Daten mit B\u00fcrgermeldungen und vorausschauender Modellierung \u2014 alles in einer Ansicht.",
+      cta_map: "Live-Karte erkunden", cta_contact: "Kontaktieren Sie uns",
+      disclaimer: "Pyrae ist ein Informationstool, kein Notdienst. Rufen Sie bei Gefahr immer zuerst Ihre lokale Notrufnummer an."
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce", nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "SUPERVISION SATELLITAIRE EN DIRECT", hero_title_pre: "Carte incendie NASA FIRMS \u2014", hero_title_accent: "D\u00e9tection satellite en direct",
+      hero_sub: "Le Fire Information for Resource Management System (FIRMS) de la NASA d\u00e9tecte les incendies actifs depuis l\u2019espace avec les capteurs VIIRS et MODIS. Pyrae superpose ces donn\u00e9es sur une carte en direct et corro bore les signalements citoyens.",
+      stat_refresh: "rafr\u00e2chissement satellite", stat_resolution: "r\u00e9solution VIIRS", stat_radius: "rayon de corroboration",
+      map_note: "Les marqueurs rouges montrent les points chauds suivis. Zoomez pour les d\u00e9tails.", map_cta: "Ouvrir la carte interactive compl\u00e8te \u2192",
+      what_title: "Qu\u2019est-ce que NASA FIRMS ?",
+      what_p1: "Le FIRMS de la NASA fournit des donn\u00e9es d\u2019incendies actifs en quasi-temps r\u00e9el depuis les instruments satellitaires MODIS et VIIRS. Le capteur VIIRS 375 m d\u00e9tecte les anomalies thermiques.",
+      what_p2: "Les donn\u00e9es FIRMS sont actualis\u00e9es toutes les 3 heures. La d\u00e9tection satellitaire a toutefois des limites : la couverture nuageuse, les petits feux et les conditions nocturnes peuvent masquer les signaux thermiques.",
+      how_title: "Comment Pyrae utilise les donn\u00e9es FIRMS",
+      use_sat_title: "Corroboration satellitaire", use_sat_desc: "Chaque signalement photo citoyen est v\u00e9rifi\u00e9 contre les points chauds NASA FIRMS en direct. Un signalement dans un rayon de 3 km d\u2019une d\u00e9tection satellite des 12 derni\u00e8res heures confirme le rapport.",
+      use_ai_title: "Analyse IA d\u2019abord", use_ai_desc: "Avant la corroboration satellitaire, chaque photo est v\u00e9rifi\u00e9e par un mod\u00e8le de vision par ordinateur pour les flammes et fum\u00e9es visibles.",
+      use_bayes_title: "Mod\u00e9lisation bay\u00e9sienne", use_bayes_desc: "Les points chauds FIRMS alimentent directement la Grille du Feu bay\u00e9sienne, qui mod\u00e9lise la propagation probable de chaque incendie.",
+      speed_title: "Pourquoi la rapidit\u00e9 compte",
+      speed_p1: "Les incendies peuvent doubler de taille toutes les 30\u201360 minutes. La d\u00e9tection satellitaire seule laisse un vide. En combinant signalements citoyens et corroboration satellite, Pyrae comble ce vide.",
+      speed_p2: "L\u2019\u00e9tape de corroboration (satellite + v\u00e9rit\u00e9 terrain) est cruciale : elle \u00e9vite les fausses alertes tout en confirmant les vrais incendies.",
+      sources_title: "Sources de donn\u00e9es",
+      src_nasa: "D\u00e9tections d\u2019incendies actifs VIIRS 375 m et MODIS 1 km, actualis\u00e9es toutes les 3 heures.",
+      src_effis: "Syst\u00e8me europ\u00e9en d\u2019information sur les feux de for\u00eat.",
+      src_meteo: "vent, temp\u00e9rature et humidit\u00e9 en temps r\u00e9el pour la mod\u00e9lisation de propagation.",
+      src_citizen: "Signalements citoyens", src_citizen_desc: "observations de terrain filtr\u00e9es par IA et valid\u00e9es contre FIRMS.",
+      cta_title: "Voir en action", cta_lead: "La carte en direct combine les donn\u00e9es NASA FIRMS avec les signalements citoyens et la mod\u00e9lisation pr\u00e9dictive \u2014 tout en une vue.",
+      cta_map: "Explorer la carte", cta_contact: "Contactez-nous",
+      disclaimer: "Pyrae est un outil d\u2019information, pas un service d\u2019urgence. En cas de danger, appelez votre num\u00e9ro d\u2019urgence local."
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana", nav_map: "Volver al mapa",
+      hero_eyebrow: "MONITOREO SATELITAL EN VIVO", hero_title_pre: "Mapa de incendios NASA FIRMS \u2014", hero_title_accent: "Detecci\u00f3n satelital en vivo",
+      hero_sub: "El Fire Information for Resource Management System (FIRMS) de la NASA detecta incendios activos desde el espacio con sensores VIIRS y MODIS. Pyrae superpone estos datos en un mapa en vivo y corrobora reportes ciudadanos contra puntos calientes satelitales.",
+      stat_refresh: "actualizaci\u00f3n satelital", stat_resolution: "resoluci\u00f3n VIIRS", stat_radius: "radio de corroboraci\u00f3n",
+      map_note: "Los marcadores rojos muestran puntos calientes de fuego rastreados. Haga zoom para ver detalles.", map_cta: "Abrir el mapa interactivo completo \u2192",
+      what_title: "\u00bfQu\u00e9 es NASA FIRMS?",
+      what_p1: "El FIRMS de la NASA proporciona datos de incendios activos en tiempo casi real desde los instrumentos satelitales MODIS y VIIRS. El sensor VIIRS de 375 m detecta anomal\u00edas t\u00e9rmicas.",
+      what_p2: "Los datos FIRMS se actualizan cada 3 horas. Sin embargo, la detecci\u00f3n satelital tiene limitaciones inherentes: la cobertura de nubes, los incendios peque\u00f1os y las condiciones nocturnas pueden enmascarar las se\u00f1ales t\u00e9rmicas.",
+      how_title: "C\u00f3mo Pyrae usa los datos FIRMS",
+      use_sat_title: "Corroboraci\u00f3n satelital", use_sat_desc: "Cada reporte fotogr\u00e1fico ciudadano se verifica contra los puntos calientes NASA FIRMS en vivo. Un avistamiento dentro de 3 km de una detecci\u00f3n satelital de las \u00faltimas 12 horas confirma el reporte.",
+      use_ai_title: "Filtrado IA primero", use_ai_desc: "Antes de la corroboraci\u00f3n satelital, cada foto es revisada por un modelo de visi\u00f3n por computadora para detectar fuego y humo visibles.",
+      use_bayes_title: "Modelado bayesiano", use_bayes_desc: "Los puntos calientes FIRMS alimentan directamente la Cuadr\u00edcula del Fuego bayesiana, que modela c\u00f3mo es probable que se propague cada incendio.",
+      speed_title: "Por qu\u00e9 la rapidez importa",
+      speed_p1: "Los incendios pueden duplicarse cada 30\u201360 minutos. La detecci\u00f3n solo satelital deja un vac\u00edo. Al combinar reportes ciudadanos con corroboraci\u00f3n satelital, Pyrae llena ese vac\u00edo.",
+      speed_p2: "El paso de corroboraci\u00f3n (satellite + verdad terrestre) es cr\u00edtico: evita falsas alertas mientras asegura que los incendios reales sean confirmados.",
+      sources_title: "Fuentes de datos",
+      src_nasa: "Detecciones activas VIIRS 375 m y MODIS 1 km, actualizadas cada 3 horas.",
+      src_effis: "Sistema europeo de informaci\u00f3n sobre incendios forestales.",
+      src_meteo: "viento, temperatura y humedad en tiempo real para modelado de propagaci\u00f3n.",
+      src_citizen: "Reportes ciudadanos", src_citizen_desc: "avistamientos del terreno filtrados por IA y validados contra FIRMS.",
+      cta_title: "Ver en acci\u00f3n", cta_lead: "El mapa en vivo combina datos NASA FIRMS con reportes ciudadanos y modelado predictivo \u2014 todo en una vista.",
+      cta_map: "Explorar mapa", cta_contact: "Cont\u00e1ctenos",
+      disclaimer: "Pyrae es una herramienta de informaci\u00f3n, no un servicio de emergencia. Si un incendio amenaza vidas o propiedades, llame a su n\u00famero de emergencia local."
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "MAPA POŻARÓW NASA FIRMS",
+      hero_title_pre: "Mapa wykrywania",
+      hero_title_accent: "pożarów na żywo",
+      hero_sub: "Widz aktywne pożary lasów wykryte przez satelitę NASA FIRMS VIIRS w czasie rzeczywistym, zwanymi gorącymi punktami.",
+      about_title: "O danych NASA FIRMS",
+      about_p1: "NASA FIRMS (Fire Information for Resource Management System) dostarcza dane o gorących punktach z satelitów MODIS i VIIRS. Dane są aktualizowane kilka razy dziennie.",
+      about_p2: "Každý punkt na mapie reprezentuje wykrycie termiczne — potencjalny aktywny pożar. Kolor i rozmiar wskazują prawdopodobieństwo.",
+      legend_title: "Legenda",
+      legend_low: "Niskie prawdopodobieństwo",
+      legend_high: "Wysokie prawdopodobieństwo",
+      legend_size: "Rozmiar wskazuje intensywność",
+      howto_title: "Jak korzystać z mapy",
+      howto_zoom: "Przybliż, aby zobaczyć szczegóły",
+      howto_click: "Kliknij punkt, aby zobaczyć szczegóły",
+      howto_filter: "Używaj warstw do filtrowania danych",
+      data_title: "Informacje o danych",
+      data_source: "Źródło: NASA FIRMS VIIRS",
+      data_update: "Aktualizacja: kilka razy dziennie",
+      data_resolution: "Rozdzielczość: 375m",
+      cta_title: "Wypróbuj Pyrae",
+      cta_map: "Eksploruj mapę",
+      cta_contact: "Skontaktuj się",
+      disclaimer: "Pyrae jest narzędziem informacyjnym, nie służbą ratunkową. Jeśli pożar zagraża życiu lub mieniu, zadzwoń pod numer alarmowy."
+    }
+  });
   </script>
 
 </body>

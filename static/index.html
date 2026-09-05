@@ -54,27 +54,39 @@
     <div class="top-actions">
       <a href="/admin" class="admin-link admin-link--hidden" title="Admin moderation dashboard">
         <span class="admin-link-icon">🛡️</span>
-        <span class="admin-link-text">Admin</span>
+        <span class="admin-link-text" data-i18n="admin_link">Admin</span>
       </a>
       <a href="/contact" class="contact-link" title="Contact & partnerships">
         <span class="contact-link-icon">✉️</span>
-        <span class="contact-link-text">Contact</span>
+        <span class="contact-link-text" data-i18n="contact_link">Contact</span>
       </a>
       <a href="/privacy" class="privacy-link" title="Privacy policy">
         <span class="contact-link-icon">🔒</span>
-        <span class="contact-link-text">Privacy</span>
+        <span class="contact-link-text" data-i18n="privacy_link">Privacy</span>
       </a>
       <a href="/about" class="about-link" title="Who we are">
         <span class="contact-link-icon">🧭</span>
-        <span class="contact-link-text">Who we are</span>
+        <span class="contact-link-text" data-i18n="about_link">Who we are</span>
       </a>
       <a href="/faq" class="faq-link" title="Frequently asked questions & feedback">
         <span class="contact-link-icon">❓</span>
-        <span class="contact-link-text">FAQ</span>
+        <span class="contact-link-text" data-i18n="faq_link">FAQ</span>
+      </a>
+      <a href="/map/france" class="poland-map-link" title="Live wildfire map of France">
+        <span class="contact-link-icon">🇫🇷</span>
+        <span class="contact-link-text" data-i18n="france_map_link">France map</span>
+      </a>
+      <a href="/map/germany" class="poland-map-link" title="Live wildfire map of Germany">
+        <span class="contact-link-icon">🇩🇪</span>
+        <span class="contact-link-text" data-i18n="germany_map_link">Germany map</span>
+      </a>
+      <a href="/map/spain" class="poland-map-link" title="Live wildfire map of Spain">
+        <span class="contact-link-icon">🇪🇸</span>
+        <span class="contact-link-text" data-i18n="spain_map_link">Spain map</span>
       </a>
       <a href="/map/poland" class="poland-map-link" title="Live wildfire map of Poland">
         <span class="contact-link-icon">🇵🇱</span>
-        <span class="contact-link-text">Poland map</span>
+        <span class="contact-link-text" data-i18n="poland_map_link">Poland map</span>
       </a>
       <!-- Heatmap toggle moved to floating bottom-right controls -->
       <button id="users-only-toggle" class="users-only-btn" title="Show only fires reported by app users (hide satellite data)">
@@ -135,15 +147,15 @@
   <div id="floating-controls">
     <button id="bayesian-toggle" class="floating-ctrl-btn heatmap-btn" title="Toggle fire grid probability heatmap">
       <span class="floating-ctrl-icon">🌀</span>
-      <span class="floating-ctrl-text">Heatmap</span>
+      <span class="floating-ctrl-text" data-i18n="heatmap_btn">Heatmap</span>
     </button>
     <button id="esa-extent-toggle" class="floating-ctrl-btn esa-btn" title="Show ESA WorldCover data extent">
       <span class="floating-ctrl-icon">🛰️</span>
-      <span class="floating-ctrl-text">ESA extent</span>
+      <span class="floating-ctrl-text" data-i18n="esa_btn">ESA extent</span>
     </button>
     <button id="upload-trigger" class="floating-ctrl-btn report-btn" title="Report a fire">
       <span class="floating-ctrl-icon">🔥</span>
-      <span class="floating-ctrl-text">Report</span>
+      <span class="floating-ctrl-text" data-i18n="report_btn">Report</span>
     </button>
   </div>
 
@@ -346,7 +358,29 @@
             page_id: pid, token: tk, url: location.href, referrer: document.referrer,
             user_agent: navigator.userAgent, screen_width: screen.width,
             session_id: sid, visitor_id: vid, event_type: t, element_name: n || null
-          })
+          },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Mapa na żywo",
+      admin_link: "Admin",
+      contact_link: "Kontakt",
+      privacy_link: "Prywatność",
+      about_link: "O nas",
+      faq_link: "FAQ",
+      poland_map_link: "Mapa Polski",
+      france_map_link: "Mapa Francji",
+      germany_map_link: "Mapa Niemiec",
+      spain_map_link: "Mapa Hiszpanii",
+      report_btn: "Zgłoś",
+      heatmap_btn: "Mapa cieplna",
+      esa_btn: "Rozszerzenie ESA",
+      users_only_btn: "Tylko użytkownicy",
+      status_init: "Inicjalizowanie…",
+      status_active: "Aktywny",
+      status_error: "Błąd",
+      status_pending: "Oczekiwanie",
+      status_offline: "Brak połączenia"
+    })
         });
       }
       send("pageview");
@@ -388,5 +422,100 @@
     })();
   </script>
   <!-- End Page Pulse Tracking Script -->
+
+  <script src="/i18n.js"></script>
+  <script>
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Live map",
+      admin_link: "Admin",
+      contact_link: "Contact",
+      privacy_link: "Privacy",
+      about_link: "Who we are",
+      faq_link: "FAQ",
+      poland_map_link: "Poland map",
+      france_map_link: "France map",
+      germany_map_link: "Germany map",
+      spain_map_link: "Spain map",
+      report_btn: "Report",
+      heatmap_btn: "Heatmap",
+      esa_btn: "ESA extent",
+      users_only_btn: "Users only",
+      status_init: "Initializing\u2026",
+      status_active: "Active",
+      status_error: "Error",
+      status_pending: "Pending",
+      status_offline: "Offline"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Live-Karte",
+      admin_link: "Admin",
+      contact_link: "Kontakt",
+      privacy_link: "Datenschutz",
+      about_link: "Über uns",
+      faq_link: "FAQ",
+      poland_map_link: "Polen-Karte",
+      france_map_link: "Frankreich-Karte",
+      germany_map_link: "Deutschland-Karte",
+      spain_map_link: "Spanien-Karte",
+      report_btn: "Melden",
+      heatmap_btn: "Heatmap",
+      esa_btn: "ESA-Bereich",
+      users_only_btn: "Nur Nutzer",
+      status_init: "Initialisierung\u2026",
+      status_active: "Aktiv",
+      status_error: "Fehler",
+      status_pending: "Ausstehend",
+      status_offline: "Offline"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Carte en direct",
+      admin_link: "Admin",
+      contact_link: "Contact",
+      privacy_link: "Confidentialit\u00e9",
+      about_link: "Qui sommes-nous",
+      faq_link: "FAQ",
+      poland_map_link: "Carte Pologne",
+      france_map_link: "Carte France",
+      germany_map_link: "Carte Allemagne",
+      spain_map_link: "Carte Espagne",
+      report_btn: "Signaler",
+      heatmap_btn: "Heatmap",
+      esa_btn: "Étendue ESA",
+      users_only_btn: "Utilisateurs",
+      status_init: "Initialisation\u2026",
+      status_active: "Actif",
+      status_error: "Erreur",
+      status_pending: "En attente",
+      status_offline: "Hors ligne"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Mapa en vivo",
+      admin_link: "Admin",
+      contact_link: "Contacto",
+      privacy_link: "Privacidad",
+      about_link: "Qui\u00e9nes somos",
+      faq_link: "FAQ",
+      poland_map_link: "Mapa Polonia",
+      france_map_link: "Mapa Francia",
+      germany_map_link: "Mapa Alemania",
+      spain_map_link: "Mapa España",
+      report_btn: "Reportar",
+      heatmap_btn: "Mapa de calor",
+      esa_btn: "Extensi\u00f3n ESA",
+      users_only_btn: "Solo usuarios",
+      status_init: "Inicializando\u2026",
+      status_active: "Activo",
+      status_error: "Error",
+      status_pending: "Pendiente",
+      status_offline: "Sin conexi\u00f3n"
+    }
+  });
+  </script>
+
 </body>
 </html>

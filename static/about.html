@@ -66,21 +66,23 @@
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main">
 
     <!-- ======== Hero ======== -->
     <section class="hero">
-      <p class="hero-eyebrow">ABOUT PYRAE</p>
-      <h1 class="hero-title">Who <span class="hero-accent">we are</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">ABOUT PYRAE</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Who</span> <span class="hero-accent" data-i18n="hero_title_accent">we are</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Pyrae is building an early wildfire detection network that combines
         citizen photo reports, AI analysis, live satellite data, and predictive
         spread modelling — so small ignitions are caught before they become
@@ -90,12 +92,12 @@
 
     <!-- ======== Mission ======== -->
     <section class="section">
-      <h2 class="section-title">Our mission</h2>
+      <h2 class="section-title" data-i18n="mission_title">Our mission</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">⏱️</div>
-          <h3>Earlier detection</h3>
-          <p>
+          <h3 data-i18n="mission_detect_title">Earlier detection</h3>
+          <p data-i18n="mission_detect_desc">
             Every minute counts. By fusing what people on the ground see with
             what satellites observe from space, we aim to flag fires sooner
             than any single source could alone.
@@ -103,8 +105,8 @@
         </div>
         <div class="cap-card">
           <div class="cap-icon">🌍</div>
-          <h3>Everyone can help</h3>
-          <p>
+          <h3 data-i18n="mission_everyone_title">Everyone can help</h3>
+          <p data-i18n="mission_everyone_desc">
             A wildfire can start anywhere — so the detection network is open
             to anyone. One photo from a phone can be the first signal of a
             fire that satellites haven't seen yet.
@@ -112,8 +114,8 @@
         </div>
         <div class="cap-card">
           <div class="cap-icon">🤝</div>
-          <h3>Built for responders</h3>
-          <p>
+          <h3 data-i18n="mission_responders_title">Built for responders</h3>
+          <p data-i18n="mission_responders_desc">
             Our forecasts — where a fire will spread, which roads are at risk —
             are designed to give communities, utilities, and emergency
             agencies actionable intelligence, not just alerts.
@@ -124,36 +126,36 @@
 
     <!-- ======== How it works ======== -->
     <section class="section">
-      <h2 class="section-title">How it works</h2>
+      <h2 class="section-title" data-i18n="how_title">How it works</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">📸</div>
-          <h3>1 · Citizen reports</h3>
-          <p>
+          <h3 data-i18n="how_step1_title">1 · Citizen reports</h3>
+          <p data-i18n="how_step1_desc">
             Anyone can report a suspected fire with a photo and location
             straight from the map.
           </p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🧠</div>
-          <h3>2 · AI screening</h3>
-          <p>
+          <h3 data-i18n="how_step2_title">2 · AI screening</h3>
+          <p data-i18n="how_step2_desc">
             A computer-vision model checks every photo for visible fire and
             smoke, with per-class confidence scores.
           </p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🛰️</div>
-          <h3>3 · Satellite corroboration</h3>
-          <p>
+          <h3 data-i18n="how_step3_title">3 · Satellite corroboration</h3>
+          <p data-i18n="how_step3_desc">
             Live NASA FIRMS hotspot data validates reports from space —
             turning single sightings into confirmed incidents.
           </p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📈</div>
-          <h3>4 · Predictive modelling</h3>
-          <p>
+          <h3 data-i18n="how_step4_title">4 · Predictive modelling</h3>
+          <p data-i18n="how_step4_desc">
             A Bayesian model estimates where each fire is likely to spread,
             which roads are at risk, and how the fire may evolve with the
             weather.
@@ -164,31 +166,31 @@
 
     <!-- ======== Values ======== -->
     <section class="section">
-      <h2 class="section-title">What we stand for</h2>
+      <h2 class="section-title" data-i18n="values_title">What we stand for</h2>
       <ul class="audience-list">
-        <li><b>Open participation</b> — detection shouldn't depend on expensive infrastructure; a phone camera is enough to contribute.</li>
-        <li><b>Data-driven decisions</b> — every fire on the map is backed by evidence: photos, satellite detections, or both.</li>
-        <li><b>Transparency</b> — we show our confidence and our sources, so users can judge for themselves.</li>
-        <li><b>Safety first</b> — this is an early-warning tool, not a substitute for official emergency services.</li>
+        <li data-i18n="values_open"><b>Open participation</b> — detection shouldn't depend on expensive infrastructure; a phone camera is enough to contribute.</li>
+        <li data-i18n="values_data"><b>Data-driven decisions</b> — every fire on the map is backed by evidence: photos, satellite detections, or both.</li>
+        <li data-i18n="values_transparency"><b>Transparency</b> — we show our confidence and our sources, so users can judge for themselves.</li>
+        <li data-i18n="values_safety"><b>Safety first</b> — this is an early-warning tool, not a substitute for official emergency services.</li>
       </ul>
     </section>
 
     <!-- ======== Contact CTA ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">Get involved</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="cta_title">Get involved</h2>
+      <p class="contact-lead" data-i18n="cta_lead">
         Want to partner with us, pilot Pyrae, or just say hello?
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary" href="/contact">
-          ✉️ &nbsp;Contact us
+          ✉️ &nbsp;<span data-i18n="cta_contact">Contact us</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/map">
-          🔥 &nbsp;Explore the live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore the live map</span>
         </a>
       </div>
       <div class="social-links">
-        <span class="social-label">Follow us</span>
+        <span class="social-label" data-i18n="social_label">Follow us</span>
         <a class="social-pill" href="https://instagram.com/pyraeapp" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
           @pyraeapp
@@ -205,6 +207,184 @@
   <footer class="contact-footer">
     <span class="contact-footer-brand">🔥 Pyrae</span>
   </footer>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Back to map",
+      hero_eyebrow: "ABOUT PYRAE",
+      hero_title_pre: "Who",
+      hero_title_accent: "we are",
+      hero_sub: "Pyrae is building an early wildfire detection network that combines citizen photo reports, AI analysis, live satellite data, and predictive spread modelling \u2014 so small ignitions are caught before they become large-scale disasters.",
+      mission_title: "Our mission",
+      mission_detect_title: "Earlier detection",
+      mission_detect_desc: "Every minute counts. By fusing what people on the ground see with what satellites observe from space, we aim to flag fires sooner than any single source could alone.",
+      mission_everyone_title: "Everyone can help",
+      mission_everyone_desc: "A wildfire can start anywhere \u2014 so the detection network is open to anyone. One photo from a phone can be the first signal of a fire that satellites haven\u2019t seen yet.",
+      mission_responders_title: "Built for responders",
+      mission_responders_desc: "Our forecasts \u2014 where a fire will spread, which roads are at risk \u2014 are designed to give communities, utilities, and emergency agencies actionable intelligence, not just alerts.",
+      how_title: "How it works",
+      how_step1_title: "1 \u00b7 Citizen reports",
+      how_step1_desc: "Anyone can report a suspected fire with a photo and location straight from the map.",
+      how_step2_title: "2 \u00b7 AI screening",
+      how_step2_desc: "A computer-vision model checks every photo for visible fire and smoke, with per-class confidence scores.",
+      how_step3_title: "3 \u00b7 Satellite corroboration",
+      how_step3_desc: "Live NASA FIRMS hotspot data validates reports from space \u2014 turning single sightings into confirmed incidents.",
+      how_step4_title: "4 \u00b7 Predictive modelling",
+      how_step4_desc: "A Bayesian model estimates where each fire is likely to spread, which roads are at risk, and how the fire may evolve with the weather.",
+      values_title: "What we stand for",
+      values_open: "Open participation \u2014 detection shouldn\u2019t depend on expensive infrastructure; a phone camera is enough to contribute.",
+      values_data: "Data-driven decisions \u2014 every fire on the map is backed by evidence: photos, satellite detections, or both.",
+      values_transparency: "Transparency \u2014 we show our confidence and our sources, so users can judge for themselves.",
+      values_safety: "Safety first \u2014 this is an early-warning tool, not a substitute for official emergency services.",
+      cta_title: "Get involved",
+      cta_lead: "Want to partner with us, pilot Pyrae, or just say hello?",
+      cta_contact: "Contact us",
+      cta_map: "Explore the live map",
+      social_label: "Follow us"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "\u00dcBER PYRAE",
+      hero_title_pre: "Wer",
+      hero_title_accent: "wir sind",
+      hero_sub: "Pyrae baut ein fr\u00fches Waldbranderkennungsnetzwerk, das B\u00fcrgerfotoberichte, KI-Analyse, Live-Satellitendaten und vorausschauendes Ausbreitungsmodell kombiniert \u2014 damit kleine Entz\u00fcndungen erkannt werden, bevor sie zu Grossbr\u00e4nden werden.",
+      mission_title: "Unsere Mission",
+      mission_detect_title: "Fr\u00fchere Erkennung",
+      mission_detect_desc: "Jede Minute z\u00e4hlt. Indem wir die Beobachtungen vor Ort mit Satellitenbeobachtungen aus dem Weltraum kombinieren, wollen wir Br\u00e4nde schneller erkennen als jede einzelne Quelle allein.",
+      mission_everyone_title: "Jeder kann helfen",
+      mission_everyone_desc: "Ein Waldbrand kann \u00fcberall ausbrechen \u2014 deshalb ist das Erkennungsnetzwerk f\u00fcr jedermann offen. Ein Foto mit dem Handy kann das erste Signal f\u00fcr ein Feuer sein, das Satelliten noch nicht gesehen haben.",
+      mission_responders_title: "F\u00fcr Einsatzkr\u00e4fte gebaut",
+      mission_responders_desc: "Unsere Prognosen \u2014 wohin sich ein Feuer ausbreitet, welche Strassen gef\u00e4hrdet sind \u2014 sind daf\u00fcr gedacht, Gemeinschaften, Versorger und Einsatzkr\u00e4fte mit handlungsorientierten Informationen zu unterst\u00fctzen.",
+      how_title: "So funktioniert es",
+      how_step1_title: "1 \u00b7 B\u00fcrgermeldungen",
+      how_step1_desc: "Jeder kann ein verd\u00e4chtiges Feuer mit Foto und Standort direkt von der Karte aus melden.",
+      how_step2_title: "2 \u00b7 KI-Sichtung",
+      how_step2_desc: "Ein Computer-Vision-Modell pr\u00fcft jedes Foto auf sichtbare Flammen und Rauch, mit Konfidenzwerten f\u00fcr jede Klasse.",
+      how_step3_title: "3 \u00b7 Satellitenbest\u00e4tigung",
+      how_step3_desc: "Live-NASA-FIRMS-Hotspot-Daten best\u00e4tigen Meldungen aus dem Weltraum und verwandeln einzelne Sichtungen in best\u00e4tigte Vorf\u00e4lle.",
+      how_step4_title: "4 \u00b7 Vorausschauende Modellierung",
+      how_step4_desc: "Ein bayessches Modell sch\u00e4tzt, wohin sich jedes Feuer wahrscheinlich ausbreitet, welche Strassen gef\u00e4hrdet sind und wie sich das Feuer mit dem Wetter entwickeln k\u00f6nnte.",
+      values_title: "Wof\u00fcr wir stehen",
+      values_open: "\u00d6ffene Teilhabe \u2014 Erkennung sollte nicht von teurer Infrastruktur abh\u00e4ngen; eine Handykamera reicht zum Beitragen.",
+      values_data: "Datengetriebene Entscheidungen \u2014 jedes Feuer auf der Karte wird durch Evidenz gest\u00fctzt: Fotos, Satellitendetektionen oder beides.",
+      values_transparency: "Transparenz \u2014 wir zeigen unsere Konfidenz und unsere Quellen, damit Nutzer selbst urteilen k\u00f6nnen.",
+      values_safety: "Sicherheit zuerst \u2014 dies ist ein Fr\u00fchwarnwerkzeug, kein Ersatz f\u00fcr offizielle Notdienste.",
+      cta_title: "Mitmachen",
+      cta_lead: "M\u00f6chten Sie mit uns zusammenarbeiten, Pyrae testen oder einfach Hallo sagen?",
+      cta_contact: "Kontaktieren Sie uns",
+      cta_map: "Live-Karte erkunden",
+      social_label: "Folgen Sie uns"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "\u00c0 PROPOS DE PYRAE",
+      hero_title_pre: "Qui",
+      hero_title_accent: "nous sommes",
+      hero_sub: "Pyrae construit un r\u00e9seau de d\u00e9tection pr\u00e9coce des incendies de for\u00eat combinant signalements citoyens, analyse IA, donn\u00e9es satellite en direct et mod\u00e9lisation pr\u00e9dictive de propagation \u2014 pour d\u00e9tecter les d\u00e9parts de feu avant qu\u2019ils ne deviennent des catastrophes.",
+      mission_title: "Notre mission",
+      mission_detect_title: "D\u00e9tection plus rapide",
+      mission_detect_desc: " chaque minute compte. En combinant les observations sur le terrain avec les observations satellitaires, nous visons \u00e0 d\u00e9tecter les incendies plus t\u00f4t que ne pourrait le faire une source isol\u00e9e.",
+      mission_everyone_title: "Tout le monde peut aider",
+      mission_everyone_desc: "Un incendie peut d\u00e9buter n\u2019importe o\u00f9 \u2014 le r\u00e9seau de d\u00e9tection est donc ouvert \u00e0 tous. Un photo prise avec un t\u00e9l\u00e9phone peut \u00eatre le premier signal d\u2019un feu que les satellites n\u2019ont pas encore vu.",
+      mission_responders_title: "Con\u00e7u pour les secours",
+      mission_responders_desc: "Nos pr\u00e9visions \u2014 o\u00f9 le feu va se propager, quelles routes sont \u00e0 risque \u2014 visent \u00e0 fournir aux communaut\u00e9s, services publics et secours des informations exploitables, pas seulement des alertes.",
+      how_title: "Comment \u00e7a fonctionne",
+      how_step1_title: "1 \u00b7 Signalements citoyens",
+      how_step1_desc: "Tout le monde peut signaler un feu suspect avec une photo et sa position directement depuis la carte.",
+      how_step2_title: "2 \u00b7 Analyse IA",
+      how_step2_desc: "Un mod\u00e8le de vision par ordinateur v\u00e9rifie chaque photo pour d\u00e9tecter flammes et fum\u00e9e visibles, avec des scores de confiance par classe.",
+      how_step3_title: "3 \u00b7 Corroboration satellitaire",
+      how_step3_desc: "Les donn\u00e9es en direct des points chauds NASA FIRMS valident les signalements depuis l\u2019espace et transforment des observations isol\u00e9es en incidents confirm\u00e9s.",
+      how_step4_title: "4 \u00b7 Mod\u00e9lisation pr\u00e9dictive",
+      how_step4_desc: "Un mod\u00e8le bay\u00e9sien estime o\u00f9 chaque incendie est susceptible de se propager, quelles routes sont \u00e0 risque, et comment le feu \u00e9voluera avec la m\u00e9t\u00e9o.",
+      values_title: "Nos valeurs",
+      values_open: "Participation ouverte \u2014 la d\u00e9tection ne devrait pas d\u00e9pendre d\u2019une infrastructure co\u00fbteuse ; un appareil photo de t\u00e9l\u00e9phone suffit.",
+      values_data: "D\u00e9cisions bas\u00e9es sur les donn\u00e9es \u2014 chaque feu sur la carte est appuy\u00e9 par des preuves : photos, d\u00e9tections satellitaires ou les deux.",
+      values_transparency: "Transparence \u2014 nous affichons notre confiance et nos sources, pour que les utilisateurs puissent juger par eux-m\u00eames.",
+      values_safety: "La s\u00e9curit\u00e9 d\u2019abord \u2014 ceci est un outil d\u2019alerte pr\u00e9coce, pas un substitut aux services d\u2019urgence officiels.",
+      cta_title: "Participez",
+      cta_lead: "Vous souhaitez nous rejoindre, tester Pyrae, ou simplement nous dire bonjour ?",
+      cta_contact: "Contactez-nous",
+      cta_map: "Explorer la carte en direct",
+      social_label: "Suivez-nous"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Volver al mapa",
+      hero_eyebrow: "SOBRE PYRAE",
+      hero_title_pre: "Qui\u00e9nes",
+      hero_title_accent: "somos",
+      hero_sub: "Pyrae est\u00e1 construyendo una red de detecci\u00f3n temprana de incendios forestales que combina reportes ciudadanos con foto, an\u00e1lisis IA, datos satelitales en tiempo real y modelado predictivo de propagaci\u00f3n \u2014 para detectar peque\u00f1os incendios antes de que se conviertan en desastres.",
+      mission_title: "Nuestra misi\u00f3n",
+      mission_detect_title: "Detecci\u00f3n m\u00e1s r\u00e1pida",
+      mission_detect_desc: "Cada minuto cuenta. Al combinar lo que la gente ve en el terreno con lo que los sat\u00e9lites observan desde el espacio, buscamos detectar incendios m\u00e1s temprano de lo que cualquier fuente individual podr\u00eda.",
+      mission_everyone_title: "Todos pueden ayudar",
+      mission_everyone_desc: "Un incendio puede comenzar en cualquier lugar \u2014 la red de detecci\u00f3n est\u00e1 abierta a todos. Una foto con el tel\u00e9fono puede ser la primera se\u00f1al de un fuego que los sat\u00e9lites a\u00fan no han visto.",
+      mission_responders_title: "Dise\u00f1ado para equipos de emergencia",
+      mission_responders_desc: "Nuestras predicciones \u2014 d\u00f3nde se propagar\u00e1 el fuego, qu\u00e9 carreteras est\u00e1n en riesgo \u2014 est\u00e1n dise\u00f1adas para dar a comunidades, servicios p\u00fablicos y agencias informaci\u00f3n accionable, no solo alertas.",
+      how_title: "C\u00f3mo funciona",
+      how_step1_title: "1 \u00b7 Reportes ciudadanos",
+      how_step1_desc: "Cualquiera puede reportar un incendio sospechoso con una foto y su ubicaci\u00f3n directamente desde el mapa.",
+      how_step2_title: "2 \u00b7 Filtrado con IA",
+      how_step2_desc: "Un modelo de visi\u00f3n por computadora revisa cada foto en busca de fuego y humo visibles, con puntajes de confianza por clase.",
+      how_step3_title: "3 \u00b7 Corroboraci\u00f3n satelital",
+      how_step3_desc: "Los datos en tiempo real de puntos calientes de NASA FIRMS validan reportes desde el espacio, convirtiendo observaciones individuales en incidentes confirmados.",
+      how_step4_title: "4 \u00b7 Modelado predictivo",
+      how_step4_desc: "Un modelo bayesiano estima d\u00f3nde es probable que se propague cada incendio, qu\u00e9 carreteras est\u00e1n en riesgo, y c\u00f3mo evolucionar\u00e1 el fuego con el clima.",
+      values_title: "Nuestros valores",
+      values_open: "Participaci\u00f3n abierta \u2014 la detecci\u00f3n no deber\u00eda depender de infraestructuras costosas; una c\u00e1mara de tel\u00e9fono es suficiente para contribuir.",
+      values_data: "Decisiones basadas en datos \u2014 cada fuego en el mapa est\u00e1 respaldado por evidencia: fotos, detecciones satelitales o ambas.",
+      values_transparency: "Transparencia \u2014 mostramos nuestra confianza y nuestras fuentes, para que los usuarios puedan juzgar por s\u00ed mismos.",
+      values_safety: "La seguridad primero \u2014 esto es una herramienta de alerta temprana, no un sustituto de los servicios de emergencia oficiales.",
+      cta_title: "Participe",
+      cta_lead: "\u00bfQuiere asociarse con nosotros, probar Pyrae, o simplemente saludarnos?",
+      cta_contact: "Cont\u00e1ctenos",
+      cta_map: "Explorar el mapa en vivo",
+      social_label: "S\u00edguenos"
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "O PYRAE",
+      hero_title_pre: "Kim",
+      hero_title_accent: "jesteśmy",
+      hero_sub: "Pyrae buduje sieć wczesnego wykrywania pożarów lasów, która łączy raporty obywateli ze zdjęciami, analizę SI, dane satelitarne w czasie rzeczywistym i predykcyjne modelowanie rozprzestrzeniania — aby wykrywać małe pożary, zanim staną się katastrofami.",
+      mission_title: "Nasza misja",
+      mission_detect_title: "Szybsze wykrywanie",
+      mission_detect_desc: "Każda minuta się liczy. Łącząc to, co ludzie widzą na miejscu z tym, co satelity obserwują z kosmosu, staramy się wykrywać pożary wcześniej niż pojedyncze źródło.",
+      mission_everyone_title: "Każdy może pomóc",
+      mission_everyone_desc: "Pożar może rozpocząć się wszędzie — sieć wykrywania jest otwarta dla wszystkich. Zdjęcie telefonem może być pierwszym sygnałem ognia, którego satelity jeszcze nie widzą.",
+      mission_responders_title: "Zaprojektowane dla służb ratunkowych",
+      mission_responders_desc: "Nasze przewidywania — gdzie rozprzestrzeni się ogień, które drogi są zagrożone — są zaprojektowane, aby dostarczać społecznościom, służbom publicznym i instytucjom informacje możliwe do wykorzystania, nie tylko ostrzeżenia.",
+      how_title: "Jak to działa",
+      how_step1_title: "1 · Raporty obywateli",
+      how_step1_desc: "Każdy może zgłosić podejrzany pożar ze zdjęciem i lokalizacją bezpośrednio z mapy.",
+      how_step2_title: "2 · Filtracja SI",
+      how_step2_desc: "Model wizji komputerowej sprawdza każde zdjęcie pod kątem widocznego ognia i dymu, z wynikami ufności dla każdej klasy.",
+      how_step3_title: "3 · Weryfikacja satelitarna",
+      how_step3_desc: "Dane w czasie rzeczywistym o gorących punktach NASA FIRMS walidują raporty z kosmosu, przekształcając obserwacje indywidualne w potwierdzone incydenty.",
+      how_step4_title: "4 · Modelowanie predykcyjne",
+      how_step4_desc: "Model bayesowski szacuje, gdzie prawdopodobnie rozprzestrzeni się każdy pożar, które drogi są zagrożone i jak ogień będzie ewoluował wraz z pogodą.",
+      values_title: "Nasze wartości",
+      values_open: "Otwarte uczestnictwo — wykrywanie nie powinno zależeć od kosztownej infrastruktury; telefon z aparatem wystarczy, aby przyczynić się.",
+      values_data: "Decyzje oparte na danych — każdy ogień na mapie jest poparty dowodami: zdjęciami, detekcjami satelitarnymi lub oboma.",
+      values_transparency: "Przejrzystość — pokazujemy naszą ufność i nasze źródła, aby użytkownicy mogli sami oceniać.",
+      values_safety: "Bezpieczeństwo przede wszystkim — to narzędzie wczesnego ostrzegania, nie zamiennik oficjalnych służb ratunkowych.",
+      cta_title: "Weź udział",
+      cta_lead: "Chcesz współpracować z nami, wypróbować Pyrae lub po prostu się przywitać?",
+      cta_contact: "Skontaktuj się",
+      cta_map: "Eksploruj mapę na żywo",
+      social_label: "Obserwuj nas"
+    }
+  });
+  </script>
 
 </body>
 </html>

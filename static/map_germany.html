@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Wildfire Map of Poland — Real-Time Fire Detection | Pyrae</title>
-  <meta name="description" content="Live wildfire map of Poland: real-time satellite fire detection from NASA FIRMS, AI-screened citizen photo reports, and predictive spread modelling. See active fires, hotspots and road risk near you." />
+  <title>Live Wildfire Map of Germany — Real-Time Fire Detection | Pyrae</title>
+  <meta name="description" content="Live wildfire map of Germany: real-time satellite fire detection from NASA FIRMS, AI-screened citizen photo reports, and predictive spread modelling. See active fires, hotspots and road risk near you." />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://pyrae.co/map/poland" />
+  <link rel="canonical" href="https://pyrae.co/map/germany" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Pyrae" />
-  <meta property="og:title" content="Live Wildfire Map of Poland — Real-Time Fire Detection" />
-  <meta property="og:description" content="See active fires in Poland in real time — satellite hotspots, citizen reports and predicted spread." />
-  <meta property="og:url" content="https://pyrae.co/map/poland" />
+  <meta property="og:title" content="Live Wildfire Map of Germany — Real-Time Fire Detection" />
+  <meta property="og:description" content="See active fires in Germany in real time — satellite hotspots, citizen reports and predicted spread." />
+  <meta property="og:url" content="https://pyrae.co/map/germany" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Live Wildfire Map of Poland" />
-  <meta name="twitter:description" content="Real-time wildfire detection across Poland from satellite data and citizen reports." />
+  <meta name="twitter:title" content="Live Wildfire Map of Germany" />
+  <meta name="twitter:description" content="Real-time wildfire detection across Germany from satellite data and citizen reports." />
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
       { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pyrae.co/" },
-      { "@type": "ListItem", "position": 2, "name": "Live Wildfire Map of Poland", "item": "https://pyrae.co/map/poland" }
+      { "@type": "ListItem", "position": 2, "name": "Live Wildfire Map of Germany", "item": "https://pyrae.co/map/germany" }
     ]
   }
   </script>
@@ -32,8 +32,8 @@
     "name": "Pyrae — Wildfire Detection Map",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Web",
-    "url": "https://pyrae.co/map/poland",
-    "description": "Live wildfire map of Poland with real-time satellite detection, AI fire and smoke analysis, and predictive spread modelling.",
+    "url": "https://pyrae.co/map/germany",
+    "description": "Live wildfire map of Germany with real-time satellite detection, AI fire and smoke analysis, and predictive spread modelling.",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
@@ -42,14 +42,14 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
   <style>
-    #poland-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
-    #poland-map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
-    #poland-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
-    #poland-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-    #poland-map .leaflet-control-attribution { background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px; }
-    #poland-map .leaflet-control-attribution a { color: var(--text-secondary); }
-    #poland-map .leaflet-popup-content-wrapper, #poland-map .leaflet-popup-tip { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
-    #poland-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
+    #germany-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    #germany-map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
+    #germany-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
+    #germany-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+    #germany-map .leaflet-control-attribution { background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px; }
+    #germany-map .leaflet-control-attribution a { color: var(--text-secondary); }
+    #germany-map .leaflet-popup-content-wrapper, #germany-map .leaflet-popup-tip { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
+    #germany-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
     .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
     .map-cta { text-align: center; margin: 0 0 30px; }
     .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(225, 29, 72, 0.15); color: #fda4af; border: 1px solid rgba(225, 29, 72, 0.4); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 999px; padding: 5px 14px; margin-bottom: 18px; }
@@ -72,7 +72,7 @@
 
   <header class="contact-header">
     <div class="contact-brand">
-      <span class="brand-icon">🔥</span>
+      <span class="brand-icon">\ud83d\udd25</span>
       <span class="contact-brand-text">Pyrae</span>
       <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
@@ -102,9 +102,9 @@
 
     <section class="hero" style="text-align: center;">
       <p class="hero-eyebrow" data-i18n="hero_eyebrow">LIVE SATELLITE FIRE MONITORING</p>
-      <h1 class="hero-title"><span data-i18n="hero_title_pre">Live Wildfire Map of</span> <span class="hero-accent" data-i18n="hero_title_accent">Poland</span></h1>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Live Wildfire Map of</span> <span class="hero-accent" data-i18n="hero_title_accent">Germany</span></h1>
       <p class="hero-sub" data-i18n="hero_sub">
-        Real-time wildfire detection across Poland — NASA FIRMS satellite
+        Real-time wildfire detection across Germany \u2014 NASA FIRMS satellite
         hotspots, AI-screened citizen photo reports, and a predictive Fire
         Grid showing where active fires are most likely to spread.
       </p>
@@ -116,7 +116,7 @@
       </div>
     </section>
 
-    <div id="poland-map" aria-label="Live wildfire map of Poland"></div>
+    <div id="germany-map" aria-label="Live wildfire map of Germany"></div>
 
     <div class="map-legend" aria-hidden="true">
       <span data-i18n="legend_label">burn probability</span>
@@ -129,23 +129,22 @@
     </div>
 
     <p class="map-note" data-i18n="map_note">Dots show currently tracked fires; colour and size reflect the Fire Grid's burn probability for each location. Zoom in for the full heatmap.</p>
-    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;" data-i18n="map_cta">Open the full interactive map →</a></p>
+    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;" data-i18n="map_cta">Open the full interactive map \u2192</a></p>
 
     <section class="section">
-      <h2 class="section-title" data-i18n="situation_title">Wildfires in Poland — live situation</h2>
+      <h2 class="section-title" data-i18n="situation_title">Wildfires in Germany \u2014 live situation</h2>
       <p data-i18n="situation_p1">
-        Every year, thousands of wildfires break out across Poland — from
-        spring grass and stubble fires to summer forest fires in regions such
-        as Bory Dolnośląskie, Puszcza Notecka, and the Augustów and Białowieża
-        forests. Early detection is the difference between a small burn and a
-        large one: the sooner a fire is reported, the sooner responders can
-        act.
+        While Germany experiences fewer large wildfires than southern European
+        countries, wildfire risk is increasing due to climate change. Spring
+        and summer fires particularly affect Brandenburg, Mecklenburg-
+        Vorpommern, Saxony, and the Rhine valley. Early detection remains
+        critical to preventing small fires from escalating.
       </p>
       <p data-i18n="situation_p2">
-        Pyrae watches Poland in near real time using three independent
+        Pyrae watches Germany in near real time using three independent
         signals. First, <strong>NASA FIRMS satellite data</strong> (VIIRS
         375 m) detects thermal anomalies from space on every overpass.
-        Second, <strong>citizen photo reports</strong> — anyone on the ground
+        Second, <strong>citizen photo reports</strong> \u2014 anyone on the ground
         can upload a photo of a fire or smoke plume, which is screened
         automatically by an AI model for visible fire and smoke before it
         reaches the map. Third, a <strong>Bayesian Fire Grid</strong> fuses
@@ -165,8 +164,8 @@
         forests are at risk as a fire grows.
       </p>
       <p data-i18n="readmap_p2">
-        Reports are shown with their source — citizen report, satellite
-        hotspot, or confirmed government alert — and each fire's probability
+        Reports are shown with their source \u2014 citizen report, satellite
+        hotspot, or confirmed government alert \u2014 and each fire's probability
         is displayed alongside live wind speed and direction. Road risk
         assessment marks roads near an active fire by how soon the fire could
         reach them.
@@ -188,50 +187,50 @@
       <p style="font-size: 14px; color: #666; margin-top: 18px;" data-i18n="disclaimer">
         Pyrae is an information tool, not an emergency service. If a fire
         threatens life or property, call your local emergency number (112 in
-        Poland).
+        Germany).
       </p>
     </section>
 
   </main>
 
   <footer class="contact-footer">
-    <span class="contact-footer-brand">🔥 Pyrae</span>
+    <span class="contact-footer-brand">\ud83d\udd25 Pyrae</span>
   </footer>
 
   <script src="/i18n.js"></script>
 
   <script>
     (function () {
-      var map = L.map("poland-map", { zoomControl: true }).setView([52.1, 19.4], 6);
+      var map = L.map("germany-map", { zoomControl: true }).setView([51.2, 10.4], 6);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
       function lavaColor(t) { t = Math.min(1, Math.max(0, t)); var r, g, b; if (t < 0.3) { var s1 = t / 0.3; r = 255; g = Math.round(200 - 60 * s1); b = Math.round(40 - 40 * s1); } else if (t < 0.6) { var s2 = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s2); b = 0; } else if (t < 0.85) { var s3 = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s3); b = 0; } else if (t < 0.92) { var s4 = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s4); b = 0; } else { var s5 = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s5); b = Math.round(15 + 25 * s5); } return "rgb(" + r + "," + g + "," + b + ")"; }
-      var bbox = "14.07,49.00,24.15,54.84";
-      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production&country=pl&bbox=" + encodeURIComponent(bbox)).then(function (r) { return r.json(); }).then(function (data) { var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; }); var el = document.getElementById("fire-count"); if (el && dots.length > 0) el.textContent = dots.length; var bounds = []; dots.forEach(function (g) { L.circleMarker([g.lat, g.lon], { radius: 4 + Math.round(g.max_p * 8), color: "rgba(0,0,0,0.35)", weight: 1, fillColor: lavaColor(g.max_p), fillOpacity: 0.9, }).addTo(map).bindPopup("<b>" + PyraeI18n.t('popup_active_fire') + "</b><br>" + PyraeI18n.t('popup_probability') + " " + (g.max_p * 100).toFixed(0) + "%" + (g.wind_speed ? "<br>" + PyraeI18n.t('popup_wind') + " " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "\u00b0" : "")); bounds.push([g.lat, g.lon]); }); if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] }); else if (bounds.length === 1) map.setView(bounds[0], 8); }).catch(function () {});
+      var bbox = "5.87,47.27,15.04,55.06";
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production&country=de&bbox=" + encodeURIComponent(bbox)).then(function (r) { return r.json(); }).then(function (data) { var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; }); var el = document.getElementById("fire-count"); if (el && dots.length > 0) el.textContent = dots.length; var bounds = []; dots.forEach(function (g) { L.circleMarker([g.lat, g.lon], { radius: 4 + Math.round(g.max_p * 8), color: "rgba(0,0,0,0.35)", weight: 1, fillColor: lavaColor(g.max_p), fillOpacity: 0.9, }).addTo(map).bindPopup("<b>" + PyraeI18n.t('popup_active_fire') + "</b><br>" + PyraeI18n.t('popup_probability') + " " + (g.max_p * 100).toFixed(0) + "%" + (g.wind_speed ? "<br>" + PyraeI18n.t('popup_wind') + " " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "\u00b0" : "")); bounds.push([g.lat, g.lon]); }); if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] }); else if (bounds.length === 1) map.setView(bounds[0], 8); }).catch(function () {});
     })();
-  </script>  <script>
+  </script>
 
-
+  <script>
   PyraeI18n.register({
     en: {
       header_sub: "Wildfire Detection & Early Warning", nav_map: "Back to map",
-      hero_eyebrow: "LIVE SATELLITE FIRE MONITORING", hero_title_pre: "Live Wildfire Map of", hero_title_accent: "Poland",
-      hero_sub: "Real-time wildfire detection across Poland \u2014 NASA FIRMS satellite hotspots, AI-screened citizen photo reports, and a predictive Fire Grid.",
+      hero_eyebrow: "LIVE SATELLITE FIRE MONITORING", hero_title_pre: "Live Wildfire Map of", hero_title_accent: "Germany",
+      hero_sub: "Real-time wildfire detection across Germany \u2014 NASA FIRMS satellite hotspots, AI-screened citizen photo reports, and a predictive Fire Grid.",
       stat_fires: "active fires tracked", stat_coverage: "coverage", stat_sat: "satellite monitoring",
       legend_label: "burn probability", legend_low: "low", legend_high: "high",
       map_note: "Dots show currently tracked fires; colour and size reflect the Fire Grid\u2019s burn probability. Zoom in for the full heatmap.",
       map_cta: "Open the full interactive map \u2192",
-      situation_title: "Wildfires in Poland \u2014 live situation",
-      situation_p1: "Every year, thousands of wildfires break out across Poland \u2014 from spring grass and stubble fires to summer forest fires in regions such as Bory Dolno\u015bl\u0105skie, Puszcza Notecka, and the August\u00f3w and Bia\u0142owie\u017ca forests. Early detection is the difference between a small burn and a large one.",
-      situation_p2: "Pyrae watches Poland in near real time using three independent signals: NASA FIRMS satellite data, citizen photo reports screened by AI, and a Bayesian Fire Grid fusing all evidence into a probability surface.",
+      situation_title: "Wildfires in Germany \u2014 live situation",
+      situation_p1: "While Germany experiences fewer large wildfires than southern European countries, wildfire risk is increasing due to climate change. Spring and summer fires particularly affect Brandenburg, Mecklenburg-Vorpommern, Saxony, and the Rhine valley.",
+      situation_p2: "Pyrae watches Germany in near real time using three independent signals: NASA FIRMS satellite data, citizen photo reports screened by AI, and a Bayesian Fire Grid fusing all evidence into a probability surface.",
       readmap_title: "How to read the map",
       readmap_p1: "Each tracked fire appears as a dot whose size reflects its burn probability. When you zoom in, the dot becomes a full heatmap blob. The Fire Grid also estimates the likely spread direction from live wind data.",
       readmap_p2: "Reports are shown with their source \u2014 citizen report, satellite hotspot, or confirmed government alert. Road risk assessment marks roads near an active fire by how soon the fire could reach them.",
       report_title: "Report a fire you can see",
       report_p1: "If you see smoke or flames, open the report panel on the map, attach a photo and your location. The AI screen runs instantly and the report is added to the Fire Grid.",
-      disclaimer: "Pyrae is an information tool, not an emergency service. If a fire threatens life or property, call your local emergency number (112 in Poland).",
+      disclaimer: "Pyrae is an information tool, not an emergency service. If a fire threatens life or property, call your local emergency number (112 in Germany).",
       popup_active_fire: "Active fire",
       popup_probability: "Probability:",
       popup_wind: "Wind:",
@@ -244,21 +243,21 @@
     },
     de: {
       header_sub: "Waldbranderkennung & Fr\u00fchwarnung", nav_map: "Zur\u00fcck zur Karte",
-      hero_eyebrow: "LIVE-SATELLITENFEUER\u00dcBERWACHUNG", hero_title_pre: "Live-Waldbrandkarte von", hero_title_accent: "Polen",
-      hero_sub: "Echtzeit-Waldbranderkennung f\u00fcr ganz Polen \u2014 NASA-FIRMS-Satelliten-Hotspots, KI-gefilterte B\u00fcrgerfotomeldungen und ein vorausschauendes Feuerraster.",
+      hero_eyebrow: "LIVE-SATELLITENFEUER\u00dcBERWACHUNG", hero_title_pre: "Live-Waldbrandkarte von", hero_title_accent: "Deutschland",
+      hero_sub: "Echtzeit-Waldbranderkennung f\u00fcr ganz Deutschland \u2014 NASA-FIRMS-Satelliten-Hotspots, KI-gefilterte B\u00fcrgerfotomeldungen und ein vorausschauendes Feuerraster.",
       stat_fires: "erfasste aktive Feuer", stat_coverage: "Abdeckung", stat_sat: "Satelliten\u00fcberwachung",
       legend_label: "Brandwahrscheinlichkeit", legend_low: "niedrig", legend_high: "hoch",
       map_note: "Punkte zeigen aktuell erfasste Feuer; Farbe und Gr\u00f6sse spiegeln die Brandwahrscheinlichkeit wider. Hineinzoomen f\u00fcr die vollst\u00e4ndige Heatmap.",
       map_cta: "Vollst\u00e4ndige interaktive Karte \u00f6ffnen \u2192",
-      situation_title: "Waldbr\u00e4nde in Polen \u2014 aktuelle Lage",
-      situation_p1: "Jedes Jahr brechen Tausende von Waldbr\u00e4nden in ganz Polen aus \u2014 von Fr\u00fchlingsgras- und Stoppelfeuer bis hin zu Sommerwaldbr\u00e4nden in Regionen wie Bory Dolno\u015bl\u0105skie, Puszcza Notecka und den August\u00f3w- und Bia\u0142owie\u017ca-W\u00e4ldern.",
-      situation_p2: "Pyrae beobachtet Polen in nahezu Echtzeit mit drei unabh\u00e4ngigen Signalen: NASA-FIRMS-Satellitendaten, KI-gefilterte B\u00fcrgerfotomeldungen und ein Bayessches Feuerraster.",
+      situation_title: "Waldbr\u00e4nde in Deutschland \u2014 aktuelle Lage",
+      situation_p1: "W\u00e4hrend Deutschland weniger gro\u00dfe Waldbr\u00e4nde erlebt als s\u00fcdliche europ\u00e4ische L\u00e4nder, steigt das Waldbrandrisiko durch den Klimawandel. Fr\u00fchjahrs- und Sommerbr\u00e4nde betreffen insbesondere Brandenburg, Mecklenburg-Vorpommern, Sachsen und das Rheintal.",
+      situation_p2: "Pyrae beobachtet Deutschland in nahezu Echtzeit mit drei unabh\u00e4ngigen Signalen: NASA-FIRMS-Satellitendaten, KI-gefilterte B\u00fcrgerfotomeldungen und ein Bayessches Feuerraster.",
       readmap_title: "So lesen Sie die Karte",
       readmap_p1: "Jedes erfasste Feuer erscheint als Punkt, dessen Gr\u00f6sse die Brandwahrscheinlichkeit widerspiegelt. Das Feuerraster sch\u00e4tzt auch die wahrscheinliche Ausbreitungsrichtung anhand von Live-Winddaten.",
       readmap_p2: "Meldungen werden mit ihrer Quelle angezeigt \u2014 B\u00fcrgermeldung, Satelliten-Hotspot oder best\u00e4tigter beh\u00f6rdlicher Alarm. Die Stra\u00dfenrisikobewertung markiert Strassen in der N\u00e4he aktiver Feuer.",
       report_title: "Melden Sie einen sichtbaren Brand",
       report_p1: "Wenn Sie Rauch oder Flammen sehen, \u00f6ffnen Sie das Meldungsformular auf der Karte, f\u00fcgen Sie ein Photo und Ihren Standort bei. Die KI-Sichtung erfolgt sofort.",
-      disclaimer: "Pyrae ist ein Informationstool, kein Notdienst. Bei Lebensgefahr rufen Sie bitte immer zuerst Ihre lokale Notrufnummer an (112 in Polen).",
+      disclaimer: "Pyrae ist ein Informationstool, kein Notdienst. Bei Lebensgefahr rufen Sie bitte immer zuerst Ihre lokale Notrufnummer an (112 in Deutschland).",
       popup_active_fire: "Aktiver Brand",
       popup_probability: "Wahrscheinlichkeit:",
       popup_wind: "Wind:",
@@ -271,21 +270,21 @@
     },
     fr: {
       header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce", nav_map: "Retour \u00e0 la carte",
-      hero_eyebrow: "SUPERVISION SATELLITAIRE EN DIRECT", hero_title_pre: "Carte en direct des incendies de", hero_title_accent: "Pologne",
-      hero_sub: "D\u00e9tection en temps r\u00e9el des incendies en Pologne \u2014 points chauds satellite NASA FIRMS, signalements citoyens filtr\u00e9s par IA et Grille du Feu pr\u00e9dictive.",
+      hero_eyebrow: "SUPERVISION SATELLITAIRE EN DIRECT", hero_title_pre: "Carte en direct des incendies de", hero_title_accent: "Allemagne",
+      hero_sub: "D\u00e9tection en temps r\u00e9el des incendies en Allemagne \u2014 points chauds satellite NASA FIRMS, signalements citoyens filtr\u00e9s par IA et Grille du Feu pr\u00e9dictive.",
       stat_fires: "incendies actifs suivis", stat_coverage: "couverture", stat_sat: "surveillance satellite",
       legend_label: "probabilit\u00e9 de combustion", legend_low: "faible", legend_high: "\u00e9lev\u00e9e",
       map_note: "Les points montrent les incendies suivis ; la couleur et la taille refl\u00e8tent la probabilit\u00e9 de combustion. Zoomez pour la carte thermique compl\u00e8te.",
       map_cta: "Ouvrir la carte interactive compl\u00e8te \u2192",
-      situation_title: "Incendies en Pologne \u2014 situation en direct",
-      situation_p1: "Chaque ann\u00e9e, des milliers d\u2019incendies se d\u00e9clenchent en Pologne \u2014 des feux d\u2019herbe printaniers aux feux de for\u00eat estivaux dans des r\u00e9gions telles que les for\u00eats de Bory Dolno\u015bl\u0105skie, Puszcza Notecka, August\u00f3w et Bia\u0142owie\u017ca.",
-      situation_p2: "Pyrae surveille la Pologne en quasi-temps r\u00e9el avec trois signaux ind\u00e9pendants : donn\u00e9es NASA FIRMS, signalements citoyens filtr\u00e9s par IA et Grille du Feu bay\u00e9sienne.",
+      situation_title: "Incendies en Allemagne \u2014 situation en direct",
+      situation_p1: "Bien que l\u2019Allemagne connaisse moins de grands incendies que les pays du sud de l\u2019Europe, le risque d\u2019incendie augmente en raison du changement climatique. Les feux de printemps et d\u2019\u00e9t\u00e9 touchent particuli\u00e8rement le Brandebourg, le Mecklembourg-Pom\u00e9ranie-Occidentale, la Saxe et la vall\u00e9e du Rhin.",
+      situation_p2: "Pyrae surveille l\u2019Allemagne en quasi-temps r\u00e9el avec trois signaux ind\u00e9pendants : donn\u00e9es NASA FIRMS, signalements citoyens filtr\u00e9s par IA et Grille du Feu bay\u00e9sienne.",
       readmap_title: "Comment lire la carte",
       readmap_p1: "Chaque incendie suivi appara\u00eet sous la forme d\u2019un point dont la taille refl\u00e8te sa probabilit\u00e9 de combustion. La Grille du Feu estime \u00e9galement la direction de propagation probable.",
       readmap_p2: "Les signalements sont affich\u00e9s avec leur source \u2014 signalement citoyen, point chaud satellite ou alerte gouvernementale confirm\u00e9e. L\u2019\u00e9valuation du risque routier marque les routes \u00e0 proximit\u00e9 des feux actifs.",
       report_title: "Signalez un incendie visible",
       report_p1: "Si vous voyez de la fum\u00e9e ou des flammes, ouvrez le formulaire de signalement sur la carte, joignez une photo et votre position. L\u2019analyse IA est instantan\u00e9e.",
-      disclaimer: "Pyrae est un outil d\u2019information, pas un service d\u2019urgence. En cas de danger, appelez votre num\u00e9ro d\u2019urgence local (112 en Pologne).",
+      disclaimer: "Pyrae est un outil d\u2019information, pas un service d\u2019urgence. En cas de danger, appelez votre num\u00e9ro d\u2019urgence local (112 en Allemagne).",
       popup_active_fire: "Incendie actif",
       popup_probability: "Probabilit\u00e9 :",
       popup_wind: "Vent :",
@@ -298,21 +297,21 @@
     },
     es: {
       header_sub: "Detecci\u00f3n de incendios & alerta temprana", nav_map: "Volver al mapa",
-      hero_eyebrow: "MONITOREO SATELITAL EN VIVO", hero_title_pre: "Mapa en vivo de incendios de", hero_title_accent: "Polonia",
-      hero_sub: "Detecci\u00f3n en tiempo real de incendios en Polonia \u2014 puntos calientes satelitales NASA FIRMS, reportes ciudadanos con foto filtrados por IA y Cuadr\u00edcula del Fuego predictiva.",
+      hero_eyebrow: "MONITOREO SATELITAL EN VIVO", hero_title_pre: "Mapa en vivo de incendios de", hero_title_accent: "Alemania",
+      hero_sub: "Detecci\u00f3n en tiempo real de incendios en Alemania \u2014 puntos calientes satelitales NASA FIRMS, reportes ciudadanos con foto filtrados por IA y Cuadr\u00edcula del Fuego predictiva.",
       stat_fires: "incendios activos rastreados", stat_coverage: "cobertura", stat_sat: "monitoreo satelital",
       legend_label: "probabilidad de combusti\u00f3n", legend_low: "baja", legend_high: "alta",
       map_note: "Los puntos muestran incendios rastreados; el color y tama\u00f1o reflejan la probabilidad de combusti\u00f3n. Haga zoom para el mapa de calor completo.",
       map_cta: "Abrir el mapa interactivo completo \u2192",
-      situation_title: "Incendios en Polonia \u2014 situaci\u00f3n en vivo",
-      situation_p1: "Cada a\u00f1o estallan miles de incendios forestales en toda Polonia \u2014 desde incendios de hierba primaverales hasta incendios forestales de verano en regiones como Bory Dolno\u015bl\u0105skie, Puszcza Notecka, y los bosques de August\u00f3w y Bia\u0142owie\u017ca.",
-      situation_p2: "Pyrae monitorea Polonia en tiempo casi real usando tres se\u00f1ales independientes: datos satelitales NASA FIRMS, reportes ciudadanos filtrados por IA y una Cuadr\u00edcula del Fuego bayesiana.",
+      situation_title: "Incendios en Alemania \u2014 situaci\u00f3n en vivo",
+      situation_p1: "Si bien Alemania experimenta menos incendios forestales grandes que los pa\u00edses del sur de Europa, el riesgo de incendio est\u00e1 aumentando debido al cambio clim\u00e1tico. Los incendios de primavera y verano afectan particularmente a Brandeburgo, Mecklemburgo-Pomerania Occidental, Sajonia y el valle del Rin.",
+      situation_p2: "Pyrae monitorea Alemania en tiempo casi real usando tres se\u00f1ales independientes: datos satelitales NASA FIRMS, reportes ciudadanos filtrados por IA y una Cuadr\u00edcula del Fuego bayesiana.",
       readmap_title: "C\u00f3mo leer el mapa",
       readmap_p1: "Cada incendio rastreado aparece como un punto cuyo tama\u00f1o refleja su probabilidad de combusti\u00f3n. La Cuadr\u00edcula tambi\u00e9n estima la direcci\u00f3n de propagaci\u00f3n probable.",
       readmap_p2: "Los reportes se muestran con su fuente \u2014 reporte ciudadano, punto caliente satelital o alerta gubernamental confirmada. La evaluaci\u00f3n de riesgo vial marca las carreteras cerca de incendios activos.",
       report_title: "Reporte un incendio visible",
       report_p1: "Si ve humo o llamas, abra el formulario de reporte en el mapa, adjunte una foto y su ubicaci\u00f3n. El filtrado con IA es instant\u00e1neo.",
-      disclaimer: "Pyrae es una herramienta de informaci\u00f3n, no un servicio de emergencia. Si un incendio amenaza vidas o propiedades, llame a su n\u00famero de emergencia local (112 en Polonia).",
+      disclaimer: "Pyrae es una herramienta de informaci\u00f3n, no un servicio de emergencia. Si un incendio amenaza vidas o propiedades, llame a su n\u00famero de emergencia local (112 en Alemania).",
       popup_active_fire: "Incendio activo",
       popup_probability: "Probabilidad:",
       popup_wind: "Viento:",
@@ -328,8 +327,8 @@
       nav_map: "Wróć do mapy",
       hero_eyebrow: "LIVE MONITORING POŻARÓW Z SATELITY",
       hero_title_pre: "Mapa pożarów w czasie rzeczywistym",
-      hero_title_accent: "w Polsce",
-      hero_sub: "Wykrywanie pożarów w czasie rzeczywistym w Polsce — gorące punkty NASA FIRMS, zgłoszenia obywateli z foto przefiltrowane przez SI oraz przewidywująca siatka ogniowa.",
+      hero_title_accent: "w Niemczech",
+      hero_sub: "Wykrywanie pożarów w czasie rzeczywistym w Niemczech — gorące punkty NASA FIRMS, zgłoszenia obywateli z foto przefiltrowane przez SI oraz przewidywująca siatka ogniowa.",
       stat_fires: "śledzone aktywne pożary",
       stat_coverage: "zasięg",
       stat_sat: "monitorowanie satelitarne",
@@ -338,15 +337,15 @@
       legend_high: "wysokie",
       map_note: "Punkty pokazują aktualnie śledzone pożary; kolor i rozmiar odzwierciedlają prawdopodobieństwo spalania siatki ogniowej. Powiększ, aby zobaczyć pełną mapę cieplną.",
       map_cta: "Otwórz pełną mapę interaktywną →",
-      situation_title: "Pożary w Polsce — sytuacja na żywo",
-      situation_p1: "Co roku w całej Polsce wybuchają tysiące pożarów — od wiosennych pożarów trawy i ścierniska po letnie pożary lasów w takich regionach jak Bory Dolnośląskie, Puszcza Notecka oraz lasy Augustowa i Białowieży. Wczesne wykrycie decyduje o różnicy między małym a dużym pożarem.",
-      situation_p2: "Pyrae monitoruje Polskę w czasie zbliżonym do rzeczywistego, używając trzech niezależnych sygnałów: danych satelitarnych NASA FIRMS, zgłoszeń obywateli z foto przefiltrowanych przez SI oraz bayesowskiej siatki ogniowej łączącej wszystkie dowody w powierzchnię prawdopodobieństwa.",
+      situation_title: "Pożary w Niemczech — sytuacja na żywo",
+      situation_p1: "Chociaż Niemcy doświadczają mniej dużych pożarów lasów niż kraje południowej Europy, ryzyko pożaru rośnie z powodu zmian klimatycznych. Pożary wiosenne i letnie dotyczą szczególnie Brandenburgii, Meklemburgii-Pomorza Przedniego, Saksonii i doliny Renu.",
+      situation_p2: "Pyrae monitoruje Niemcy w czasie zbliżonym do rzeczywistego, używając trzech niezależnych sygnałów: danych satelitarnych NASA FIRMS, zgłoszeń obywateli z foto przefiltrowanych przez SI oraz bayesowskiej siatki ogniowej łączącej wszystkie dowody w powierzchnię prawdopodobieństwa.",
       readmap_title: "Jak czytać mapę",
       readmap_p1: "Każdy śledzony pożar pojawia się jako punkt, którego rozmiar odzwierciedla prawdopodobieństwo spalania. Po powiększeniu punkt staje się pełną plamą mapy cieplnej. Siatka ogniowa szacuje również prawdopodobny kierunek rozprzestrzeniania na podstawie danych o wietrze.",
       readmap_p2: "Zgłoszenia są wyświetlane ze źródłem — zgłoszenie obywatelskie, gorący punkt satelitarny lub potwierdzony alert rządowy. Ocena ryzyka drogowego oznacza drogi w pobliżu aktywnego pożaru w zależności od tego, jak szybko pożar może do nich dotrzeć.",
       report_title: "Zgłoś widziany pożar",
       report_p1: "Widzisz dym lub płomienie? Otwórz formularz zgłoszenia na mapie, dołącz zdjęcie i lokalizację. Filtracja SI jest natychmiastowa.",
-      disclaimer: "Pyrae jest narzędziem informacyjnym, nie służbą ratunkową. Jeśli pożar zagraża życiu lub mieniu, zadzwoń pod numer alarmowy (112 w Polsce).",
+      disclaimer: "Pyrae jest narzędziem informacyjnym, nie służbą ratunkową. Jeśli pożar zagraża życiu lub mieniu, zadzwoń pod numer alarmowy (112 w Niemczech).",
       popup_active_fire: "Aktywny pożar",
       popup_probability: "Prawdopodobieństwo:",
       popup_wind: "Wiatr:",

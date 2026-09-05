@@ -7,343 +7,188 @@
   <meta name="description" content="Live wildfire detection and spread intelligence for communities and responders. Real-time satellite fire detection, AI-screened citizen reports, and predictive spread modelling on a single map." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://pyrae.co/" />
-  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Pyrae" />
   <meta property="og:title" content="Pyrae — Live Wildfire Detection &amp; Spread Intelligence" />
   <meta property="og:description" content="Live wildfire detection and spread intelligence for communities and responders. Satellite, AI and citizen reports on one map." />
   <meta property="og:url" content="https://pyrae.co/" />
   <meta property="og:locale" content="en_US" />
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Pyrae — Live Wildfire Detection &amp; Spread Intelligence" />
   <meta name="twitter:description" content="Live wildfire detection and spread intelligence for communities and responders." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>" />
-  <!-- Leaflet CDN -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Styles -->
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
   <style>
-    /* --- Landing page overrides --- */
-    .landing-map {
-      width: 100%; height: 460px;
-      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    /* Dark Leaflet controls */
-    .landing-map .leaflet-control-zoom a {
-      background: var(--bg-card); color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
+    .landing-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    .landing-map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     .landing-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
     .landing-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-    .landing-map .leaflet-control-attribution {
-      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
-    }
+    .landing-map .leaflet-control-attribution { background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px; }
     .landing-map .leaflet-control-attribution a { color: var(--text-secondary); }
-    .landing-map .leaflet-popup-content-wrapper, .landing-map .leaflet-popup-tip {
-      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-    }
-    .landing-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
-
+    .landing-map .leaflet-popup-content-wrapper, .landing-map .leaflet-popup-tip { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
-
-    /* --- Live badge --- */
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(225, 29, 72, 0.15); color: #fda4af;
-      border: 1px solid rgba(225, 29, 72, 0.4);
-      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
-      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
-      margin-bottom: 18px;
-    }
-    .live-badge .live-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
-      animation: live-pulse 1.8s ease-in-out infinite;
-    }
-    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-
-    /* --- Stat cards --- */
     .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
-    .stat {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
-      box-shadow: var(--shadow);
-    }
-    .stat b {
-      font-size: 30px; display: block; letter-spacing: -0.5px;
-      color: var(--text-primary); line-height: 1.1; margin-bottom: 4px;
-    }
+    .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 22px; min-width: 140px; box-shadow: var(--shadow); }
+    .stat b { font-size: 30px; display: block; letter-spacing: -0.5px; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
     .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
-
-    /* --- CTA buttons --- */
     .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 24px 0 8px; }
-    .cta-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 12px 28px; border-radius: 10px; font-size: 15px;
-      font-weight: 600; text-decoration: none; transition: var(--transition);
-      border: 1px solid var(--border);
-    }
-    .cta-btn--primary {
-      background: var(--accent); color: #fff; border-color: var(--accent);
-    }
-    .cta-btn--primary:hover { filter: brightness(1.15); transform: translateY(-1px); }
-    .cta-btn--secondary {
-      background: rgba(148, 163, 184, 0.08); color: var(--text-primary);
-    }
-    .cta-btn--secondary:hover { background: rgba(148, 163, 184, 0.15); border-color: rgba(148, 163, 184, 0.35); }
-
-    /* --- Color legend --- */
-    .map-legend {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      margin: 14px auto 4px; font-size: 11px; color: var(--text-muted);
-    }
-    .legend-gradient {
-      width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0;
-      background: linear-gradient(90deg,
-        rgb(255,200,40) 0%,
-        rgb(255,140,0) 30%,
-        rgb(255,60,0) 60%,
-        rgb(255,15,0) 85%,
-        rgb(255,5,15) 92%,
-        rgb(255,30,40) 100%);
-      border: 1px solid var(--border);
-    }
+    .cta-btn { display: inline-flex; align-items: center; gap: 6px; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600; text-decoration: none; transition: var(--transition); cursor: pointer; }
+    .cta-btn--primary { background: linear-gradient(135deg, var(--accent), #dc2626); color: #fff; border: none; }
+    .cta-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(249,115,22,0.4); }
+    .cta-btn--secondary { background: rgba(148,163,184,0.08); color: var(--text-primary); border: 1px solid var(--border); }
+    .cta-btn--secondary:hover { background: rgba(148,163,184,0.15); border-color: rgba(148,163,184,0.35); }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(225,29,72,0.15); color: #fda4af; border: 1px solid rgba(225,29,72,0.4); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 999px; padding: 5px 14px; margin-bottom: 18px; }
+    .live-badge .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; box-shadow: 0 0 8px rgba(248,113,113,0.9); animation: live-pulse 1.8s ease-in-out infinite; }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .map-legend { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 4px; font-size: 11px; color: var(--text-muted); }
+    .legend-gradient { width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0; background: linear-gradient(90deg, rgb(255,200,40) 0%, rgb(255,140,0) 30%, rgb(255,60,0) 60%, rgb(255,15,0) 85%, rgb(255,5,15) 92%, rgb(255,30,40) 100%); border: 1px solid var(--border); }
     .legend-tick { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .legend-tick b { font-weight: 700; color: var(--text-secondary); }
-    .legend-tick i {
-      width: 1px; height: 5px; background: var(--text-muted);
-      font-style: normal; opacity: 0.6;
-    }
+    .legend-tick i { width: 1px; height: 5px; background: var(--text-muted); font-style: normal; opacity: 0.6; }
     .legend-tick span { white-space: nowrap; }
-
+    .trust-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 32px 0; }
+    .trust-item { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+    .trust-icon { font-size: 14px; }
+    .social-links { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+    .social-label { font-size: 12px; color: var(--text-muted); }
+    .social-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); text-decoration: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px; background: rgba(148,163,184,0.06); transition: var(--transition); }
+    .social-pill:hover { color: var(--accent); border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.06); }
     @media (max-width: 600px) {
-      .legend-gradient { width: 160px; }
+      .contact-brand-sub { display: none; }
     }
-
-    /* --- Trust bar --- */
-    .trust-bar {
-      display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;
-      margin: 32px 0 8px; padding: 18px 20px;
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); font-size: 13px; color: var(--text-secondary);
-    }
-    .trust-item { display: flex; align-items: center; gap: 6px; }
-    .trust-icon { font-size: 15px; }
   </style>
-  <!-- JSON-LD: BreadcrumbList -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": "https://pyrae.co/"
-      }
-    ]
-  }
-  </script>
-  <!-- JSON-LD: Organization -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Pyrae",
-    "url": "https://pyrae.co",
-    "description": "Live wildfire detection and spread intelligence for communities and responders, built on citizen photo reports, AI fire/smoke analysis, NASA FIRMS satellite corroboration and Bayesian predictive modelling.",
-    "founder": {
-      "@type": "Person",
-      "name": "Julian Uhres"
-    },
-    "sameAs": [
-      "https://www.instagram.com/pyraeapp",
-      "https://x.com/pyraeapp"
-    ]
-  }
-  </script>
-  <!-- JSON-LD: SoftwareApplication -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Pyrae — Wildfire Detection Map",
-    "applicationCategory": "UtilitiesApplication",
-    "operatingSystem": "Web",
-    "url": "https://pyrae.co",
-    "description": "Live wildfire map with real-time satellite detection, AI fire and smoke analysis of citizen photos, and predictive spread modelling.",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
-  }
-  </script>
-  <!-- JSON-LD: WebSite -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Pyrae",
-    "url": "https://pyrae.co"
-  }
-  </script>
-  <!-- JSON-LD: FAQPage -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "What is Pyrae?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Pyrae is a live wildfire map that combines citizen photo reports, AI fire and smoke analysis, NASA FIRMS satellite corroboration and Bayesian predictive modelling to detect and track fires in near real time."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How do I report a wildfire?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Open the report panel on the map, attach a photo and your location, and submit. The photo is screened by AI for visible fire and smoke before it reaches the map."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Is Pyrae an emergency service?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "No. Pyrae is an information tool, not an emergency service. If you are in danger, always call your local emergency number first."
-        }
-      }
-    ]
-  }
-  </script>
 </head>
 <body class="contact-page">
 
-  <!-- ======== Header ======== -->
   <header class="contact-header">
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Open the live map">
-      <span class="contact-back-icon">→</span>
-      <span>Live map</span>
-    </a>
+    <div class="header-actions">
+      <div class="lang-picker" id="lang-picker">
+        <button class="lang-btn" id="lang-btn" title="Change language" aria-label="Change language" aria-expanded="false">
+          <span class="lang-flag" id="lang-flag">🇬🇧</span>
+          <span class="lang-code" id="lang-code">EN</span>
+          <span class="lang-chevron">▾</span>
+        </button>
+        <div class="lang-dropdown hidden" id="lang-dropdown">
+          <button class="lang-option" data-lang="en">🇬🇧 English</button>
+          <button class="lang-option" data-lang="de">🇩🇪 Deutsch</button>
+          <button class="lang-option" data-lang="fr">🇫🇷 Français</button>
+          <button class="lang-option" data-lang="es">🇪🇸 Español</button>
+          <button class="lang-option" data-lang="pl">🇵🇱 Polski</button>
+        </div>
+      </div>
+      <a href="/map" class="contact-back" title="Open the live map">
+        <span class="contact-back-icon">→</span>
+        <span data-i18n="nav_map">Live map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main" style="max-width: 860px;">
 
-    <!-- ======== Hero ======== -->
     <section class="hero" style="text-align: center;">
-      <p class="hero-eyebrow">LIVE WILDFIRE INTELLIGENCE</p>
-      <h1 class="hero-title">Live Wildfire Detection &amp; Spread Intelligence for <span class="hero-accent">Communities &amp; Responders</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">LIVE WILDFIRE INTELLIGENCE</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Live Wildfire Detection &amp; Spread Intelligence for</span> <span class="hero-accent" data-i18n="hero_title_accent">Communities &amp; Responders</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Real-time wildfire detection from satellite data and citizen photo
         reports, with predictive spread modelling and road risk assessment —
         all on a single live map.
       </p>
       <span class="live-badge"><span class="live-dot"></span> Live</span>
       <div class="stat-row">
-        <div class="stat"><b id="fire-count">—</b><span>active fires tracked</span></div>
-        <div class="stat"><b>24/7</b><span>satellite monitoring</span></div>
-        <div class="stat"><b>AI + satellite</b><span>detection sources</span></div>
+        <div class="stat"><b id="fire-count">—</b><span data-i18n="stat_fires">active fires tracked</span></div>
+        <div class="stat"><b>24/7</b><span data-i18n="stat_sat">satellite monitoring</span></div>
+        <div class="stat"><b>AI + satellite</b><span data-i18n="stat_detect">detection sources</span></div>
       </div>
       <div class="cta-row">
-        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;Report a Wildfire</a>
-        <a href="/map" class="cta-btn cta-btn--secondary">🗺️ &nbsp;Explore live map</a>
-        <a href="/contact" class="cta-btn cta-btn--secondary">🚀 &nbsp;Pilot Pyrae</a>
+        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;<span data-i18n="cta_report">Report a Wildfire</span></a>
+        <a href="/map" class="cta-btn cta-btn--secondary">🗺️ &nbsp;<span data-i18n="cta_map">Explore live map</span></a>
+        <a href="/contact" class="cta-btn cta-btn--secondary">🚀 &nbsp;<span data-i18n="cta_pilot">Pilot Pyrae</span></a>
       </div>
     </section>
 
-    <!-- ======== Embedded map ======== -->
     <div id="landing-map" class="landing-map" aria-label="Live wildfire map preview"></div>
 
-    <!-- Color legend -->
     <div class="map-legend" aria-hidden="true">
-      <span>burn probability</span>
+      <span data-i18n="legend_label">burn probability</span>
       <div class="legend-gradient"></div>
-      <div class="legend-tick"><b>0</b><i></i><span>low</span></div>
+      <div class="legend-tick"><b>0</b><i></i><span data-i18n="legend_low">low</span></div>
       <div class="legend-tick"><b>0.3</b><i></i><span></span></div>
       <div class="legend-tick"><b>0.6</b><i></i><span></span></div>
-      <div class="legend-tick"><b>1</b><i></i><span>high</span></div>
+      <div class="legend-tick"><b>0.85</b><i></i><span></span></div>
+      <div class="legend-tick"><b>1</b><i></i><span data-i18n="legend_high">high</span></div>
     </div>
-    <p class="map-note">Dots show currently tracked fires; colour reflects the Fire Grid's burn probability. Zoom in for the full heatmap.</p>
+    <p class="map-note" data-i18n="map_note">Dots show currently tracked fires; colour reflects the Fire Grid's burn probability. Zoom in for the full heatmap.</p>
 
     <!-- ======== What Pyrae does ======== -->
     <section class="section">
-      <h2 class="section-title">What Pyrae does</h2>
+      <h2 class="section-title" data-i18n="what_title">What Pyrae does</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🛰️</div>
-          <h3>Satellite detection</h3>
-          <p>NASA FIRMS VIIRS satellite data detects thermal anomalies from space on every overpass — catching fires from orbit.</p>
+          <h3 data-i18n="cap_sat_title">Satellite detection</h3>
+          <p data-i18n="cap_sat_desc">NASA FIRMS VIIRS satellite data detects thermal anomalies from space on every overpass — catching fires from orbit.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📸</div>
-          <h3>Citizen reports</h3>
-          <p>Anyone on the ground can upload a photo. An AI model screens every report for visible fire and smoke before it reaches the map.</p>
+          <h3 data-i18n="cap_citizen_title">Citizen reports</h3>
+          <p data-i18n="cap_citizen_desc">Anyone on the ground can upload a photo. An AI model screens every report for visible fire and smoke before it reaches the map.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">📈</div>
-          <h3>Predictive spread</h3>
-          <p>A Bayesian Fire Grid estimates where each fire is likely to spread, factoring in wind, terrain, and fuel conditions.</p>
+          <h3 data-i18n="cap_spread_title">Predictive spread</h3>
+          <p data-i18n="cap_spread_desc">A Bayesian Fire Grid estimates where each fire is likely to spread, factoring in wind, terrain, and fuel conditions.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🛣️</div>
-          <h3>Road risk</h3>
-          <p>Roads near active fires are assessed for time-to-arrival and graded by risk tier, using real wind data.</p>
+          <h3 data-i18n="cap_road_title">Road risk</h3>
+          <p data-i18n="cap_road_desc">Roads near active fires are assessed for time-to-arrival and graded by risk tier, using real wind data.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Who it's for ======== -->
     <section class="section">
-      <h2 class="section-title">Who it's for</h2>
+      <h2 class="section-title" data-i18n="who_title">Who it's for</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🏘️</div>
-          <h3>Communities</h3>
-          <p>Residents near fire-prone areas get early awareness of active fires and predicted spread — before the smoke reaches them.</p>
+          <h3 data-i18n="who_community_title">Communities</h3>
+          <p data-i18n="who_community_desc">Residents near fire-prone areas get early awareness of active fires and predicted spread — before the smoke reaches them.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🚒</div>
-          <h3>Emergency responders</h3>
-          <p>A real-time common operating picture: confirmed fires, satellite hotspots, and spread forecasts in a single view.</p>
+          <h3 data-i18n="who_responders_title">Emergency responders</h3>
+          <p data-i18n="who_responders_desc">A real-time common operating picture: confirmed fires, satellite hotspots, and spread forecasts in a single view.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🏛️</div>
-          <h3>Agencies &amp; utilities</h3>
-          <p>REST and CAP APIs let agencies integrate Pyrae data into existing workflows — no system replacement required.</p>
+          <h3 data-i18n="who_agency_title">Agencies &amp; utilities</h3>
+          <p data-i18n="who_agency_desc">REST and CAP APIs let agencies integrate Pyrae data into existing workflows — no system replacement required.</p>
         </div>
       </div>
     </section>
 
     <!-- ======== Report a fire ======== -->
     <section class="section">
-      <h2 class="section-title">Report a fire you can see</h2>
-      <p>
+      <h2 class="section-title" data-i18n="report_title">Report a fire you can see</h2>
+      <p data-i18n="report_desc">
         If you see smoke or flames, open the report panel on the map, attach a
         photo and your location. The AI screen runs instantly and the report
         is added to the Fire Grid, corroborated against satellite data where
         available.
       </p>
       <div class="cta-row">
-        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;Report a fire now</a>
+        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;<span data-i18n="cta_report_now">Report a fire now</span></a>
       </div>
-      <p style="font-size: 14px; color: var(--text-muted); margin-top: 14px; text-align: center;">
+      <p style="font-size: 14px; color: var(--text-muted); margin-top: 14px; text-align: center;" data-i18n="report_warning">
         ⚠️ Pyrae is an information tool, not an emergency service. If a fire
         threatens life or property, call your local emergency number first.
       </p>
@@ -351,32 +196,32 @@
 
     <!-- ======== Trust bar ======== -->
     <div class="trust-bar">
-      <div class="trust-item"><span class="trust-icon">👤</span> Founded by Julian Uhres</div>
-      <div class="trust-item"><span class="trust-icon">🛰️</span> NASA FIRMS, EFFIS/Copernicus</div>
-      <div class="trust-item"><span class="trust-icon">🌤️</span> Open-Meteo weather data</div>
-      <div class="trust-item"><span class="trust-icon">🧠</span> AI + citizen reports</div>
-      <div class="trust-item"><span class="trust-icon">🔄</span> Satellite every 3 h · map every 8 s</div>
-      <div class="trust-item"><span class="trust-icon">🔒</span> <a href="/privacy" style="color:var(--text-secondary);">Privacy-first</a></div>
-      <div class="trust-item"><span class="trust-icon">📧</span> <a href="mailto:contact@pyrae.co" style="color:var(--text-secondary);">contact@pyrae.co</a></div>
-      <div class="trust-item"><span class="trust-icon">⚠️</span> Not an emergency service</div>
+      <div class="trust-item"><span class="trust-icon">👤</span> <span data-i18n="trust_founded">Founded by Julian Uhres</span></div>
+      <div class="trust-item"><span class="trust-icon">🛰️</span> <span data-i18n="trust_nasa">NASA FIRMS, EFFIS/Copernicus</span></div>
+      <div class="trust-item"><span class="trust-icon">🌤️</span> <span data-i18n="trust_weather">Open-Meteo weather data</span></div>
+      <div class="trust-item"><span class="trust-icon">🧠</span> <span data-i18n="trust_ai">AI + citizen reports</span></div>
+      <div class="trust-item"><span class="trust-icon">🔄</span> <span data-i18n="trust_refresh">Satellite every 3 h · map every 8 s</span></div>
+      <div class="trust-item"><span class="trust-icon">🔒</span> <a href="/privacy" style="color:var(--text-secondary);"><span data-i18n="trust_privacy">Privacy-first</span></a></div>
+      <div class="trust-item"><span class="trust-icon">⚠️</span> <span data-i18n="trust_emergency">Not an emergency service</span></div>
     </div>
 
     <!-- ======== Links ======== -->
     <section class="section" style="margin-top: 36px;">
       <div class="cta-row" style="margin-bottom: 0;">
-        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;Report a fire</a>
-        <a href="/map" class="cta-btn cta-btn--secondary">🗺️ &nbsp;Explore live map</a>
-        <a href="/contact" class="cta-btn cta-btn--secondary">🚀 &nbsp;Pilot Pyrae</a>
+        <a href="/map?report=1" class="cta-btn cta-btn--primary">🔥 &nbsp;<span data-i18n="cta_report2">Report a fire</span></a>
+        <a href="/map" class="cta-btn cta-btn--secondary">🗺️ &nbsp;<span data-i18n="cta_map2">Explore live map</span></a>
+        <a href="/contact" class="cta-btn cta-btn--secondary">🚀 &nbsp;<span data-i18n="cta_pilot2">Pilot Pyrae</span></a>
       </div>
       <p style="text-align:center; margin-top: 18px; font-size: 13px; color: var(--text-muted);">
-        Learn more: <a href="/about" style="color:var(--text-secondary);">Who we are</a> ·
-        <a href="/faq" style="color:var(--text-secondary);">FAQ</a> ·
-        <a href="/confidence" style="color:var(--text-secondary);">Model Confidence</a> ·
-        <a href="/contact" style="color:var(--text-secondary);">Contact</a> ·
-        <a href="/privacy" style="color:var(--text-secondary);">Privacy</a>
+        <span data-i18n="learn_more">Learn more</span>:
+        <a href="/about" style="color:var(--text-secondary);"><span data-i18n="link_about">Who we are</span></a> ·
+        <a href="/faq" style="color:var(--text-secondary);"><span data-i18n="link_faq">FAQ</span></a> ·
+        <a href="/confidence" style="color:var(--text-secondary);"><span data-i18n="link_confidence">Model Confidence</span></a> ·
+        <a href="/contact" style="color:var(--text-secondary);"><span data-i18n="link_contact">Contact</span></a> ·
+        <a href="/privacy" style="color:var(--text-secondary);"><span data-i18n="link_privacy">Privacy</span></a>
       </p>
       <div class="social-links" style="margin-top: 14px;">
-        <span class="social-label">Follow us</span>
+        <span class="social-label" data-i18n="social_label">Follow us</span>
         <a class="social-pill" href="https://instagram.com/pyraeapp" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
           @pyraeapp
@@ -394,50 +239,327 @@
     <span class="contact-footer-brand">🔥 Pyrae</span>
   </footer>
 
+  <script src="/i18n.js"></script>
+
   <script>
-    // Embedded live map — lightweight preview (dots + probability), same API as the main map.
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning",
+      nav_map: "Live map",
+      hero_eyebrow: "LIVE WILDFIRE INTELLIGENCE",
+      hero_title_pre: "Live Wildfire Detection & Spread Intelligence for",
+      hero_title_accent: "Communities & Responders",
+      hero_sub: "Real-time wildfire detection from satellite data and citizen photo reports, with predictive spread modelling and road risk assessment \u2014 all on a single live map.",
+      stat_fires: "active fires tracked",
+      stat_sat: "satellite monitoring",
+      stat_detect: "detection sources",
+      cta_report: "Report a Wildfire",
+      cta_map: "Explore live map",
+      cta_pilot: "Pilot Pyrae",
+      what_title: "What Pyrae does",
+      cap_sat_title: "Satellite detection",
+      cap_sat_desc: "NASA FIRMS VIIRS satellite data detects thermal anomalies from space on every overpass \u2014 catching fires from orbit.",
+      cap_citizen_title: "Citizen reports",
+      cap_citizen_desc: "Anyone on the ground can upload a photo. An AI model screens every report for visible fire and smoke before it reaches the map.",
+      cap_spread_title: "Predictive spread",
+      cap_spread_desc: "A Bayesian Fire Grid estimates where each fire is likely to spread, factoring in wind, terrain, and fuel conditions.",
+      cap_road_title: "Road risk",
+      cap_road_desc: "Roads near active fires are assessed for time-to-arrival and graded by risk tier, using real wind data.",
+      who_title: "Who it\u2019s for",
+      who_community_title: "Communities",
+      who_community_desc: "Residents near fire-prone areas get early awareness of active fires and predicted spread \u2014 before the smoke reaches them.",
+      who_responders_title: "Emergency responders",
+      who_responders_desc: "A real-time common operating picture: confirmed fires, satellite hotspots, and spread forecasts in a single view.",
+      who_agency_title: "Agencies & utilities",
+      who_agency_desc: "REST and CAP APIs let agencies integrate Pyrae data into existing workflows \u2014 no system replacement required.",
+      report_title: "Report a fire you can see",
+      report_desc: "If you see smoke or flames, open the report panel on the map, attach a photo and your location. The AI screen runs instantly and the report is added to the Fire Grid.",
+      cta_report_now: "Report a fire now",
+      report_warning: "\u26a0\ufe0f Pyrae is an information tool, not an emergency service. If a fire threatens life or property, call your local emergency number first.",
+      map_note: "Dots show currently tracked fires; colour reflects the Fire Grid\u2019s burn probability. Zoom in for the full heatmap.",
+      legend_label: "burn probability",
+      legend_low: "low",
+      legend_high: "high",
+      trust_founded: "Founded by Julian Uhres",
+      trust_nasa: "NASA FIRMS, EFFIS/Copernicus",
+      trust_weather: "Open-Meteo weather data",
+      trust_ai: "AI + citizen reports",
+      trust_refresh: "Satellite every 3 h \u00b7 map every 8 s",
+      trust_privacy: "Privacy-first",
+      trust_emergency: "Not an emergency service",
+      cta_report2: "Report a fire",
+      cta_map2: "Explore live map",
+      cta_pilot2: "Pilot Pyrae",
+      learn_more: "Learn more",
+      link_about: "Who we are",
+      link_faq: "FAQ",
+      link_confidence: "Model Confidence",
+      link_contact: "Contact",
+      link_privacy: "Privacy",
+      social_label: "Follow us"
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung",
+      nav_map: "Live-Karte",
+      hero_eyebrow: "LIVE-WALDBRANDINTELLIGENZ",
+      hero_title_pre: "Live-Waldbranderkennung & Ausbreitungsinformation f\u00fcr",
+      hero_title_accent: "Gemeinschaften & Einsatzkr\u00e4fte",
+      hero_sub: "Echtzeit-Waldbranderkennung durch Satellitendaten und Photos von B\u00fcrgern, mit vorausschauendem Ausbreitungsmodell und Stra\u00dfenrisikobewertung \u2014 alles auf einer einzigen Live-Karte.",
+      stat_fires: "aktive Br\u00e4nde erfasst",
+      stat_sat: "Satelliten\u00fcberwachung",
+      stat_detect: "Erkennungsquellen",
+      cta_report: "Waldbrand melden",
+      cta_map: "Live-Karte erkunden",
+      cta_pilot: "Pyrae testen",
+      what_title: "Was Pyrae kann",
+      cap_sat_title: "Satellitenerkennung",
+      cap_sat_desc: "NASA FIRMS VIIRS-Satellitendaten erkennen thermische Anomalien aus dem Weltraum bei jedem \u00dcberflug \u2014 Br\u00e4nde werden aus dem Orbit erkannt.",
+      cap_citizen_title: "B\u00fcrgermeldungen",
+      cap_citizen_desc: "Jeder vor Ort kann ein Photo hochladen. Ein KI-Modell pr\u00fcft jede Meldung auf sichtbare Flammen und Rauch.",
+      cap_spread_title: "Vorausschauende Ausbreitung",
+      cap_spread_desc: "Ein Bayessches Feuerraster sch\u00e4tzt die Ausbreitung jedes Feuers unter Ber\u00fccksichtigung von Wind, Terrain und Brennstoffbedingungen.",
+      cap_road_title: "Stra\u00dfenrisiko",
+      cap_road_desc: "Stra\u00dfen in der N\u00e4he aktiver Feuer werden auf Ankunftszeit bewertet und nach Risikostufe eingestuft.",
+      who_title: "F\u00fcr wen ist Pyrae?",
+      who_community_title: "Gemeinschaften",
+      who_community_desc: "Anwohner in brandgef\u00e4hrdeten Gebieten erhalten fr\u00fchzeitige Informationen \u00fcber aktive Feuer und erwartete Ausbreitung.",
+      who_responders_title: "Einsatzkr\u00e4fte",
+      who_responders_desc: "Ein Echtzeit-Bild der Lage: best\u00e4tigte Feuer, Satelliten-Hotspots und Ausbreitungsprognosen in einer einzigen Ansicht.",
+      who_agency_title: "Beh\u00f6rden & Versorger",
+      who_agency_desc: "REST- und CAP-APIs erm\u00f6glichen es Beh\u00f6rden, Pyrae-Daten in bestehende Workflows zu integrieren.",
+      report_title: "Melden Sie einen sichtbaren Brand",
+      report_desc: "Wenn Sie Rauch oder Flammen sehen, \u00f6ffnen Sie das Meldungsformular auf der Karte, f\u00fcgen Sie ein Photo und Ihren Standort bei.",
+      cta_report_now: "Jetzt Brand melden",
+      report_warning: "\u26a0\ufe0f Pyrae ist ein Informationstool, kein Notdienst. Rufen Sie bei Gefahr immer zuerst Ihre lokale Notrufnummer an.",
+      map_note: "Punkte zeigen aktuell erfasste Br\u00e4nde; die Farbe spiegelt die Brandwahrscheinlichkeit wider. Heranzoomen f\u00fcr die volle Heatmap.",
+      legend_label: "Brandwahrscheinlichkeit",
+      legend_low: "niedrig",
+      legend_high: "hoch",
+      trust_founded: "Gegr\u00fcndet von Julian Uhres",
+      trust_nasa: "NASA FIRMS, EFFIS/Copernicus",
+      trust_weather: "Open-Meteo Wetterdaten",
+      trust_ai: "KI + B\u00fcrgermeldungen",
+      trust_refresh: "Satellit alle 3 h \u00b7 Karte alle 8 s",
+      trust_privacy: "Datenschutz zuerst",
+      trust_emergency: "Kein Notdienst",
+      cta_report2: "Brand melden",
+      cta_map2: "Live-Karte erkunden",
+      cta_pilot2: "Pyrae testen",
+      learn_more: "Mehr erfahren",
+      link_about: "\u00dcber uns",
+      link_faq: "FAQ",
+      link_confidence: "Modellvertrauen",
+      link_contact: "Kontakt",
+      link_privacy: "Datenschutz",
+      social_label: "Folgen Sie uns"
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce",
+      nav_map: "Carte en direct",
+      hero_eyebrow: "INTELLIGENCE INCENDIE EN DIRECT",
+      hero_title_pre: "D\u00e9tection d\u2019incendies en direct et mod\u00e9lisation pour",
+      hero_title_accent: "communaut\u00e9s & secours",
+      hero_sub: "D\u00e9tection en temps r\u00e9el d\u2019incendies \u00e0 partir de donn\u00e9es satellite et de photos de citoyens, avec mod\u00e9lisation pr\u00e9dictive et \u00e9valuation des risques routiers \u2014 tout sur une seule carte.",
+      stat_fires: "incendies actifs suivis",
+      stat_sat: "surveillance satellite",
+      stat_detect: "sources de d\u00e9tection",
+      cta_report: "Signaler un incendie",
+      cta_map: "Explorer la carte",
+      cta_pilot: "Tester Pyrae",
+      what_title: "Ce que fait Pyrae",
+      cap_sat_title: "D\u00e9tection satellite",
+      cap_sat_desc: "Les donn\u00e9es satellite NASA FIRMS VIIRS d\u00e9tectent les anomalies thermiques depuis l\u2019espace \u00e0 chaque passage.",
+      cap_citizen_title: "Signalements citoyens",
+      cap_citizen_desc: "N\u2019importe qui sur le terrain peut t\u00e9l\u00e9verser une photo. Un mod\u00e8le d\u2019IA examine chaque signalement.",
+      cap_spread_title: "Mod\u00e9lisation pr\u00e9dictive",
+      cap_spread_desc: "Une grille bay\u00e9sienne du feu estime la propagation probable de chaque incendie en tenant compte du vent, du terrain et de l\u2019\u00e9tat du combustible.",
+      cap_road_title: "Risque routier",
+      cap_road_desc: "Les routes pr\u00e8s des incendies actifs sont \u00e9valu\u00e9es et class\u00e9es par niveau de risque.",
+      who_title: "Pour qui est Pyrae ?",
+      who_community_title: "Communaut\u00e9s",
+      who_community_desc: "Les r\u00e9sidants pr\u00e8s de zones \u00e0 risque re\u00e7oivent une alerte pr\u00e9coce sur les incendies actifs et leur propagation pr\u00e9vue.",
+      who_responders_title: "Secours",
+      who_responders_desc: "Une image op\u00e9rationnelle en temps r\u00e9el : incendies confirm\u00e9s, points chauds satellite et pr\u00e9visions de propagation.",
+      who_agency_title: "Agences & services publics",
+      who_agency_desc: "Des API REST et CAP permettent aux agences d\u2019int\u00e9grer les donn\u00e9es Pyrae dans leurs workflows existants.",
+      report_title: "Signalez un incendie visible",
+      report_desc: "Si vous voyez de la fum\u00e9e ou des flammes, ouvrez le formulaire de signalement, joignez une photo et votre position.",
+      cta_report_now: "Signaler un incendie maintenant",
+      report_warning: "\u26a0\ufe0f Pyrae est un outil d\u2019information, pas un service d\u2019urgence. En cas de danger, appelez votre num\u00e9ro d\u2019urgence local.",
+      map_note: "Les points indiquent les incendies suivis ; la couleur refl\u00e8te la probabilit\u00e9 de combustion. Zoomez pour voir la carte thermique compl\u00e8te.",
+      legend_label: "probabilit\u00e9 de combustion",
+      legend_low: "faible",
+      legend_high: "\u00e9lev\u00e9e",
+      trust_founded: "Fond\u00e9 par Julian Uhres",
+      trust_nasa: "NASA FIRMS, EFFIS/Copernicus",
+      trust_weather: "Donn\u00e9es m\u00e9t\u00e9o Open-Meteo",
+      trust_ai: "IA + signalements citoyens",
+      trust_refresh: "Satellite toutes les 3 h \u00b7 carte toutes les 8 s",
+      trust_privacy: "Confidentialit\u00e9 d\u2019abord",
+      trust_emergency: "Pas un service d\u2019urgence",
+      cta_report2: "Signaler un incendie",
+      cta_map2: "Explorer la carte en direct",
+      cta_pilot2: "Tester Pyrae",
+      learn_more: "En savoir plus",
+      link_about: "Qui sommes-nous",
+      link_faq: "FAQ",
+      link_confidence: "Confiance du mod\u00e8le",
+      link_contact: "Contact",
+      link_privacy: "Confidentialit\u00e9",
+      social_label: "Suivez-nous"
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana",
+      nav_map: "Mapa en vivo",
+      hero_eyebrow: "INTELIGENCIA DE INCENDIOS EN VIVO",
+      hero_title_pre: "Detecci\u00f3n de incendios en vivo e inteligencia de propagaci\u00f3n para",
+      hero_title_accent: "comunidades & equipos de emergencia",
+      hero_sub: "Detecci\u00f3n en tiempo real de incendios a partir de datos satelitales y fotos de ciudadanos, con modelado predictivo de propagaci\u00f3n y evaluaci\u00f3n de riesgo vial \u2014 todo en un solo mapa.",
+      stat_fires: "incendios activos rastreados",
+      stat_sat: "vigilancia satelital",
+      stat_detect: "fuentes de detecci\u00f3n",
+      cta_report: "Reportar un incendio",
+      cta_map: "Explorar mapa en vivo",
+      cta_pilot: "Probar Pyrae",
+      what_title: "Qu\u00e9 hace Pyrae",
+      cap_sat_title: "Detecci\u00f3n satelital",
+      cap_sat_desc: "Los datos satelitales NASA FIRMS VIIRS detectan anomal\u00edas t\u00e9rmicas desde el espacio en cada sobrevuelo.",
+      cap_citizen_title: "Reportes ciudadanos",
+      cap_citizen_desc: "Cualquiera en el terreno puede subir una foto. Un modelo de IA examina cada reporte en busca de fuego y humo visibles.",
+      cap_spread_title: "Modelado predictivo",
+      cap_spread_desc: "Una cuadr\u00edcula bayesiana del fuego estima la propagaci\u00f3n probable de cada incendio considerando viento, terreno y condiciones del combustible.",
+      cap_road_title: "Riesgo vial",
+      cap_road_desc: "Las carreteras cerca de incendios activos se eval\u00faan y clasifican por nivel de riesgo, usando datos de viento reales.",
+      who_title: "Para qui\u00e9n es Pyrae",
+      who_community_title: "Comunidades",
+      who_community_desc: "Los residentes en zonas propensas a incendios reciben alertas tempranas sobre incendios activos y su propagaci\u00f3n prevista.",
+      who_responders_title: "Equipos de emergencia",
+      who_responders_desc: "Una imagen operativa en tiempo real: incendios confirmados, puntos calientes satelitales y pron\u00f3sticos de propagaci\u00f3n.",
+      who_agency_title: "Agencias & servicios p\u00fablicos",
+      who_agency_desc: "APIs REST y CAP permiten a las agencias integrar los datos de Pyrae en sus flujos de trabajo existentes.",
+      report_title: "Reporte un incendio visible",
+      report_desc: "Si ve humo o llamas, abra el formulario de reporte, adjunte una foto y su ubicaci\u00f3n.",
+      cta_report_now: "Reportar un incendio ahora",
+      report_warning: "\u26a0\ufe0f Pyrae es una herramienta informativa, no un servicio de emergencia. En caso de peligro, llame a su n\u00famero de emergencia local.",
+      map_note: "Los puntos muestran incendios rastreados actualmente; el color refleja la probabilidad de combusti\u00f3n. Haga zoom para ver el mapa de calor completo.",
+      legend_label: "probabilidad de combusti\u00f3n",
+      legend_low: "baja",
+      legend_high: "alta",
+      trust_founded: "Fundado por Julian Uhres",
+      trust_nasa: "NASA FIRMS, EFFIS/Copernicus",
+      trust_weather: "Datos meteorol\u00f3gicos Open-Meteo",
+      trust_ai: "IA + reportes ciudadanos",
+      trust_refresh: "Sat\u00e9lite cada 3 h \u00b7 mapa cada 8 s",
+      trust_privacy: "Privacidad primero",
+      trust_emergency: "No es un servicio de emergencia",
+      cta_report2: "Reportar un incendio",
+      cta_map2: "Explorar mapa en vivo",
+      cta_pilot2: "Probar Pyrae",
+      learn_more: "M\u00e1s informaci\u00f3n",
+      link_about: "Qui\u00e9nes somos",
+      link_faq: "FAQ",
+      link_confidence: "Confianza del modelo",
+      link_contact: "Contacto",
+      link_privacy: "Privacidad",
+      social_label: "S\u00edguenos"
+    },
+    pl: {
+      header_sub: "Wykrywanie po\u017car\u00f3w & wczesne ostrzeganie",
+      nav_map: "Mapa na \u017cywo",
+      hero_eyebrow: "INTELIGENCJA PO\u017bAR\u00d3W NA \u017bYWO",
+      hero_title_pre: "Wykrywanie po\u017car\u00f3w na \u017cywo i analiza rozprzestrzeniania dla",
+      hero_title_accent: "spo\u0142eczno\u015bci i s\u0142u\u017cb ratunkowych",
+      hero_sub: "Wykrywanie po\u017car\u00f3w w czasie rzeczywistym z danych satelitarnych i raport\u00f3w obywateli, z predykcyjn\u0105 modelowaniem rozprzestrzeniania i oceną ryzyka drogowego \u2014 wszystko na jednej mapie.",
+      stat_fires: "aktywne po\u017cary \u015bledzione",
+      stat_sat: "monitorowanie satelitarne",
+      stat_detect: "\u017ar\u00f3d\u0142a wykrywania",
+      cta_report: "Zg\u0142o\u015b po\u017car",
+      cta_map: "Eksploruj mapę na \u017cywo",
+      cta_pilot: "Wypr\u00f3buj Pyrae",
+      what_title: "Co robi Pyrae",
+      cap_sat_title: "Wykrywanie satelitarne",
+      cap_sat_desc: "Dane satelitarne NASA FIRMS VIIRS wykrywają anomalie termiczne z kosmosu przy cada przelocie \u2014 łapiąc po\u017cary z orbity.",
+      cap_citizen_title: "Raporty obywateli",
+      cap_citizen_desc: "Każdy na miejscu może przesłać zdj\u0119cie. Model SI przegląda ka\u017cdy raport pod kątem widocznego ognia i dymu.",
+      cap_spread_title: "Predykcyjne modelowanie",
+      cap_spread_desc: "Bayesowska siatka po\u017car\u00f3w szacuje prawdopodobne rozprzestrzenianie ka\u017cdego po\u017caru, uwzględniając wiatr, teren i warunki paliwa.",
+      cap_road_title: "Ryzyko drogowe",
+      cap_road_desc: "Drogi w pobliżu aktywnych po\u017car\u00f3w są oceniane i klasyfikowane według poziomu ryzyka.",
+      who_title: "Dla kogo jest Pyrae",
+      who_community_title: "Spo\u0142eczno\u015bci",
+      who_community_desc: "Mieszkańcy w pobliżu obszar\u00f3w zagro\u017conych po\u017carami otrzymują wczesne ostrzeżenia o aktywnych po\u017carach i przewidywanym rozprzestrzenianiu.",
+      who_responders_title: "S\u0142u\u017cby ratunkowe",
+      who_responders_desc: "Obraz sytuacji w czasie rzeczywistym: potwierdzone po\u017cary, gorące punkty satelitarne i prognozy rozprzestrzeniania.",
+      who_agency_title: "Instytucje i służby publiczne",
+      who_agency_desc: "API REST i CAP umożliwiają instytucjom integrację danych Pyrae z istniejącymi przepływami pracy.",
+      report_title: "Zg\u0142o\u015b widoczny po\u017car",
+      report_desc: "Jeśli widzisz dym lub płomienie, otwórz formularz zgłoszenia, dołącz zdj\u0119cie i swoją lokalizację.",
+      cta_report_now: "Zg\u0142o\u015b po\u017car teraz",
+      report_warning: "\u26a0\ufe0f Pyrae jest narzędziem informacyjnym, nie s\u0142u\u017cbą ratunkową. W razie zagrożenia zadzwoń pod numer alarmowy.",
+      map_note: "Punkty pokazują aktualnie \u015bledzone po\u017cary; kolor odzwierciedla prawdopodobieństwo spalenia. Powiększ, aby zobaczyć pełną mapę cieplną.",
+      legend_label: "prawdopodobieństwo spalenia",
+      legend_low: "niskie",
+      legend_high: "wysokie",
+      trust_founded: "Założony przez Juliana Uhresa",
+      trust_nasa: "NASA FIRMS, EFFIS/Copernicus",
+      trust_weather: "Dane pogodowe Open-Meteo",
+      trust_ai: "SI + raporty obywateli",
+      trust_refresh: "Satelita co 3 h \u00b7 mapa co 8 s",
+      trust_privacy: "Prywatność przede wszystkim",
+      trust_emergency: "Nie jest s\u0142u\u017cbą ratunkową",
+      cta_report2: "Zg\u0142o\u015b po\u017car",
+      cta_map2: "Eksploruj mapę na \u017cywo",
+      cta_pilot2: "Wypr\u00f3buj Pyrae",
+      learn_more: "Dowiedz się więcej",
+      link_about: "O nas",
+      link_faq: "FAQ",
+      link_confidence: "Zaufanie modelu",
+      link_contact: "Kontakt",
+      link_privacy: "Prywatność",
+      social_label: "Obserwuj nas"
+    }
+  });
+  </script>
+
+
+  <script>
     (function () {
-      var map = L.map("landing-map", { zoomControl: true, scrollWheelZoom: false }).setView([40, 20], 3);
+      "use strict";
+      var map = L.map("landing-map", { zoomControl: true }).setView([42, 25], 4);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-
       function lavaColor(t) {
         t = Math.min(1, Math.max(0, t));
         var r, g, b;
-        if (t < 0.3) { var s1 = t / 0.3; r = 255; g = Math.round(200 - 60 * s1); b = Math.round(40 - 40 * s1); }
-        else if (t < 0.6) { var s2 = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s2); b = 0; }
-        else if (t < 0.85) { var s3 = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s3); b = 0; }
-        else if (t < 0.92) { var s4 = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s4); b = 0; }
-        else { var s5 = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s5); b = Math.round(15 + 25 * s5); }
+        if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); }
+        else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; }
+        else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; }
+        else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; }
+        else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); }
         return "rgb(" + r + "," + g + "," + b + ")";
       }
-
-      var visibleP = 0.1;
       fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production")
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          var dots = (data.grids || []).filter(function (g) { return g.max_p >= visibleP; });
-          var el = document.getElementById("fire-count");
-          if (el && dots.length > 0) el.textContent = dots.length;
+          var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; });
           var bounds = [];
           dots.forEach(function (g) {
             L.circleMarker([g.lat, g.lon], {
               radius: 4 + Math.round(g.max_p * 8),
-              color: "rgba(0,0,0,0.35)",
-              weight: 1,
-              fillColor: lavaColor(g.max_p),
-              fillOpacity: 0.9,
+              color: "rgba(0,0,0,0.35)", weight: 1,
+              fillColor: lavaColor(g.max_p), fillOpacity: 0.9,
             }).addTo(map)
-              .bindPopup("<b>Active fire</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
-                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "°" : ""));
+              .bindPopup("<b>Fire hotspot</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
+                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s" : ""));
             bounds.push([g.lat, g.lon]);
           });
           if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-          else if (bounds.length === 1) map.setView(bounds[0], 6);
+          else if (bounds.length === 1) map.setView(bounds[0], 8);
         })
-        .catch(function () { /* map stays at world view if the API hiccups */ });
+        .catch(function () {});
     })();
   </script>
 

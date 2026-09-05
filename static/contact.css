@@ -73,6 +73,38 @@
 .contact-back:active { transform: scale(0.97); }
 .contact-back-icon { font-size: 14px; line-height: 1; }
 
+/* ---------- Header actions ---------- */
+.header-actions { display: flex; align-items: center; gap: 12px; }
+
+/* ---------- Language picker ---------- */
+.lang-picker { position: relative; }
+.lang-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(148,163,184,0.08); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  font-size: 13px; color: var(--text-primary); transition: var(--transition);
+}
+.lang-btn:hover { background: rgba(148,163,184,0.15); border-color: rgba(148,163,184,0.35); }
+.lang-flag { font-size: 16px; }
+.lang-code { font-weight: 600; letter-spacing: 0.5px; }
+.lang-chevron { font-size: 10px; opacity: 0.5; }
+.lang-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px; min-width: 160px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 1000;
+}
+.lang-option {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+  background: transparent; cursor: pointer; font-size: 13px;
+  color: var(--text-primary); text-align: left; transition: background 0.15s;
+}
+.lang-option:hover { background: rgba(148,163,184,0.12); }
+.lang-option.active { background: rgba(255,60,0,0.1); color: var(--accent); font-weight: 600; }
+
+.hidden { display: none !important; }
+
 /* ---------- Layout ---------- */
 .contact-main {
   flex: 1;

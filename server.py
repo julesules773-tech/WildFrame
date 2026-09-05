@@ -1059,6 +1059,139 @@ def get_clusters():
         return jsonify({"clusters": [], "count": 0, "mode": "production"})
 
 
+@app.route("/api/worldcover-extent", methods=["GET"])
+def worldcover_extent():
+    """Return the bounding box of loaded WorldCover data (local dev helper)."""
+    ext = db._table_bbox("worldcover_polygons")
+    if ext is None:
+        return jsonify({"extent": None})
+    minlon, minlat, maxlon, maxlat = ext
+    return jsonify({"extent": [minlat, minlon, maxlat, maxlon]})
+
+
+@app.route("/api/worldcover-polygons", methods=["GET"])
+def worldcover_polygons():
+    """Return WorldCover polygons as GeoJSON for the current viewport.
+
+    Query params:
+      bbox   — west,south,east,north (required)
+      simplify — simplification tolerance in degrees (default 0.002)
+      limit  — max features (default 2000)
+    """
+    bbox_str = request.args.get("bbox")
+    if not bbox_str:
+        return jsonify({"error": "bbox required"}), 400
+    parts = [float(x.strip()) for x in bbox_str.split(",")]
+    if len(parts) != 4:
+        return jsonify({"error": "bbox must be west,south,east,north"}), 400
+    w, s, e, n = parts
+    simplify = float(request.args.get("simplify", 0.002))
+    limit = min(int(request.args.get("limit", 2000)), 5000)
+
+    # Check if table exists
+    try:
+        with db._conn() as conn:
+            exists = conn.execute(
+                "SELECT EXISTS ("
+                "  SELECT 1 FROM information_schema.tables "
+                "  WHERE table_name = 'worldcover_polygons'"
+                ")"
+            ).fetchone()["exists"]
+            if not exists:
+                return jsonify({"type": "FeatureCollection", "features": []})
+
+            rows = conn.execute(
+                "SELECT ST_AsGeoJSON(geom) AS geo, class_code "
+                "FROM worldcover_polygons "
+                "WHERE ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326)) "
+                "LIMIT %s",
+                (w, s, e, n, limit),
+            ).fetchall()
+    except Exception as exc:
+        logger.warning("worldcover-polygons error: %s %s", type(exc).__name__, exc)
+        return jsonify({"type": "FeatureCollection", "features": []})
+
+    features = []
+    for row in rows:
+        geo = row["geo"]
+        # ST_AsGeoJSON returns a text string — parse it so jsonify
+        # embeds the geometry object, not a double-encoded string.
+        if isinstance(geo, str):
+            try:
+                geo = json.loads(geo)
+            except (ValueError, TypeError):
+                continue
+        if not geo:
+            continue
+        features.append({
+            "type": "Feature",
+            "geometry": geo,
+            "properties": {"class_code": row["class_code"]},
+        })
+    return jsonify({"type": "FeatureCollection", "features": features})
+
+
+@app.route("/api/industrial-zones", methods=["GET"])
+def industrial_zones():
+    """Return OSM industrial zones as GeoJSON for the current viewport.
+
+    Query params:
+      bbox   — west,south,east,north (required)
+      limit  — max features (default 1000)
+    """
+    bbox_str = request.args.get("bbox")
+    if not bbox_str:
+        return jsonify({"error": "bbox required"}), 400
+    parts = [float(x.strip()) for x in bbox_str.split(",")]
+    if len(parts) != 4:
+        return jsonify({"error": "bbox must be west,south,east,north"}), 400
+    w, s, e, n = parts
+    limit = min(int(request.args.get("limit", 1000)), 3000)
+
+    # Check if table exists
+    try:
+        with db._conn() as conn:
+            exists = conn.execute(
+                "SELECT EXISTS ("
+                "  SELECT 1 FROM information_schema.tables "
+                "  WHERE table_name = 'osm_industrial_zones'"
+                ")"
+            ).fetchone()["exists"]
+            if not exists:
+                return jsonify({"type": "FeatureCollection", "features": []})
+
+            rows = conn.execute(
+                "SELECT ST_AsGeoJSON(geom) AS geo, osm_id, osm_type, name "
+                "FROM osm_industrial_zones "
+                "WHERE ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326)) "
+                "LIMIT %s",
+                (w, s, e, n, limit),
+            ).fetchall()
+    except Exception as exc:
+        logger.warning("industrial-zones error: %s %s", type(exc).__name__, exc)
+        return jsonify({"type": "FeatureCollection", "features": []})
+
+    features = []
+    for row in rows:
+        geo = row["geo"]
+        if isinstance(geo, str):
+            try:
+                geo = json.loads(geo)
+            except (ValueError, TypeError):
+                continue
+        if not geo:
+            continue
+        features.append({
+            "type": "Feature",
+            "geometry": geo,
+            "properties": {
+                "osm_id": row["osm_id"],
+                "osm_type": row["osm_type"],
+                "name": row["name"],
+            },
+        })
+    return jsonify({"type": "FeatureCollection", "features": features})
+
 
 @app.route("/api/reports/<report_id>/status", methods=["PUT"])
 def update_status(report_id: str):
@@ -1439,6 +1572,249 @@ def map_poland_page():
     if active is not None:
         html = html.replace("{{ACTIVE_FIRES}}", str(active))
     html = html.replace("{{COVERAGE}}", "Poland")
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+# ---------------------------------------------------------------------------
+# France bbox and polygon for /map/france
+# ---------------------------------------------------------------------------
+FRANCE_BBOX = (-5.50, 41.30, 9.60, 51.10)
+
+FRANCE_POLYGON: list[tuple[float, float]] = [
+    # --- Pyrenees & Basque Country ---
+    (43.37, -1.78),   # Hendaye / Basque coast
+    (43.22, -1.50),   # St-Jean-de-Luz
+    (42.85, -1.60),   # Col de Roncevaux
+    (42.65, -1.72),   # Pyrenees mid
+    (42.48, -0.50),   # Pyrenees Ariège
+    (42.45, 1.80),    # Pyrenees Valira
+    (42.50, 3.10),    # Cèrbère / coast
+    # --- Mediterranean coast ---
+    (43.02, 3.28),    # Perpignan
+    (43.18, 3.14),    # Narbonne
+    (43.27, 3.53),    # Béziers
+    (43.30, 3.93),    # Agde
+    (43.28, 5.37),    # Marseille area
+    (43.10, 5.73),    # Toulon
+    (43.30, 6.63),    # St-Raphaël
+    (43.77, 7.52),    # Nice
+    # --- Italian & Swiss borders (Alps) ---
+    (44.13, 7.75),    # Col de Tende
+    (44.95, 6.80),    # Briançon
+    (45.02, 6.40),    # Mont Cenis
+    (45.83, 6.80),    # Lac du Bourget
+    (46.20, 6.15),    # Geneva / Rhône
+    # --- Jura, Rhine, Lorraine ---
+    (47.50, 7.58),    # Basel tripoint
+    (48.57, 7.80),    # Strasbourg
+    (49.12, 6.70),    # Moselle
+    (49.47, 6.38),    # Thionville
+    # --- Belgian & Luxembourg borders ---
+    (49.55, 5.82),    # Montmédy
+    (49.99, 5.53),    # Sedan
+    (50.10, 4.83),    # Givet
+    # --- Belgian border & Nord ---
+    (50.32, 4.17),    # Maubeuge
+    (50.73, 3.60),    # Valenciennes
+    (51.03, 2.55),    # Dunkirk
+    # --- Channel coast ---
+    (50.10, 2.10),    # Boulogne
+    (49.67, -1.15),   # Cherbourg
+    (49.30, -1.17),   # Utah Beach
+    (48.65, -4.79),   # Ushant
+    (48.38, -4.78),   # Finistère tip
+    # --- Atlantic coast south ---
+    (47.83, -4.33),   # Audierne
+    (47.48, -3.15),   # Concarneau
+    (46.67, -2.10),   # Belle-Île area
+    (46.15, -1.15),   # Île de Ré
+    (45.60, -1.18),   # Rochefort
+    (44.85, -1.22),   # Arcachon
+    (44.62, -1.25),   # Arcachon basin
+    (43.80, -1.52),   # Capbreton
+    (43.50, -1.50),   # Biarritz
+]
+
+
+def _point_in_france(lat: float, lon: float) -> bool:
+    """Fast ray-cast point-in-polygon for the simplified France boundary."""
+    pts = [(p[1], p[0]) for p in FRANCE_POLYGON]
+    return _point_in_polygon(lon, lat, pts)
+
+
+@app.route("/map/france")
+def map_france_page():
+    """SEO landing page: Live wildfire map of France."""
+    html = (STATIC_DIR / "map_france.html").read_text(encoding="utf-8")
+    try:
+        grids = db.list_grid_meta("production", bbox=FRANCE_BBOX)
+        active = sum(1 for g in grids if (g.get("max_p") or 0) >= 0.1)
+    except Exception:
+        active = None
+    if active is not None:
+        html = html.replace("{{ACTIVE_FIRES}}", str(active))
+    html = html.replace("{{COVERAGE}}", "France")
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+# ---------------------------------------------------------------------------
+# Spain bbox and polygon for /map/spain
+# ---------------------------------------------------------------------------
+SPAIN_BBOX = (-9.50, 35.95, 4.50, 43.80)
+
+SPAIN_POLYGON: list[tuple[float, float]] = [
+    # --- Galicia & NW coast ---
+    (42.88, -8.88),   # Finisterre
+    (43.37, -8.40),   # A Coruña
+    (43.46, -7.95),   # Betanzos
+    (43.40, -7.30),   # Viveiro
+    (43.45, -6.60),   # Ribadeo
+    (43.42, -5.80),   # Villaviciosa
+    # --- Cantabrian coast ---
+    (43.55, -5.10),   # Gijón
+    (43.39, -4.15),   # Santander
+    (43.40, -3.80),   # Laredo
+    (43.35, -3.20),   # Bilbao area
+    # --- Basque Country & Pyrenees ---
+    (43.37, -1.78),   # Hendaye border
+    (43.00, -1.65),   # Pamplona
+    (42.70, -0.70),   # Jaca
+    (42.50, 1.10),    # Andorra area
+    (42.45, 3.10),    # Cerbère border
+    # --- Catalonia & Mediterranean ---
+    (42.08, 3.20),    # Figueres
+    (41.68, 2.90),    # Barcelona
+    (41.22, 1.75),    # Tarragona
+    (40.68, 0.55),    # Castellón
+    (39.48, -0.03),   # Valencia
+    (38.35, -0.48),   # Alicante
+    (37.58, -0.98),   # Cartagena
+    (37.38, -1.60),   # Mazarrón
+    (36.72, -2.15),   # Almería
+    (36.68, -3.00),   # Motril
+    (36.52, -3.80),   # Málaga
+    (36.00, -5.60),   # Tarifa
+    # --- Gibraltar & Strait ---
+    (36.00, -5.35),   # Algeciras
+    (36.15, -5.45),   # Gibraltar
+    # --- Portuguese border ---
+    (37.00, -7.40),   # Faro / Algarve
+    (37.95, -8.87),   # Alentejo
+    (38.75, -9.40),   # Lisbon
+    (39.80, -8.85),   # Leiria
+    (40.20, -8.85),   # Coimbra
+    (41.15, -8.65),   # Porto area
+    (41.87, -8.87),   # Valença / Minho
+    (42.15, -8.85),   # Ourense border
+    (42.75, -8.90),   # Pontevedra border
+]
+
+
+def _point_in_spain(lat: float, lon: float) -> bool:
+    """Fast ray-cast point-in-polygon for the simplified Spain boundary."""
+    pts = [(p[1], p[0]) for p in SPAIN_POLYGON]
+    return _point_in_polygon(lon, lat, pts)
+
+
+@app.route("/map/spain")
+def map_spain_page():
+    """SEO landing page: Live wildfire map of Spain."""
+    html = (STATIC_DIR / "map_spain.html").read_text(encoding="utf-8")
+    try:
+        grids = db.list_grid_meta("production", bbox=SPAIN_BBOX)
+        active = sum(1 for g in grids if (g.get("max_p") or 0) >= 0.1)
+    except Exception:
+        active = None
+    if active is not None:
+        html = html.replace("{{ACTIVE_FIRES}}", str(active))
+    html = html.replace("{{COVERAGE}}", "Spain")
+    return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+
+# ---------------------------------------------------------------------------
+# Germany bbox and polygon for /map/germany
+# ---------------------------------------------------------------------------
+GERMANY_BBOX = (5.87, 47.27, 15.04, 55.06)
+
+GERMANY_POLYGON: list[tuple[float, float]] = [
+    # --- Swiss border (Rhine) ---
+    (47.55, 7.58),    # Basel tripoint
+    (47.58, 8.62),    # Schaffhausen
+    # --- Austrian border (Alps) ---
+    (47.30, 10.15),   # Allgäu
+    (47.42, 11.00),   # Garmisch
+    (47.40, 12.15),   # Berchtesgaden
+    (47.42, 13.00),   # Salzburg border
+    (47.50, 13.80),   # Braunau
+    # --- Czech border ---
+    (48.15, 13.83),   # Passau
+    (48.55, 13.45),   # Rohrbach
+    (48.85, 13.25),   # Freyung
+    (49.32, 12.70),   # Waidhaus
+    (49.70, 12.50),   # Flossenbürg
+    (50.05, 12.30),   # Cheb area
+    (50.35, 12.10),   # Hof
+    (50.88, 14.45),   # Saxon Switzerland
+    # --- Polish border (Oder-Neisse) ---
+    (51.08, 14.75),   # Zittau
+    (51.15, 14.90),   # Görlitz
+    (51.85, 14.90),   # Guben
+    (52.08, 14.75),   # Frankfurt (Oder)
+    (52.62, 14.68),   # Schwedt area
+    (53.35, 14.25),   # Schwedt
+    (53.92, 14.25),   # Usedom
+    # --- Baltic & North Sea coast ---
+    (54.18, 13.70),   # Stralsund
+    (54.40, 12.70),   # Rügen
+    (54.50, 11.10),   # Fehmarn
+    (54.83, 9.40),    # Flensburg
+    (54.98, 8.85),    # Danish border
+    (54.75, 8.52),    # Meldorf
+    (54.20, 8.35),    # Husum
+    (53.85, 8.20),    # Cuxhaven
+    (53.58, 7.95),    # Wangerooge
+    # --- North Sea coast (East Frisia) ---
+    (53.55, 7.20),    # Emden
+    (53.40, 6.85),    # Ems estuary
+    # --- Dutch border ---
+    (52.60, 7.08),    # Lingen
+    (52.23, 7.05),    # Rheine
+    (51.85, 6.83),    # Kleve
+    (51.48, 6.15),    # Duisburg
+    # --- Belgian & Luxembourg borders ---
+    (50.78, 6.00),    # Aachen
+    (50.32, 6.10),    # Monschau
+    (50.15, 6.00),    # Prüm
+    (49.92, 6.22),    # Bitburg
+    (49.55, 6.35),    # Trier
+    (49.47, 6.38),    # Saar Moselle
+    (49.23, 6.68),    # Saarbrücken
+    # --- French border (Alsace) ---
+    (49.12, 8.23),    # Lauterbourg
+    (48.57, 7.80),    # Strasbourg
+    (48.05, 7.55),    # Colmar
+    (47.58, 7.55),    # Basel
+]
+
+
+def _point_in_germany(lat: float, lon: float) -> bool:
+    """Fast ray-cast point-in-polygon for the simplified Germany boundary."""
+    pts = [(p[1], p[0]) for p in GERMANY_POLYGON]
+    return _point_in_polygon(lon, lat, pts)
+
+
+@app.route("/map/germany")
+def map_germany_page():
+    """SEO landing page: Live wildfire map of Germany."""
+    html = (STATIC_DIR / "map_germany.html").read_text(encoding="utf-8")
+    try:
+        grids = db.list_grid_meta("production", bbox=GERMANY_BBOX)
+        active = sum(1 for g in grids if (g.get("max_p") or 0) >= 0.1)
+    except Exception:
+        active = None
+    if active is not None:
+        html = html.replace("{{ACTIVE_FIRES}}", str(active))
+    html = html.replace("{{COVERAGE}}", "Germany")
     return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 

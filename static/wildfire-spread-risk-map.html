@@ -7,35 +7,22 @@
   <meta name="description" content="Wildfire spread risk map showing predicted fire movement. Pyrae's Bayesian Fire Grid models burn probability using wind, terrain, vegetation and humidity — so communities know which roads and areas are at risk before the fire arrives." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://pyrae.co/wildfire-spread-risk-map" />
-  <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Pyrae" />
   <meta property="og:title" content="Wildfire Spread Risk Map — Predictive Fire Modelling" />
-  <meta property="og:description" content="Predictive wildfire spread modelling: Bayesian fire grid showing burn probability, road risk, and spread forecasts using wind, terrain and vegetation data." />
+  <meta property="og:description" content="Predictive wildfire spread modelling: Bayesian fire grid showing burn probability, road risk, and spread forecasts." />
   <meta property="og:url" content="https://pyrae.co/wildfire-spread-risk-map" />
   <meta property="og:locale" content="en_US" />
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Wildfire Spread Risk Map — Predictive Fire Modelling" />
   <meta name="twitter:description" content="Predictive wildfire spread modelling: Bayesian fire grid, road risk assessment, and spread forecasts." />
-  <!-- JSON-LD: BreadcrumbList -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": "https://pyrae.co/"
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Wildfire Spread Risk Map",
-        "item": "https://pyrae.co/wildfire-spread-risk-map"
-      }
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pyrae.co/" },
+      { "@type": "ListItem", "position": 2, "name": "Wildfire Spread Risk Map", "item": "https://pyrae.co/wildfire-spread-risk-map" }
     ]
   }
   </script>
@@ -44,63 +31,25 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/contact.css" />
   <style>
-    #spread-map {
-      width: 100%; height: 460px;
-      border-radius: 12px; margin: 28px 0 8px; z-index: 0;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    #spread-map .leaflet-control-zoom a {
-      background: var(--bg-card); color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
+    #spread-map { width: 100%; height: 460px; border-radius: 12px; margin: 28px 0 8px; z-index: 0; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    #spread-map .leaflet-control-zoom a { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     #spread-map .leaflet-control-zoom a:hover { background: var(--bg-card-hover); color: var(--accent); }
     #spread-map .leaflet-bar { border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-    #spread-map .leaflet-control-attribution {
-      background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px;
-    }
+    #spread-map .leaflet-control-attribution { background: rgba(11, 14, 20, 0.75); color: var(--text-muted); font-size: 10px; }
     #spread-map .leaflet-control-attribution a { color: var(--text-secondary); }
-    #spread-map .leaflet-popup-content-wrapper, #spread-map .leaflet-popup-tip {
-      background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border);
-    }
+    #spread-map .leaflet-popup-content-wrapper, #spread-map .leaflet-popup-tip { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
     #spread-map .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
     .map-note { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
     .map-cta { text-align: center; margin: 0 0 30px; }
-    .live-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(225, 29, 72, 0.15); color: #fda4af;
-      border: 1px solid rgba(225, 29, 72, 0.4);
-      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
-      text-transform: uppercase; border-radius: 999px; padding: 5px 14px;
-      margin-bottom: 18px;
-    }
-    .live-badge .live-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9);
-      animation: live-pulse 1.8s ease-in-out infinite;
-    }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(225, 29, 72, 0.15); color: #fda4af; border: 1px solid rgba(225, 29, 72, 0.4); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 999px; padding: 5px 14px; margin-bottom: 18px; }
+    .live-badge .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #f87171; box-shadow: 0 0 8px rgba(248, 113, 113, 0.9); animation: live-pulse 1.8s ease-in-out infinite; }
     @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
     .stat-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin: 10px 0 22px; }
-    .stat {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px 22px; min-width: 140px;
-      box-shadow: var(--shadow);
-    }
+    .stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 22px; min-width: 140px; box-shadow: var(--shadow); }
     .stat b { font-size: 30px; display: block; letter-spacing: -0.5px; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
     .stat span { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.4px; }
-    /* Color legend */
-    .map-legend {
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      margin: 14px auto 4px; font-size: 11px; color: var(--text-muted);
-    }
-    .legend-gradient {
-      width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0;
-      background: linear-gradient(90deg,
-        rgb(255,200,40) 0%, rgb(255,140,0) 30%, rgb(255,60,0) 60%,
-        rgb(255,15,0) 85%, rgb(255,5,15) 92%, rgb(255,30,40) 100%);
-      border: 1px solid var(--border);
-    }
+    .map-legend { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 14px auto 4px; font-size: 11px; color: var(--text-muted); }
+    .legend-gradient { width: 220px; height: 10px; border-radius: 999px; flex-shrink: 0; background: linear-gradient(90deg, rgb(255,200,40) 0%, rgb(255,140,0) 30%, rgb(255,60,0) 60%, rgb(255,15,0) 85%, rgb(255,5,15) 92%, rgb(255,30,40) 100%); border: 1px solid var(--border); }
     .legend-tick { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .legend-tick b { font-weight: 700; color: var(--text-secondary); }
     .legend-tick i { width: 1px; height: 5px; background: var(--text-muted); font-style: normal; opacity: 0.6; }
@@ -110,25 +59,26 @@
 </head>
 <body class="contact-page">
 
-  <!-- ======== Header ======== -->
   <header class="contact-header">
     <div class="contact-brand">
       <span class="brand-icon">🔥</span>
       <span class="contact-brand-text">Pyrae</span>
-      <span class="contact-brand-sub">Wildfire Detection &amp; Early Warning</span>
+      <span class="contact-brand-sub" data-i18n="header_sub">Wildfire Detection &amp; Early Warning</span>
     </div>
-    <a href="/map" class="contact-back" title="Back to the live map">
-      <span class="contact-back-icon">←</span>
-      <span>Back to map</span>
-    </a>
+    <div class="header-actions">
+      <a href="/map" class="contact-back" title="Back to the live map">
+        <span class="contact-back-icon">←</span>
+        <span data-i18n="nav_map">Back to map</span>
+      </a>
+    </div>
   </header>
 
   <main class="contact-main" style="max-width: 860px;">
 
     <section class="hero" style="text-align: center;">
-      <p class="hero-eyebrow">PREDICTIVE MODELLING</p>
-      <h1 class="hero-title">Wildfire Spread Risk Map — <span class="hero-accent">Predictive Fire Modelling</span></h1>
-      <p class="hero-sub">
+      <p class="hero-eyebrow" data-i18n="hero_eyebrow">PREDICTIVE MODELLING</p>
+      <h1 class="hero-title"><span data-i18n="hero_title_pre">Wildfire Spread Risk Map —</span> <span class="hero-accent" data-i18n="hero_title_accent">Predictive Fire Modelling</span></h1>
+      <p class="hero-sub" data-i18n="hero_sub">
         Not just where fires are — where they're going. Pyrae's Bayesian
         Fire Grid models how each fire is likely to spread using wind,
         terrain, vegetation and humidity data, showing which roads and
@@ -136,39 +86,37 @@
       </p>
       <span class="live-badge"><span class="live-dot"></span> Live</span>
       <div class="stat-row">
-        <div class="stat"><b>8 s</b><span>map refresh</span></div>
-        <div class="stat"><b>Bayesian</b><span>spread model</span></div>
-        <div class="stat"><b>Road risk</b><span>assessment</span></div>
+        <div class="stat"><b>8 s</b><span data-i18n="stat_refresh">map refresh</span></div>
+        <div class="stat"><b>Bayesian</b><span data-i18n="stat_model">spread model</span></div>
+        <div class="stat"><b>Road risk</b><span data-i18n="stat_road">assessment</span></div>
       </div>
     </section>
 
     <div id="spread-map" aria-label="Wildfire spread risk map"></div>
 
-    <!-- Color legend -->
     <div class="map-legend" aria-hidden="true">
-      <span>burn probability</span>
+      <span data-i18n="legend_label">burn probability</span>
       <div class="legend-gradient"></div>
-      <div class="legend-tick"><b>0</b><i></i><span>low</span></div>
+      <div class="legend-tick"><b>0</b><i></i><span data-i18n="legend_low">low</span></div>
       <div class="legend-tick"><b>0.3</b><i></i><span></span></div>
       <div class="legend-tick"><b>0.6</b><i></i><span></span></div>
       <div class="legend-tick"><b>0.85</b><i></i><span></span></div>
-      <div class="legend-tick"><b>1</b><i></i><span>high</span></div>
+      <div class="legend-tick"><b>1</b><i></i><span data-i18n="legend_high">high</span></div>
     </div>
 
-    <p class="map-note">Warmer colours indicate higher burn probability. Zoom in for the full heatmap.</p>
-    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;">Open the full interactive map →</a></p>
+    <p class="map-note" data-i18n="map_note">Warmer colours indicate higher burn probability. Zoom in for the full heatmap.</p>
+    <p class="map-cta"><a href="/map" class="contact-back" style="display:inline-flex;" data-i18n="map_cta">Open the full interactive map →</a></p>
 
-    <!-- ======== What is the Bayesian Fire Grid? ======== -->
     <section class="section">
-      <h2 class="section-title">What is the Bayesian Fire Grid?</h2>
-      <p>
+      <h2 class="section-title" data-i18n="grid_title">What is the Bayesian Fire Grid?</h2>
+      <p data-i18n="grid_p1">
         The Bayesian Fire Grid is a probabilistic model that estimates the
         likelihood of burning for every location near an active fire. Unlike
         a simple perimeter drawn around a fire's current extent, the grid
         models <em>how the fire is likely to evolve</em> — producing a
         probability surface rather than a hard boundary.
       </p>
-      <p>
+      <p data-i18n="grid_p2">
         Each cell in the grid has a burn probability between 0 and 1.
         The model updates continuously as new evidence arrives: citizen
         reports, satellite hotspots, and live weather data. Cells with
@@ -177,63 +125,40 @@
       </p>
     </section>
 
-    <!-- ======== How the model works ======== -->
     <section class="section">
-      <h2 class="section-title">How the spread model works</h2>
+      <h2 class="section-title" data-i18n="model_title">How the spread model works</h2>
       <div class="cap-grid">
         <div class="cap-card">
           <div class="cap-icon">🌬️</div>
-          <h3>Wind direction &amp; speed</h3>
-          <p>
-            Live wind data from Open-Meteo determines the primary spread
-            direction. Fires spread faster with the wind and slower against
-            it — the model weights cell probabilities accordingly, creating
-            an elongated risk plume downwind of each fire.
-          </p>
+          <h3 data-i18n="model_wind_title">Wind direction &amp; speed</h3>
+          <p data-i18n="model_wind_desc">Live wind data from Open-Meteo determines the primary spread direction. Fires spread faster with the wind and slower against it — the model weights cell probabilities accordingly.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">⛰️</div>
-          <h3>Terrain &amp; elevation</h3>
-          <p>
-            Fires spread faster uphill as pre-heated fuel above the fire
-            front ignites more quickly. Terrain slope and aspect (sun
-            exposure) are factored into each cell's spread rate, producing
-            realistic risk patterns across ridgelines and valleys.
-          </p>
+          <h3 data-i18n="model_terrain_title">Terrain &amp; elevation</h3>
+          <p data-i18n="model_terrain_desc">Fires spread faster uphill as pre-heated fuel above the fire front ignites more quickly. Terrain slope and aspect are factored into each cell's spread rate.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">🌲</div>
-          <h3>Vegetation &amp; fuel type</h3>
-          <p>
-            Different vegetation types burn at different rates. Grass fires
-            spread fast but burn out quickly; dense forest fires burn hotter
-            but move more slowly. Land-use and land-cover data determines
-            the fuel model for each cell.
-          </p>
+          <h3 data-i18n="model_veg_title">Vegetation &amp; fuel type</h3>
+          <p data-i18n="model_veg_desc">Different vegetation types burn at different rates. Grass fires spread fast but burn out quickly; dense forest fires burn hotter but move more slowly.</p>
         </div>
         <div class="cap-card">
           <div class="cap-icon">💧</div>
-          <h3>Humidity &amp; fire weather</h3>
-          <p>
-            Low humidity dries out fuel and increases fire intensity. Live
-            humidity, temperature and fire weather index data adjust the
-            model's spread rate — drier conditions produce wider risk zones.
-          </p>
+          <h3 data-i18n="model_humid_title">Humidity &amp; fire weather</h3>
+          <p data-i18n="model_humid_desc">Low humidity dries out fuel and increases fire intensity. Live humidity, temperature and fire weather index data adjust the model's spread rate.</p>
         </div>
       </div>
     </section>
 
-    <!-- ======== Burned vs risk area ======== -->
     <section class="section">
-      <h2 class="section-title">Burned area vs. risk area</h2>
-      <p>
-        The Fire Grid distinguishes between two key concepts:
-      </p>
+      <h2 class="section-title" data-i18n="burned_title">Burned area vs. risk area</h2>
+      <p data-i18n="burned_intro">The Fire Grid distinguishes between two key concepts:</p>
       <ul class="audience-list">
-        <li><b>Burned area</b> — cells with very high probability (typically &gt; 0.85) where the fire is likely already burning or has recently burned. These represent the fire's current footprint.</li>
-        <li><b>Risk area</b> — cells with moderate to high probability (0.1 – 0.85) where the fire could spread in the coming hours. This is the forward-looking zone: the area that responders should monitor, evacuate or prepare.</li>
+        <li data-i18n="burned_area"><b>Burned area</b> — cells with very high probability (typically > 0.85) where the fire is likely already burning or has recently burned. These represent the fire's current footprint.</li>
+        <li data-i18n="risk_area"><b>Risk area</b> — cells with moderate to high probability (0.1 – 0.85) where the fire could spread in the coming hours. This is the forward-looking zone: the area that responders should monitor, evacuate or prepare.</li>
       </ul>
-      <p>
+      <p data-i18n="burned_p2">
         The risk area is always larger than the burned area — and that's the
         point. By the time a fire reaches a location, it's too late to act.
         The risk area gives responders a head start: which roads to close,
@@ -241,16 +166,15 @@
       </p>
     </section>
 
-    <!-- ======== Road risk assessment ======== -->
     <section class="section">
-      <h2 class="section-title">Road risk assessment</h2>
-      <p>
+      <h2 class="section-title" data-i18n="road_title">Road risk assessment</h2>
+      <p data-i18n="road_p1">
         The Fire Grid doesn't just model vegetation — it also assesses which
         roads are at risk. By overlaying the spread probability surface onto
         the road network, Pyrae identifies which evacuation routes and access
         roads could be threatened by fire spread.
       </p>
-      <p>
+      <p data-i18n="road_p2">
         This means incident commanders can see, in real time, which roads
         are safe to use and which ones may be cut off — before the fire
         reaches them. Pre-positioning resources on the safe side of the risk
@@ -258,10 +182,9 @@
       </p>
     </section>
 
-    <!-- ======== Why this matters ======== -->
     <section class="section">
-      <h2 class="section-title">Why predictive modelling matters</h2>
-      <p>
+      <h2 class="section-title" data-i18n="why_title">Why predictive modelling matters</h2>
+      <p data-i18n="why_p1">
         Knowing where a fire <em>is</em> matters. Knowing where it's
         <em>going</em> saves lives. Traditional fire maps show a static
         snapshot — the current perimeter, the latest satellite hotspot. But
@@ -269,7 +192,7 @@
         detection into forecasting, giving communities and responders the
         most valuable thing: time.
       </p>
-      <p>
+      <p data-i18n="why_p2">
         Every hour of advance warning is an hour to evacuate residents,
         close roads, position firefighting resources, and shut down
         critical infrastructure. The Bayesian Fire Grid turns raw detection
@@ -277,25 +200,24 @@
       </p>
     </section>
 
-    <!-- ======== CTA ======== -->
     <section class="section contact-section">
-      <h2 class="section-title">See it in action</h2>
-      <p class="contact-lead">
+      <h2 class="section-title" data-i18n="cta_title">See it in action</h2>
+      <p class="contact-lead" data-i18n="cta_lead">
         The live map shows the Bayesian Fire Grid at work — probability
         surfaces, spread forecasts, and road risk assessments for every
         tracked fire.
       </p>
       <div class="contact-actions">
         <a class="contact-btn contact-btn--primary" href="/map">
-          🔥 &nbsp;Explore live map
+          🔥 &nbsp;<span data-i18n="cta_map">Explore live map</span>
         </a>
         <a class="contact-btn contact-btn--secondary" href="/contact">
-          ✉️ &nbsp;Contact us
+          ✉️ &nbsp;<span data-i18n="cta_contact">Contact us</span>
         </a>
       </div>
     </section>
 
-    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;">
+    <p style="font-size: 14px; color: #666; margin-top: 18px; text-align: center;" data-i18n="disclaimer">
       Pyrae is an early-warning tool, not an emergency service. If a fire
       threatens life or property, call your local emergency number.
     </p>
@@ -318,38 +240,165 @@
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-
-      function lavaColor(t) {
-        t = Math.min(1, Math.max(0, t));
-        var r, g, b;
-        if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); }
-        else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; }
-        else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; }
-        else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; }
-        else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); }
-        return "rgb(" + r + "," + g + "," + b + ")";
-      }
-
-      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production")
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; });
-          var bounds = [];
-          dots.forEach(function (g) {
-            L.circleMarker([g.lat, g.lon], {
-              radius: 4 + Math.round(g.max_p * 8),
-              color: "rgba(0,0,0,0.35)", weight: 1,
-              fillColor: lavaColor(g.max_p), fillOpacity: 0.9,
-            }).addTo(map)
-              .bindPopup("<b>Fire risk cell</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%"
-                + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "°" : ""));
-            bounds.push([g.lat, g.lon]);
-          });
-          if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-          else if (bounds.length === 1) map.setView(bounds[0], 8);
-        })
-        .catch(function () {});
+      function lavaColor(t) { t = Math.min(1, Math.max(0, t)); var r, g, b; if (t < 0.3) { var s = t / 0.3; r = 255; g = Math.round(200 - 60 * s); b = Math.round(40 - 40 * s); } else if (t < 0.6) { var s = (t - 0.3) / 0.3; r = 255; g = Math.round(140 - 80 * s); b = 0; } else if (t < 0.85) { var s = (t - 0.6) / 0.25; r = 255; g = Math.round(60 - 45 * s); b = 0; } else if (t < 0.92) { var s = (t - 0.85) / 0.07; r = 255; g = Math.round(15 - 10 * s); b = 0; } else { var s = (t - 0.92) / 0.08; r = 255; g = Math.round(5 + 25 * s); b = Math.round(15 + 25 * s); } return "rgb(" + r + "," + g + "," + b + ")"; }
+      fetch("/api/bayesian/state?threshold=1e-10&detail=meta&mode=production").then(function (r) { return r.json(); }).then(function (data) { var dots = (data.grids || []).filter(function (g) { return g.max_p >= 0.1; }); var bounds = []; dots.forEach(function (g) { L.circleMarker([g.lat, g.lon], { radius: 4 + Math.round(g.max_p * 8), color: "rgba(0,0,0,0.35)", weight: 1, fillColor: lavaColor(g.max_p), fillOpacity: 0.9, }).addTo(map).bindPopup("<b>Fire risk cell</b><br>Probability: " + (g.max_p * 100).toFixed(0) + "%" + (g.wind_speed ? "<br>Wind: " + g.wind_speed.toFixed(1) + " m/s from " + g.wind_dir_deg + "\u00b0" : "")); bounds.push([g.lat, g.lon]); }); if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] }); else if (bounds.length === 1) map.setView(bounds[0], 8); }).catch(function () {});
     })();
+  </script>
+
+  <script src="/i18n.js"></script>
+
+  <script>
+
+  PyraeI18n.register({
+    en: {
+      header_sub: "Wildfire Detection & Early Warning", nav_map: "Back to map",
+      hero_eyebrow: "PREDICTIVE MODELLING", hero_title_pre: "Wildfire Spread Risk Map \u2014", hero_title_accent: "Predictive Fire Modelling",
+      hero_sub: "Not just where fires are \u2014 where they\u2019re going. Pyrae\u2019s Bayesian Fire Grid models how each fire is likely to spread using wind, terrain, vegetation and humidity data.",
+      stat_refresh: "map refresh", stat_model: "spread model", stat_road: "assessment",
+      legend_label: "burn probability", legend_low: "low", legend_high: "high",
+      map_note: "Warmer colours indicate higher burn probability. Zoom in for the full heatmap.", map_cta: "Open the full interactive map \u2192",
+      grid_title: "What is the Bayesian Fire Grid?",
+      grid_p1: "The Bayesian Fire Grid is a probabilistic model that estimates the likelihood of burning for every location near an active fire. Unlike a simple perimeter, the grid models how the fire is likely to evolve.",
+      grid_p2: "Each cell has a burn probability between 0 and 1. The model updates continuously as new evidence arrives: citizen reports, satellite hotspots, and live weather data.",
+      model_title: "How the spread model works",
+      model_wind_title: "Wind direction & speed", model_wind_desc: "Live wind data from Open-Meteo determines the primary spread direction. Fires spread faster with the wind and slower against it.",
+      model_terrain_title: "Terrain & elevation", model_terrain_desc: "Fires spread faster uphill as pre-heated fuel above the fire front ignites more quickly.",
+      model_veg_title: "Vegetation & fuel type", model_veg_desc: "Different vegetation types burn at different rates. Grass fires spread fast but burn out quickly; dense forest fires burn hotter but move more slowly.",
+      model_humid_title: "Humidity & fire weather", model_humid_desc: "Low humidity dries out fuel and increases fire intensity. Live humidity and temperature data adjust the model\u2019s spread rate.",
+      burned_title: "Burned area vs. risk area", burned_intro: "The Fire Grid distinguishes between two key concepts:",
+      burned_area: "Burned area \u2014 cells with very high probability (> 0.85) where the fire is likely already burning. These represent the fire\u2019s current footprint.",
+      risk_area: "Risk area \u2014 cells with moderate to high probability (0.1 \u2013 0.85) where the fire could spread. This is the forward-looking zone for responders.",
+      burned_p2: "The risk area is always larger than the burned area. By the time a fire reaches a location, it\u2019s too late to act. The risk area gives responders a head start.",
+      road_title: "Road risk assessment",
+      road_p1: "The Fire Grid also assesses which roads are at risk. By overlaying the spread probability onto the road network, Pyrae identifies threatened evacuation routes and access roads.",
+      road_p2: "Incident commanders can see in real time which roads are safe and which may be cut off \u2014 before the fire reaches them.",
+      why_title: "Why predictive modelling matters",
+      why_p1: "Knowing where a fire is matters. Knowing where it\u2019s going saves lives. The spread model extends detection into forecasting, giving communities and responders the most valuable thing: time.",
+      why_p2: "Every hour of advance warning is an hour to evacuate residents, close roads, and position firefighting resources. The Bayesian Fire Grid turns raw detection data into actionable intelligence.",
+      cta_title: "See it in action", cta_lead: "The live map shows the Bayesian Fire Grid at work \u2014 probability surfaces, spread forecasts, and road risk assessments for every tracked fire.",
+      cta_map: "Explore live map", cta_contact: "Contact us",
+      disclaimer: "Pyrae is an early-warning tool, not an emergency service. If a fire threatens life or property, call your local emergency number."
+    },
+    de: {
+      header_sub: "Waldbranderkennung & Fr\u00fchwarnung", nav_map: "Zur\u00fcck zur Karte",
+      hero_eyebrow: "VORAUSSCHANENDE MODELLIERUNG", hero_title_pre: "Waldbrand-Ausbreitungskarte \u2014", hero_title_accent: "Vorausschauende Feuermodellierung",
+      hero_sub: "Nicht nur wo Feuer brennen \u2014 wohin sie sich bewegen. Pyraes Bayessches Feuerraster modelliert die Ausbreitung jedes Feuers anhand von Wind, Terrain, Vegetation und Luftfeuchtigkeit.",
+      stat_refresh: "Kartenaktualisierung", stat_model: "Ausbreitungsmodell", stat_road: "Bewertung",
+      legend_label: "Brandwahrscheinlichkeit", legend_low: "niedrig", legend_high: "hoch",
+      map_note: "W\u00e4rmere Farben zeigen h\u00f6here Brandwahrscheinlichkeit. Hineinzoomen f\u00fcr die vollst\u00e4ndige Heatmap.", map_cta: "Vollst\u00e4ndige interaktive Karte \u00f6ffnen \u2192",
+      grid_title: "Was ist das Bayessche Feuerraster?",
+      grid_p1: "Das Bayessche Feuerraster ist ein probabilistisches Modell, das die Brandwahrscheinlichkeit f\u00fcr jeden Standort in der N\u00e4he eines aktiven Feuers sch\u00e4tzt.",
+      grid_p2: "Jede Zelle hat eine Brandwahrscheinlichkeit zwischen 0 und 1. Das Modell aktualisiert sich kontinuierlich mit neuen Evidenzen: B\u00fcrgermeldungen, Satelliten-Hotspots und Live-Wetterdaten.",
+      model_title: "Wie das Ausbreitungsmodell funktioniert",
+      model_wind_title: "Windrichtung & -geschwindigkeit", model_wind_desc: "Live-Winddaten von Open-Meteo bestimmen die haupts\u00e4chliche Ausbreitungsrichtung. Feuer breiten sich mit dem Wind schneller und gegen ihn langsamer aus.",
+      model_terrain_title: "Terrain & H\u00f6he", model_terrain_desc: "Feuer breiten sich stromaufw\u00e4rts schneller aus, da vorgew\u00e4rmter Brennstoff \u00fcber der Feuerfront schneller entzuendet.",
+      model_veg_title: "Vegetation & Brennstofftyp", model_veg_desc: "Verschiedene Vegetationstypen brennen unterschiedlich schnell. Grasfeuer breiten sich schnell aus, Waldfeuer brennen heisser.",
+      model_humid_title: "Luftfeuchtigkeit & Feuerwetter", model_humid_desc: "Niedrige Luftfeuchtigkeit trocknet Brennstoff aus und erh\u00f6ht die Feuerintensit\u00e4t.",
+      burned_title: "Verbrannte Fl\u00e4che vs. Risikofl\u00e4che", burned_intro: "Das Feuerraster unterscheidet zwischen zwei Schl\u00fcsselkonzepten:",
+      burned_area: "Verbrannte Fl\u00e4che \u2014 Zellen mit sehr hoher Wahrscheinlichkeit (> 0,85), wo das Feuer wahrscheinlich bereits brennt.",
+      risk_area: "Risikofl\u00e4che \u2014 Zellen mit m\u00e4ssiger bis hoher Wahrscheinlichkeit (0,1 \u2013 0,85), wo sich das Feuer ausbreiten k\u00f6nnte.",
+      burned_p2: "Die Risikofl\u00e4che ist immer gr\u00f6sser als die verbrannte Fl\u00e4che. Das Risikogebiet gibt Einsatzkr\u00e4ften einen Vorsprung.",
+      road_title: "Stra\u00dfenrisikobewertung",
+      road_p1: "Das Feuerraster bewertet auch, welche Strassen gef\u00e4hrdet sind. Durch \u00dcberlagern der Ausbreitungswahrscheinlichkeit auf das Strassennetz identifiziert Pyrae bedrohte Evakuierungsrouten.",
+      road_p2: "Einsatzleiter k\u00f6nnen in Echtzeit sehen, welche Strassen sicher sind und welche abgeschnitten werden k\u00f6nnten.",
+      why_title: "Warum vorausschauende Modellierung wichtig ist",
+      why_p1: "Zu wissen, wo ein Feuer ist, z\u00e4hlt. Zu wissen, wohin es sich bewegt, rettet Leben. Das Ausbreitungsmodell erweitert die Erkennung zur Prognose.",
+      why_p2: "Jede Stunde Vorwarnung ist eine Stunde zum Evakuieren, Strassen schliessen und Ressourcen positionieren.",
+      cta_title: "In Aktion sehen", cta_lead: "Die Live-Karte zeigt das Bayessche Feuerraster in Aktion \u2014 Wahrscheinlichkeitsoberfl\u00e4chen, Ausbreitungsprognosen und Stra\u00dfenrisikobewertungen.",
+      cta_map: "Live-Karte erkunden", cta_contact: "Kontaktieren Sie uns",
+      disclaimer: "Pyrae ist ein Fr\u00fchwarnwerkzeug, kein Notdienst. Rufen Sie bei Gefahr immer zuerst Ihre lokale Notrufnummer an."
+    },
+    fr: {
+      header_sub: "D\u00e9tection d\u2019incendies & alerte pr\u00e9coce", nav_map: "Retour \u00e0 la carte",
+      hero_eyebrow: "MOD\u00c9LISATION PR\u00c9DICTIVE", hero_title_pre: "Carte de risque de propagation \u2014", hero_title_accent: "Mod\u00e9lisation pr\u00e9dictive",
+      hero_sub: "Non seulement l\u2019endroit des feux, mais l\u2019endroit o\u00f9 ils vont. La Grille du Feu bay\u00e9sienne de Pyrae mod\u00e9lise la propagation de chaque incendie avec le vent, le terrain, la v\u00e9g\u00e9tation et l\u2019humidit\u00e9.",
+      stat_refresh: "rafr\u00e2chissement carte", stat_model: "mod\u00e8le propagation", stat_road: "\u00e9valuation",
+      legend_label: "probabilit\u00e9 de combustion", legend_low: "faible", legend_high: "\u00e9lev\u00e9e",
+      map_note: "Les couleurs plus chaudes indiquent une probabilit\u00e9 de combustion plus \u00e9lev\u00e9e. Zoomez pour la carte thermique compl\u00e8te.", map_cta: "Ouvrir la carte interactive compl\u00e8te \u2192",
+      grid_title: "Qu\u2019est-ce que la Grille du Feu bay\u00e9sienne ?",
+      grid_p1: "La Grille du Feu bay\u00e9sienne est un mod\u00e8le probabiliste qui estime la probabilit\u00e9 de combustion pour chaque point pr\u00e8s d\u2019un incendie actif.",
+      grid_p2: "Chaque cellule a une probabilit\u00e9 de combustion entre 0 et 1. Le mod\u00e8le se met \u00e0 jour en continu avec de nouvelles donn\u00e9es : signalements citoyens, points chauds satellite et donn\u00e9es m\u00e9t\u00e9o en direct.",
+      model_title: "Comment fonctionne le mod\u00e8le de propagation",
+      model_wind_title: "Direction et vitesse du vent", model_wind_desc: "Les donn\u00e9es de vent en direct d\u2019Open-Meteo d\u00e9terminent la direction principale de propagation.",
+      model_terrain_title: "Terrain et \u00e9l\u00e9vation", model_terrain_desc: "Les feux se propagent plus vite en montant car le combustible pr\u00e9chauff\u00e9 s\u2019enflamme plus rapidement.",
+      model_veg_title: "V\u00e9g\u00e9tation et type de combustible", model_veg_desc: "Diff\u00e9rents types de v\u00e9g\u00e9tation br\u00fblent \u00e0 des vitesses diff\u00e9rentes. Les feux d\u2019herbe se propagent vite, les feux de for\u00eat br\u00fblent plus chaud.",
+      model_humid_title: "Humidit\u00e9 et m\u00e9t\u00e9o-feu", model_humid_desc: "Une faible humidit\u00e9 s\u00e9che le combustible et augmente l\u2019intensit\u00e9 du feu.",
+      burned_title: "Surface br\u00fbl\u00e9e vs. surface \u00e0 risque", burned_intro: "La Grille du Feu distingue deux concepts cl\u00e9s :",
+      burned_area: "Surface br\u00fbl\u00e9e \u2014 cellules \u00e0 tr\u00e8s forte probabilit\u00e9 (> 0,85) o\u00f9 le feu br\u00fble probablement d\u00e9j\u00e0.",
+      risk_area: "Surface \u00e0 risque \u2014 cellules \u00e0 probabilit\u00e9 mod\u00e9r\u00e9e \u00e0 \u00e9lev\u00e9e (0,1 \u2013 0,85) o\u00f9 le feu pourrait se propager.",
+      burned_p2: "La surface \u00e0 risque est toujours plus grande que la surface br\u00fbl\u00e9e. Elle donne aux secours un avance.",
+      road_title: "\u00c9valuation du risque routier",
+      road_p1: "La Grille du Feu \u00e9value \u00e9galement quelles routes sont \u00e0 risque. En superposant la probabilit\u00e9 de propagation au r\u00e9seau routier, Pyrae identifie les itin\u00e9raires d\u2019\u00e9vacuation menac\u00e9s.",
+      road_p2: "Les chefs d\u2019intervention voient en temps r\u00e9el quelles routes sont s\u00fbres et lesquelles pourraient \u00eatre coup\u00e9es.",
+      why_title: "Pourquoi la mod\u00e9lisation pr\u00e9dictive compte",
+      why_p1: "Savoir o\u00f9 un feu est compte. Savoir o\u00f9 il va sauve des vies. Le mod\u00e8le de propagation prolonge la d\u00e9tection vers la pr\u00e9vision.",
+      why_p2: "Chaque heure d\u2019avance est une heure pour \u00e9vacuer, fermer des routes et positionner des ressources.",
+      cta_title: "Voir en action", cta_lead: "La carte en direct montre la Grille du Feu bay\u00e9sienne en action \u2014 surfaces de probabilit\u00e9, pr\u00e9visions de propagation et \u00e9valuations de risque routier.",
+      cta_map: "Explorer la carte", cta_contact: "Contactez-nous",
+      disclaimer: "Pyrae est un outil d\u2019alerte pr\u00e9coce, pas un service d\u2019urgence. En cas de danger, appelez votre num\u00e9ro d\u2019urgence local."
+    },
+    es: {
+      header_sub: "Detecci\u00f3n de incendios & alerta temprana", nav_map: "Volver al mapa",
+      hero_eyebrow: "MODELADO PREDICTIVO", hero_title_pre: "Mapa de riesgo de propagaci\u00f3n \u2014", hero_title_accent: "Modelado predictivo de fuego",
+      hero_sub: "No solo d\u00f3nde est\u00e1n los incendios \u2014 sino a d\u00f3nde van. La Cuadr\u00edcula del Fuego bayesiana de Pyrae modela c\u00f3mo se propagar\u00e1 cada incendio usando viento, terreno, vegetaci\u00f3n y humedad.",
+      stat_refresh: "actualizaci\u00f3n mapa", stat_model: "modelo propagaci\u00f3n", stat_road: "evaluaci\u00f3n",
+      legend_label: "probabilidad de combusti\u00f3n", legend_low: "baja", legend_high: "alta",
+      map_note: "Los colores m\u00e1s c\u00e1lidos indican mayor probabilidad de combusti\u00f3n. Haga zoom para el mapa de calor completo.", map_cta: "Abrir el mapa interactivo completo \u2192",
+      grid_title: "\u00bfQu\u00e9 es la Cuadr\u00edcula del Fuego bayesiana?",
+      grid_p1: "La Cuadr\u00edcula del Fuego bayesiana es un modelo probabil\u00edstico que estima la probabilidad de combusti\u00f3n para cada ubicaci\u00f3n cerca de un incendio activo.",
+      grid_p2: "Cada celda tiene una probabilidad de combusti\u00f3n entre 0 y 1. El modelo se actualiza continuamente con nueva evidencia: reportes ciudadanos, puntos calientes satelitales y datos meteorol\u00f3gicos en tiempo real.",
+      model_title: "C\u00f3mo funciona el modelo de propagaci\u00f3n",
+      model_wind_title: "Direcci\u00f3n y velocidad del viento", model_wind_desc: "Los datos de viento en tiempo real de Open-Meteo determinan la direcci\u00f3n principal de propagaci\u00f3n.",
+      model_terrain_title: "Terreno y elevaci\u00f3n", model_terrain_desc: "Los fuegos se propagan m\u00e1s r\u00e1pidamente cuesta arriba, ya que el combustible precalentado se enciende m\u00e1s r\u00e1pido.",
+      model_veg_title: "Vegetaci\u00f3n y tipo de combustible", model_veg_desc: "Diferentes tipos de vegetaci\u00f3n arden a diferentes tasas. Los incendios de hierba se propagan r\u00e1pido; los de bosque denso arden m\u00e1s caliente.",
+      model_humid_title: "Humedad y clima de fuego", model_humid_desc: "La baja humedad seca el combustible y aumenta la intensidad del fuego.",
+      burned_title: "Superficie quemada vs. superficie en riesgo", burned_intro: "La Cuadr\u00edcula distingue entre dos conceptos clave:",
+      burned_area: "Superficie quemada \u2014 celdas con muy alta probabilidad (> 0,85) donde el fuego probablemente ya est\u00e1 ardiendo.",
+      risk_area: "Superficie en riesgo \u2014 celdas con probabilidad moderada a alta (0,1 \u2013 0,85) donde el fuego podr\u00eda propagarse.",
+      burned_p2: "La superficie en riesgo siempre es m\u00e1s grande que la quemada. Da a los equipos de respuesta una ventaja inicial.",
+      road_title: "Evaluaci\u00f3n de riesgo vial",
+      road_p1: "La Cuadr\u00edcula tambi\u00e9n eval\u00faa qu\u00e9 carreteras est\u00e1n en riesgo. Superponiendo la probabilidad de propagaci\u00f3n sobre la red vial, Pyrae identifica rutas de evacuaci\u00f3n amenazadas.",
+      road_p2: "Los comandantes de incidentes pueden ver en tiempo real qu\u00e9 carreteras son seguras y cu\u00e1les podr\u00edan ser cortadas.",
+      why_title: "Por qu\u00e9 el modelado predictivo importa",
+      why_p1: "Saber d\u00f3nde est\u00e1 un incendio importa. Saber a d\u00f3nde va salva vidas. El modelo de propagaci\u00f3n extiende la detecci\u00f3n hacia la predicci\u00f3n.",
+      why_p2: "Cada hora de aviso es una hora para evacuar, cerrar carreteras y posicionar recursos.",
+      cta_title: "Ver en acci\u00f3n", cta_lead: "El mapa en vivo muestra la Cuadr\u00edcula del Fuego bayesiana en acci\u00f3n \u2014 superficies de probabilidad, pron\u00f3sticos de propagaci\u00f3n y evaluaciones de riesgo vial.",
+      cta_map: "Explorar mapa", cta_contact: "Cont\u00e1ctenos",
+      disclaimer: "Pyrae es una herramienta de alerta temprana, no un servicio de emergencia. Si un incendio amenaza vidas o propiedades, llame a su n\u00famero de emergencia local."
+    },
+    pl: {
+      header_sub: "Wykrywanie pożarów & wczesne ostrzeganie",
+      nav_map: "Wróć do mapy",
+      hero_eyebrow: "MAPA RYZYKA ROZPRZESTRZENIANIA",
+      hero_title_pre: "Mapa przewidywania",
+      hero_title_accent: "ryzyka pożarów",
+      hero_sub: "Bayesowska siatka pożarów szacuje prawdopodobieństwo rozprzestrzeniania się pożarów lasów w oparciu o dane pogodowe, terenowe i paliwowe.",
+      about_title: "O modelu przewidywania",
+      about_p1: "Nasz bayesowski model siatki pożarów analizuje czynniki takie jak wiatr, nachylenie terenu i typ roślinności, aby szacować, gdzie prawdopodobnie rozprzestrzeni się pożar.",
+      about_p2: "Kolor na mapie wskazuje prawdopodobieństwo spalenia — od żółtego (niskie) do czerwonego (wysokie).",
+      legend_title: "Legenda",
+      legend_low: "Niskie prawdopodobieństwo spalenia",
+      legend_high: "Wysokie prawdopodobieństwo spalenia",
+      legend_note: "Mapa jest aktualizowana co 8 sekund",
+      factors_title: "Czynniki modelu",
+      factor_wind: "Wiatr (kierunek i prędkość)",
+      factor_terrain: "Nachylenie terenu",
+      factor_fuel: "Typ i wilgotność paliwa",
+      factor_history: "Historia pożarów",
+      howto_title: "Jak korzystać z mapy",
+      howto_zoom: "Przybliż, aby zobaczyć komórki siatki",
+      howto_click: "Kliknij komórkę, aby zobaczyć szczegóły",
+      howto_layers: "Przełączaj warstwy, aby porównać dane",
+      data_title: "Informacje o danych",
+      data_source: "Źródła: NASA FIRMS, Open-Meteo, OpenStreetMap",
+      data_model: "Model: Bayesowska siatka pożarów",
+      data_update: "Aktualizacja: co 8 sekund",
+      cta_title: "Wypróbuj Pyrae",
+      cta_map: "Eksploruj mapę",
+      cta_contact: "Skontaktuj się",
+      disclaimer: "Pyrae jest narzędziem wczesnego ostrzegania, nie służbą ratunkową. Jeśli pożar zagraża życiu lub mieniu, zadzwoń pod numer alarmowy."
+    }
+  });
   </script>
 
 </body>

@@ -191,6 +191,42 @@ server {
         proxy_connect_timeout 10;
     }
 
+    location /map/france {
+        limit_req zone=general burst=5 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30;
+        proxy_connect_timeout 10;
+    }
+
+    location /map/germany {
+        limit_req zone=general burst=5 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30;
+        proxy_connect_timeout 10;
+    }
+
+    location /map/spain {
+        limit_req zone=general burst=5 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30;
+        proxy_connect_timeout 10;
+    }
+
     # ==================================================================
     # Catch-all: try static files, then proxy to gunicorn
     # ==================================================================

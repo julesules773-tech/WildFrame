@@ -1,0 +1,72 @@
+{
+  "total_fires": 4,
+  "fires_with_hotspots": 4,
+  "fires_predicted": 1,
+  "detection_rate_pct": 25.0,
+  "big_fire_detection_pct": 25.0,
+  "medium_fire_detection_pct": 0,
+  "avg_iou_pct": 0.1,
+  "median_iou_pct": 0.1,
+  "avg_area_error_pct": 99.9,
+  "sample_size": 1,
+  "avg_predicted_area_km2": 0.06,
+  "avg_actual_area_km2": 455.35,
+  "fires": [
+    {
+      "fire_name": "Tartar",
+      "state": "ID",
+      "actual_area_km2": 639.5144287420331,
+      "actual_acres": 158027.31716492123,
+      "lat": 44.41808588391418,
+      "lon": -117.06924348169181,
+      "fire_date": "2026-07-24",
+      "hotspot_count": 372,
+      "source": "nifc",
+      "predicted_area_km2": 0.0,
+      "predicted_cells": 0,
+      "max_probability": 0.1486925638788288
+    },
+    {
+      "fire_name": "Widemouth 2",
+      "state": "UT",
+      "actual_area_km2": 525.0472162617888,
+      "actual_acres": 129741.87796508621,
+      "lat": 38.782692823012525,
+      "lon": -112.36599695686348,
+      "fire_date": "2026-07-27",
+      "hotspot_count": 313,
+      "source": "nifc",
+      "predicted_area_km2": 0.0,
+      "predicted_cells": 0,
+      "max_probability": 0.21602544114799405
+    },
+    {
+      "fire_name": "Ross",
+      "state": "TX",
+      "actual_area_km2": 356.5097838279248,
+      "actual_acres": 88095.40824934018,
+      "lat": 32.95684198555303,
+      "lon": -98.32006045604226,
+      "fire_date": "2026-08-24",
+      "hotspot_count": 317,
+      "source": "nifc",
+      "predicted_area_km2": 0.0,
+      "predicted_cells": 0,
+      "max_probability": 0.18958053940106145
+    },
+    {
+      "fire_name": "Wildhorse",
+      "state": "ID",
+      "actual_area_km2": 300.3183445114101,
+      "actual_acres": 74210.21347696982,
+      "lat": 43.0907739869076,
+      "lon": -113.92678399221177,
+      "fire_date": "2026-08-24",
+      "hotspot_count": 302,
+      "source": "nifc",
+      "predicted_area_km2": 0.25,
+      "predicted_cells": 1,
+      "max_probability": 0.3180711410543342
+    }
+  ]
+}

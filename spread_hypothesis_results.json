@@ -1,0 +1,2726 @@
+{
+  "summary": {
+    "bayesian": {
+      "detection_pct": 97.9,
+      "avg_iou_pct": 41.7,
+      "median_iou_pct": 47.2,
+      "avg_area_error_pct": 58.3,
+      "sample_size": 46,
+      "avg_predicted_km2": 9.9,
+      "avg_actual_km2": 42.05
+    },
+    "buffer_1.0km": {
+      "detection_pct": 100.0,
+      "avg_iou_pct": 60.7,
+      "median_iou_pct": 73.8,
+      "avg_area_error_pct": 47.7,
+      "sample_size": 47,
+      "avg_predicted_km2": 39.69,
+      "avg_actual_km2": 78.14
+    },
+    "buffer_2.0km": {
+      "detection_pct": 100.0,
+      "avg_iou_pct": 45.7,
+      "median_iou_pct": 42.0,
+      "avg_area_error_pct": 131.9,
+      "sample_size": 47,
+      "avg_predicted_km2": 70.06,
+      "avg_actual_km2": 78.14
+    },
+    "buffer_5.0km": {
+      "detection_pct": 100.0,
+      "avg_iou_pct": 29.2,
+      "median_iou_pct": 16.3,
+      "avg_area_error_pct": 628.5,
+      "sample_size": 47,
+      "avg_predicted_km2": 166.83,
+      "avg_actual_km2": 78.14
+    },
+    "hybrid_1.0km": {
+      "detection_pct": 97.9,
+      "avg_iou_pct": 60.9,
+      "median_iou_pct": 73.8,
+      "avg_area_error_pct": 49.6,
+      "sample_size": 46,
+      "avg_predicted_km2": 31.33,
+      "avg_actual_km2": 42.05
+    },
+    "hybrid_2.0km": {
+      "detection_pct": 97.9,
+      "avg_iou_pct": 44.2,
+      "median_iou_pct": 40.9,
+      "avg_area_error_pct": 137.8,
+      "sample_size": 46,
+      "avg_predicted_km2": 49.77,
+      "avg_actual_km2": 42.05
+    },
+    "hybrid_5.0km": {
+      "detection_pct": 97.9,
+      "avg_iou_pct": 27.7,
+      "median_iou_pct": 16.3,
+      "avg_area_error_pct": 643.9,
+      "sample_size": 46,
+      "avg_predicted_km2": 134.73,
+      "avg_actual_km2": 42.05
+    },
+    "naive": {
+      "detection_pct": 100.0,
+      "avg_iou_pct": 2.0,
+      "median_iou_pct": 0.1,
+      "avg_area_error_pct": 96833.0,
+      "sample_size": 47,
+      "avg_predicted_km2": 10495.53,
+      "avg_actual_km2": 78.14
+    }
+  },
+  "per_fire": {
+    "bayesian": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 0.0
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 14.5
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 46.0
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 0.5
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 45.5
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 28.5
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 14.75
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 19.75
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 0.75
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 0.25
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 17.75
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 0.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 7.75
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 8.0
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 5.5
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 0.25
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 31.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 16.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 15.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 12.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 9.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 8.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 9.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 8.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 5.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 3.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 1.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 3.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 3.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 5.0
+      }
+    ],
+    "buffer_1.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 559.5
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 177.0
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 166.75
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 3.0
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 99.75
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 72.0
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 5.75
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 62.75
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 50.25
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 49.0
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 44.75
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 62.0
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 62.25
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 42.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 44.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 30.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 25.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 22.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 21.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 16.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 17.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 16.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 15.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 15.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 12.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 12.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 9.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 8.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 6.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 7.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 13.0
+      }
+    ],
+    "buffer_2.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 1084.5
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 236.25
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 229.5
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 144.0
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 110.5
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 16.5
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 92.5
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 84.75
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 12.75
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 9.75
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 77.25
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 10.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 73.5
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 96.25
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 93.0
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 10.25
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 66.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 71.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 47.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 45.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 44.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 36.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 34.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 39.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 34.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 36.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 36.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 33.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 33.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 30.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 24.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 25.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 21.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 20.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 19.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 27.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 19.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 27.0
+      }
+    ],
+    "buffer_5.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 1680.75
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 420.25
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 420.5
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 64.5
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 288.75
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 243.25
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 80.0
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 210.75
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 205.5
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 71.75
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 59.25
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 185.25
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 63.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 186.25
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 221.0
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 206.5
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 63.25
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 173.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 183.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 65.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 139.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 138.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 61.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 130.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 113.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 118.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 124.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 68.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 109.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 118.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 117.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 110.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 113.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 106.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 102.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 61.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 104.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 96.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 101.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 97.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 64.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 92.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 91.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 86.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 102.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 88.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 101.0
+      }
+    ],
+    "hybrid_1.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 0.0
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 199.0
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 201.75
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 3.0
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 110.0
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 81.5
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 5.75
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 67.25
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 62.75
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 4.0
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 52.25
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 51.5
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 70.0
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 66.75
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 2.5
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 44.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 47.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 31.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 25.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 24.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 19.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 21.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 17.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 19.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 18.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 15.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 15.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 12.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 2.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 9.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 9.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 6.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 13.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 7.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 13.0
+      }
+    ],
+    "hybrid_2.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 0.0
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 249.25
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 249.75
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 148.0
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 116.0
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 16.5
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 95.0
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 90.0
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 12.75
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 9.75
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 79.0
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 10.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 78.25
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 100.5
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 95.75
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 10.25
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 70.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 73.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 49.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 47.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 45.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 37.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 34.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 40.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 34.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 36.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 36.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 33.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 33.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 30.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 10.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 24.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 29.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 25.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 11.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 21.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 21.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 20.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 28.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 19.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 27.0
+      }
+    ],
+    "hybrid_5.0km": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 0.0
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 426.25
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 430.0
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 64.5
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 291.25
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 246.5
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 80.5
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 211.75
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 208.75
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 71.75
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 59.25
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 186.5
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 63.5
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 188.0
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 223.25
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 207.5
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 63.25
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 173.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 184.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 65.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 139.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 138.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 61.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 130.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 113.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 118.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 124.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 68.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 110.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 118.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 117.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 111.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 113.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 106.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 102.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 61.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 104.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 96.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 101.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 97.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 64.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 92.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 92.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 87.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 102.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 88.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 101.0
+      }
+    ],
+    "naive": [
+      {
+        "fire_name": "PARK",
+        "year": 2024,
+        "actual_area": 1738.542387208,
+        "hotspot_count": 363,
+        "pred_area": 3690.0
+      },
+      {
+        "fire_name": "BOREL",
+        "year": 2024,
+        "actual_area": 239.9324209844,
+        "hotspot_count": 355,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "BRIDGE",
+        "year": 2024,
+        "actual_area": 225.50791460620002,
+        "hotspot_count": 354,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "LAKE",
+        "year": 2024,
+        "actual_area": 156.2508024068,
+        "hotspot_count": 400,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "TROUT",
+        "year": 2024,
+        "actual_area": 96.4047440746,
+        "hotspot_count": 351,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "AIRPORT",
+        "year": 2024,
+        "actual_area": 95.207844761,
+        "hotspot_count": 234,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "MOUNTAIN",
+        "year": 2024,
+        "actual_area": 80.54085053160001,
+        "hotspot_count": 322,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "SITES",
+        "year": 2024,
+        "actual_area": 77.42598238960001,
+        "hotspot_count": 199,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "BOONE",
+        "year": 2024,
+        "actual_area": 71.28341547000001,
+        "hotspot_count": 195,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "POST",
+        "year": 2024,
+        "actual_area": 62.9818082718,
+        "hotspot_count": 251,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "SHELLY",
+        "year": 2024,
+        "actual_area": 62.8062150164,
+        "hotspot_count": 251,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "CORRAL",
+        "year": 2024,
+        "actual_area": 57.3309348422,
+        "hotspot_count": 177,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "COFFEE POT",
+        "year": 2024,
+        "actual_area": 57.076589691200006,
+        "hotspot_count": 228,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "BASIN",
+        "year": 2024,
+        "actual_area": 56.737584229,
+        "hotspot_count": 135,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "HURRICANE",
+        "year": 2024,
+        "actual_area": 53.73999408980001,
+        "hotspot_count": 179,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "BOISE",
+        "year": 2024,
+        "actual_area": 52.255686779,
+        "hotspot_count": 167,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "HAPPY",
+        "year": 2024,
+        "actual_area": 50.760372009,
+        "hotspot_count": 203,
+        "pred_area": 3600.0
+      },
+      {
+        "fire_name": "FRESNO JUNE LIGHTNING COMPLEX",
+        "year": 2024,
+        "actual_area": 43.0631633518,
+        "hotspot_count": 119,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "RANCHO",
+        "year": 2024,
+        "actual_area": 39.00030611422,
+        "hotspot_count": 114,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "LONG",
+        "year": 2024,
+        "actual_area": 37.2486753724,
+        "hotspot_count": 148,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 29.235516214420002,
+        "hotspot_count": 87,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "WHITE",
+        "year": 2024,
+        "actual_area": 22.50980081568,
+        "hotspot_count": 66,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "AERO",
+        "year": 2024,
+        "actual_area": 21.38710068018,
+        "hotspot_count": 85,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "NIXON",
+        "year": 2024,
+        "actual_area": 21.12981750882,
+        "hotspot_count": 74,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "NORTH",
+        "year": 2024,
+        "actual_area": 17.723045308160003,
+        "hotspot_count": 43,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "HORSESHOE",
+        "year": 2024,
+        "actual_area": 17.09201033464,
+        "hotspot_count": 59,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "LOST HILLS",
+        "year": 2024,
+        "actual_area": 16.36600365064,
+        "hotspot_count": 59,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "PEDRO",
+        "year": 2024,
+        "actual_area": 15.4551809173,
+        "hotspot_count": 61,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "THOMPSON",
+        "year": 2024,
+        "actual_area": 15.307114403620002,
+        "hotspot_count": 41,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 13.44594730218,
+        "hotspot_count": 37,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "LOST 3",
+        "year": 2024,
+        "actual_area": 13.28665479886,
+        "hotspot_count": 37,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "MILL",
+        "year": 2024,
+        "actual_area": 11.884389480840001,
+        "hotspot_count": 44,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "VISTA",
+        "year": 2024,
+        "actual_area": 11.880973931,
+        "hotspot_count": 42,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "RIDGE",
+        "year": 2024,
+        "actual_area": 11.150244561380001,
+        "hotspot_count": 35,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "PIZONA",
+        "year": 2024,
+        "actual_area": 8.74356882566,
+        "hotspot_count": 20,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "CROZIER",
+        "year": 2024,
+        "actual_area": 7.9129467638,
+        "hotspot_count": 31,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "EAGLE",
+        "year": 2024,
+        "actual_area": 6.9208185662,
+        "hotspot_count": 19,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "MCCAIN 4",
+        "year": 2024,
+        "actual_area": 6.46144330016,
+        "hotspot_count": 19,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "WEST",
+        "year": 2024,
+        "actual_area": 6.3767627546600005,
+        "hotspot_count": 24,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "APACHE",
+        "year": 2024,
+        "actual_area": 6.055486586120001,
+        "hotspot_count": 22,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "SCHOOL",
+        "year": 2024,
+        "actual_area": 5.98351722788,
+        "hotspot_count": 23,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "BEAR",
+        "year": 2024,
+        "actual_area": 5.68034266412,
+        "hotspot_count": 15,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "HILL",
+        "year": 2024,
+        "actual_area": 5.5970299573,
+        "hotspot_count": 21,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "OLIVE WEST",
+        "year": 2024,
+        "actual_area": 5.49239434514,
+        "hotspot_count": 21,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "AIRLINE",
+        "year": 2024,
+        "actual_area": 5.24171160244,
+        "hotspot_count": 20,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "FIREBAUGH",
+        "year": 2024,
+        "actual_area": 5.1313982457,
+        "hotspot_count": 15,
+        "pred_area": 14400.0
+      },
+      {
+        "fire_name": "RIM 3-6",
+        "year": 2024,
+        "actual_area": 5.109148609420001,
+        "hotspot_count": 20,
+        "pred_area": 14400.0
+      }
+    ]
+  }
+}

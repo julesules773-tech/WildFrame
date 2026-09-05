@@ -1,0 +1,24 @@
+{
+  "bbox": "-9.5,36.0,4.5,43.8",
+  "table": "worldcover_polygons",
+  "tiles": {
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36W012_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36W009_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36W006_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36W003_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36E000_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N36E003_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39W012_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39W009_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39W006_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39W003_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39E000_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N39E003_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42W012_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42W009_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42W006_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42W003_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42E000_Map.tif": "done",
+    "v200/2021/map/ESA_WorldCover_10m_2021_v200_N42E003_Map.tif": "done"
+  }
+}
